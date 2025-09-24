@@ -158,7 +158,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0 invisible' : 'opacity-100 visible')}>
             <header className="flex items-center gap-4 text-accent">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -177,13 +177,13 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className={cn("flex w-full items-center justify-center px-16 transition-opacity duration-300", showWord ? 'pt-48' : 'pt-0')}>
+                <div className={cn("flex w-full justify-center px-16 transition-opacity duration-300", showWord ? 'pt-48' : 'pt-0')}>
                     <div className="flex-1 text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                     </div>
 
-                    <div className="flex-shrink-0 w-48 text-center">
-                         <h3 className="text-8xl font-bold mx-8 font-melison mt-4">Vs.</h3>
+                    <div className="flex-shrink-0 w-48 text-center self-start">
+                         <h3 className="text-8xl font-bold mx-8 font-melison mb-4">Vs.</h3>
                     </div>
 
                     <div className="flex-1 text-center">
