@@ -205,7 +205,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500", (winnerMessage || finalWinner || showWinners) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500")}>
             <header className="flex items-center gap-4 text-accent">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -333,13 +333,16 @@ export default function ProjectionPage() {
         )
     }
 
+    const renderContent = () => {
+        if (winnerMessage) return <WinnerMessage />;
+        if (finalWinner) return <FinalWinnerMessage />;
+        if (showWinners) return <WinnersTable />;
+        return <MainContent />;
+    }
 
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
-            <MainContent />
-            <WinnerMessage />
-            <FinalWinnerMessage />
-            <WinnersTable />
+            {renderContent()}
         </div>
     );
 }
