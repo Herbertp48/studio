@@ -57,7 +57,9 @@ export default function RafflePage() {
         const data = snapshot.val();
         if (data) {
             setParticipants(data);
-            checkForWinner(data);
+            if (raffleState === 'round_finished' || raffleState === 'idle') {
+                checkForWinner(data);
+            }
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
             router.push('/');
@@ -95,12 +97,14 @@ export default function RafflePage() {
         setFinalWinner(winner);
         setShowFinalWinnerDialog(true);
         setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
-    } else if (activeParticipants.length === 0 && currentParticipants.length > 0) {
+    } else if (activeParticipants.length < 2 && currentParticipants.length > 0) {
         // This case handles a tie or if all are eliminated at once
-        const winner = currentParticipants.sort((a,b) => b.stars - a.stars)[0];
-        setFinalWinner(winner);
-        setShowFinalWinnerDialog(true);
-        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+        const winner = currentParticipants.filter(p => !p.eliminated).sort((a,b) => b.stars - a.stars)[0];
+         if (winner) {
+            setFinalWinner(winner);
+            setShowFinalWinnerDialog(true);
+            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+         }
     }
   }
 
@@ -174,7 +178,12 @@ export default function RafflePage() {
     
     await update(ref(database), updates);
     
-    winner.stars = newStars; // Update local state for UI
+    const updatedParticipants = [...participants];
+    winner = { ...winner, stars: newStars };
+    updatedParticipants[winnerIndex] = winner;
+    updatedParticipants[loserIndex] = { ...loser, eliminated: true };
+
+    setParticipants(updatedParticipants);
     setRoundWinner(winner);
 
     setDisputeState({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
@@ -185,13 +194,8 @@ export default function RafflePage() {
     
     setRaffleState('round_finished');
     
-    // Use a small timeout to allow the database to update before checking for a final winner
     setTimeout(() => {
-        get(child(ref(database), 'participants/all')).then((snapshot) => {
-            if(snapshot.exists()) {
-                checkForWinner(snapshot.val());
-            }
-        });
+        checkForWinner(updatedParticipants);
     }, 500);
   };
   

@@ -22,9 +22,12 @@ export default function DisputePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const participantsRef = ref(database, 'participants/all');
+    const participantsRef = ref(database, 'participants');
     const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
-      setParticipants(snapshot.val() || []);
+       const data = snapshot.val();
+       if (data) {
+        setParticipants(data.all || []);
+       }
     });
 
     const wordsRef = ref(database, 'dispute/words');
