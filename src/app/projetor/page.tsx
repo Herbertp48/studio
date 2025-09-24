@@ -155,16 +155,16 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-accent mt-8">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
                 </h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
-
+            
             <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center font-melison">
-                <div className={cn("absolute top-0 w-full flex flex-col items-center", !showWord && 'invisible')}>
+                 <div className={cn("absolute top-1/4 w-full flex flex-col items-center", !showWord && 'invisible')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-subjectivity">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-1/3 font-subjectivity">
                         <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
@@ -173,15 +173,15 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className="absolute top-1/3 transform -translate-y-1/2 w-full flex justify-center items-center">
-                    <div className="w-1/3 text-center">
-                        <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantA?.name || 'Participante A'}</h3>
+                <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-around items-center px-16">
+                    <div className="w-2/5 text-center">
+                        <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                     </div>
-                    <div className="w-1/3 text-center">
+                    <div className="w-1/5 text-center">
                         <h3 className="text-8xl font-bold mx-8 font-melison">Vs.</h3>
                     </div>
-                    <div className="w-1/3 text-center">
-                       <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantB?.name || 'Participante B'}</h3>
+                    <div className="w-2/5 text-center">
+                       <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
                     </div>
                 </div>
             </div>
@@ -197,20 +197,25 @@ export default function ProjectionPage() {
          const { winner, word: winnerWord } = winnerMessage;
 
         return (
-            <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000">
-                <div id="mensagem-vencedor" className="fixed inset-0 flex items-center justify-center bg-transparent z-50">
-                    <div className="bg-white/95 text-accent-foreground border-8 border-accent rounded-2xl p-16 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
-                         <div className="text-6xl mb-4">
-                            <b className="text-white bg-accent-foreground px-6 py-2 rounded-lg whitespace-nowrap inline-block shadow-lg">{winner?.name}</b>
-                        </div>
-                         <p className="text-5xl leading-tight">
-                            Ganhou a disputa soletrando
-                             <br/> 
-                            <b className="text-white bg-accent-foreground px-4 py-1 rounded-lg shadow-md mx-2">{winnerWord}</b>
-                            <br/> 
-                            e recebeu uma <span className="text-accent text-6xl"><Star className="inline-block w-12 h-12" /></span>!
-                        </p>
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 z-50 bg-accent-foreground p-8">
+                 <header className="flex items-center gap-4 text-accent mb-8">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">
+                        Spelling Bee
+                    </h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </header>
+
+                <div id="mensagem-vencedor" className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                     <div className="text-5xl mb-6">
+                        <b className="text-white bg-accent-foreground px-6 py-3 rounded-lg whitespace-nowrap inline-block shadow-lg">{winner?.name}</b>
                     </div>
+                     <p className="text-5xl leading-tight font-semibold">
+                        Ganhou a disputa soletrando
+                         <br/> 
+                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-1 rounded-lg shadow-md mx-2 uppercase">{winnerWord}</b>
+                        <br/> 
+                        e recebeu uma estrela <Star className="inline-block w-14 h-14 text-accent fill-accent" /> !
+                    </p>
                 </div>
             </div>
         );
@@ -246,5 +251,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
