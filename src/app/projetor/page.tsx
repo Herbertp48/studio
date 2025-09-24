@@ -168,26 +168,26 @@ export default function ProjectionPage() {
             
             <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
                  
-                <div className="flex w-full items-center justify-around px-16">
-                    <div className="w-2/5 text-center">
-                        <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
-                    </div>
-
-                    <div className="w-1/5 text-center flex flex-col items-center justify-center">
-                         <h3 className="text-8xl font-bold mx-8 font-melison mt-4">Vs.</h3>
-                    </div>
-
-                    <div className="w-2/fiv text-center">
-                       <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
-                    </div>
-                </div>
-
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300", showWord ? 'opacity-100' : 'opacity-0')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-md font-subjectivity">
                         <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
                             {word || '...'}
                         </p>
+                    </div>
+                </div>
+
+                <div className={cn("flex w-full items-center justify-center px-16 transition-opacity duration-300", showWord ? 'opacity-0' : 'opacity-100')}>
+                    <div className="flex-1 text-center">
+                        <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
+                    </div>
+
+                    <div className="flex-shrink-0 w-48 text-center">
+                         <h3 className="text-8xl font-bold mx-8 font-melison mt-4">Vs.</h3>
+                    </div>
+
+                    <div className="flex-1 text-center">
+                       <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
                     </div>
                 </div>
             </div>
