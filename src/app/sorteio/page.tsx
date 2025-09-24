@@ -17,31 +17,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { database } from '@/lib/firebase';
+import { ref, set, onValue, get, child, update } from 'firebase/database';
+
 
 type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished';
-type DisputeAction = {
+type DisputeState = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
     winner?: Participant | null;
     loser?: Participant | null;
-    timestamp: number;
+    finalWinner?: Participant | null;
 }
 
-const setDisputeAction = (action: Omit<DisputeAction, 'timestamp'>) => {
-    try {
-        localStorage.setItem('disputeAction', JSON.stringify({ ...action, timestamp: new Date().getTime() }));
-    } catch (e) {
-        console.error("Failed to set dispute action in localStorage", e);
-    }
+const setDisputeState = (state: DisputeState | null) => {
+    set(ref(database, 'dispute/state'), state);
 }
-
 
 export default function RafflePage() {
   const [words, setWords] = useState<string[]>([]);
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [participants, setParticipants] = useState<{ groupA: Participant[], groupB: Participant[] } | null>(null);
+  
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
   const [currentWord, setCurrentWord] = useState<string | null>(null);
   const [raffleState, setRaffleState] = useState<RaffleState>('idle');
@@ -53,36 +52,40 @@ export default function RafflePage() {
   const router = useRouter();
 
   useEffect(() => {
-    try {
-        const storedParticipants = localStorage.getItem('participants');
-        if (storedParticipants) {
-          const parsed = JSON.parse(storedParticipants);
-          const ensureData = (p: any): Participant => ({ ...p, id: p.id || '', name: p.name || 'Unknown', stars: p.stars || 0, eliminated: p.eliminated || false });
-          parsed.groupA = Array.isArray(parsed.groupA) ? parsed.groupA.map(ensureData) : [];
-          parsed.groupB = Array.isArray(parsed.groupB) ? parsed.groupB.map(ensureData) : [];
-          setParticipants(parsed);
-          checkForWinner(parsed);
+    const participantsRef = ref(database, 'participants');
+    const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const sanitizedData = {
+                groupA: data.groupA || [],
+                groupB: data.groupB || []
+            };
+            setParticipants(sanitizedData);
+            checkForWinner(sanitizedData);
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
             router.push('/');
         }
+    });
 
-        const storedWords = localStorage.getItem('words');
-        if (storedWords) {
-          const parsedWords = JSON.parse(storedWords);
-          setWords(parsedWords);
-          setAvailableWords(parsedWords);
+    const wordsRef = ref(database, 'dispute/words');
+    const unsubscribeWords = onValue(wordsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            setWords(data);
+            setAvailableWords(data);
         } else {
-            toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
-            router.push('/disputa');
+             toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
+             router.push('/disputa');
         }
+    });
+    
+    setDisputeState({ type: 'RESET' });
 
-        setDisputeAction({ type: 'RESET' });
-    } catch (e) {
-        console.error("Failed to initialize raffle page state from localStorage", e);
-        toast({ variant: "destructive", title: "Erro de inicialização", description: "Não foi possível carregar os dados. Tente voltar e iniciar a disputa novamente."});
-        router.push('/');
-    }
+    return () => {
+        unsubscribeParticipants();
+        unsubscribeWords();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
@@ -94,23 +97,22 @@ export default function RafflePage() {
 
     let winner: Participant | null = null;
     
-    if (activeGroupA.length === 1 && activeGroupB.length === 0) {
-        winner = activeGroupA[0];
-    } else if (activeGroupB.length === 1 && activeGroupA.length === 0) {
-        winner = activeGroupB[0];
+    if (activeGroupA.length > 0 && activeGroupB.length === 0) {
+        winner = activeGroupA.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
+    } else if (activeGroupB.length > 0 && activeGroupA.length === 0) {
+        winner = activeGroupB.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
     } else if (activeGroupA.length === 0 && activeGroupB.length === 0 && (currentParticipants.groupA.length > 0 || currentParticipants.groupB.length > 0)) {
-        // Tie-breaker: if both groups are empty, last round winner is the final winner
-        const lastWinner = roundWinner; 
-        const allParticipants = [...currentParticipants.groupA, ...currentParticipants.groupB];
-        const lastWinnerInFullList = allParticipants.find(p => p.id === lastWinner?.id);
-        if(lastWinnerInFullList) winner = lastWinnerInFullList;
+         const allParticipants = [...currentParticipants.groupA, ...currentParticipants.groupB];
+         if(allParticipants.length > 0){
+            winner = allParticipants.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
+         }
     }
 
 
     if (winner) {
       setFinalWinner(winner);
       setShowFinalWinnerDialog(true);
-      setDisputeAction({ type: 'FINAL_WINNER', winner });
+      setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
     }
   }
 
@@ -119,7 +121,7 @@ export default function RafflePage() {
     
     setRoundWinner(null);
     setCurrentWord(null);
-    setDisputeAction({ type: 'RESET' });
+    setDisputeState({ type: 'RESET' });
 
     let activeGroupA = participants.groupA.filter(p => !p.eliminated);
     let activeGroupB = participants.groupB.filter(p => !p.eliminated);
@@ -137,7 +139,7 @@ export default function RafflePage() {
 
     setCurrentDuel({ participantA, participantB });
     setRaffleState('participants_sorted');
-    setDisputeAction({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
+    setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
   };
 
   const sortWord = () => {
@@ -158,59 +160,46 @@ export default function RafflePage() {
     setCurrentWord(sortedWord);
     setAvailableWords(prev => prev.filter((_, i) => i !== wordIndex));
     setRaffleState('word_sorted');
-    setDisputeAction({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
+    setDisputeState({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
   };
   
-  const handleWinner = (winnerId: string) => {
-    if (!currentDuel || !currentWord) return;
+  const handleWinner = async (winnerId: string) => {
+    if (!currentDuel || !currentWord || !participants) return;
 
     const winnerIsA = currentDuel.participantA.id === winnerId;
     let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
-    const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
+    const loser = winnerIsA ? currentDuel.participantB : currentDuel.A;
 
-    const updatedParticipants = (() => {
-        if (!participants) return null;
-        
-        const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
-        const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
-
-        const nextState = JSON.parse(JSON.stringify(participants));
-        
-        let foundWinnerInMap: Participant | undefined;
-        nextState[winnerGroupKey] = nextState[winnerGroupKey].map((p: Participant) => {
-            if (p.id === winner.id) {
-                const updatedP = { ...p, stars: (p.stars || 0) + 1 };
-                foundWinnerInMap = updatedP;
-                return updatedP;
-            }
-            return p;
-        });
-
-        nextState[loserGroupKey] = nextState[loserGroupKey].map((p: Participant) => 
-            p.id === loser.id ? { ...p, eliminated: true } : p
-        );
-        
-        if(foundWinnerInMap) winner = foundWinnerInMap;
-
-        return nextState;
-    })();
-
-    if (updatedParticipants) {
-        setParticipants(updatedParticipants);
-        localStorage.setItem('participants', JSON.stringify(updatedParticipants));
-    }
+    const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
+    const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
     
+    const winnerIndex = participants[winnerGroupKey].findIndex(p => p.id === winner.id);
+    const loserIndex = participants[loserGroupKey].findIndex(p => p.id === loser.id);
+    
+    const updates: any = {};
+    const newStars = (participants[winnerGroupKey][winnerIndex].stars || 0) + 1;
+    
+    updates[`/participants/${winnerGroupKey}/${winnerIndex}/stars`] = newStars;
+    updates[`/participants/${loserGroupKey}/${loserIndex}/eliminated`] = true;
+    
+    await update(ref(database), updates);
+    
+    winner.stars = newStars;
     setRoundWinner(winner);
 
-    setDisputeAction({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
+    setDisputeState({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
     toast({
       title: "Disputa Encerrada!",
       description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
     });
     
     setRaffleState('round_finished');
-    if(updatedParticipants) {
-        setTimeout(() => checkForWinner(updatedParticipants), 100);
+    
+    // Check for final winner after state has been updated
+    const dbRef = ref(database);
+    const snapshot = await get(child(dbRef, 'participants'));
+    if(snapshot.exists()) {
+        setTimeout(() => checkForWinner(snapshot.val()), 100);
     }
   };
   
@@ -219,7 +208,7 @@ export default function RafflePage() {
     setCurrentWord(null);
     setRoundWinner(null);
     setRaffleState('idle');
-    setDisputeAction({ type: 'RESET' });
+    setDisputeState({ type: 'RESET' });
     if(participants) checkForWinner(participants);
   }
   
@@ -232,8 +221,8 @@ export default function RafflePage() {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
     }
     
-    const activeParticipantsA = participants.groupA.filter(p => !p.eliminated).length;
-    const activeParticipantsB = participants.groupB.filter(p => !p.eliminated).length;
+    const activeParticipantsA = participants.groupA?.filter(p => !p.eliminated).length || 0;
+    const activeParticipantsB = participants.groupB?.filter(p => !p.eliminated).length || 0;
 
     if (raffleState === 'idle') {
       return (
@@ -300,7 +289,7 @@ export default function RafflePage() {
             <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
                 <Star /> Ganhou 1 estrela!
             </p>
-            <p className="text-muted-foreground">{participants.groupA.filter(p => !p.eliminated).length} vs {participants.groupB.filter(p => !p.eliminated).length}</p>
+            <p className="text-muted-foreground">{activeParticipantsA} vs {activeParticipantsB}</p>
             <Button size="lg" onClick={nextRound} disabled={finalWinner != null}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )
@@ -350,4 +339,3 @@ export default function RafflePage() {
     </div>
   );
 }
-    

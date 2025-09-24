@@ -6,10 +6,12 @@ import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { List, Trash2, Play, Upload } from 'lucide-react';
+import { List, Trash2, Play, Upload, Projector } from 'lucide-react';
 import type { Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { database } from '@/lib/firebase';
+import { ref, set, onValue, get, child } from 'firebase/database';
 
 export default function DisputePage() {
   const [words, setWords] = useState<string[]>([]);
@@ -20,21 +22,39 @@ export default function DisputePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedParticipants = localStorage.getItem('participants');
-    if (storedParticipants) {
-      setParticipants(JSON.parse(storedParticipants));
-    }
+    const participantsRef = ref(database, 'participants');
+    const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
+      setParticipants(snapshot.val());
+    });
+
+    const wordsRef = ref(database, 'dispute/words');
+    const unsubscribeWords = onValue(wordsRef, (snapshot) => {
+      setWords(snapshot.val() || []);
+    });
+
+    return () => {
+        unsubscribeParticipants();
+        unsubscribeWords();
+    };
   }, []);
+
+  const updateWordsInDB = (newWords: string[]) => {
+    set(ref(database, 'dispute/words'), newWords);
+  };
 
   const addWord = () => {
     if (newWord.trim()) {
-      setWords(prev => [...prev, newWord.trim()]);
+      const newWords = [...words, newWord.trim()];
+      setWords(newWords);
+      updateWordsInDB(newWords);
       setNewWord('');
     }
   };
 
   const removeWord = (index: number) => {
-    setWords(prev => prev.filter((_, i) => i !== index));
+    const newWords = words.filter((_, i) => i !== index);
+    setWords(newWords);
+    updateWordsInDB(newWords);
   };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,8 +77,10 @@ export default function DisputePage() {
         const newWords = json
           .map(row => String(row[0]).trim())
           .filter(word => word && word.length > 0);
-
-        setWords(prev => [...prev, ...newWords]);
+        
+        const updatedWords = [...words, ...newWords];
+        setWords(updatedWords);
+        updateWordsInDB(updatedWords);
 
         toast({
           title: 'Sucesso!',
@@ -84,10 +106,12 @@ export default function DisputePage() {
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
   };
+  
+  const openProjection = () => {
+    window.open('/projetor', '_blank', 'width=1920,height=1080');
+  }
 
   const startRaffle = () => {
-    localStorage.setItem('words', JSON.stringify(words));
-    localStorage.setItem('disputeAction', JSON.stringify({ type: 'RESET', timestamp: Date.now() }));
     router.push('/sorteio');
   };
 
@@ -149,13 +173,13 @@ export default function DisputePage() {
                             <div>
                                 <h3 className="font-bold mb-2">Grupo A</h3>
                                 <ul className="text-sm text-muted-foreground">
-                                    {participants.groupA.map(p => <li key={p.id}>{p.name}</li>)}
+                                    {participants.groupA?.map(p => <li key={p.id}>{p.name}</li>)}
                                 </ul>
                             </div>
                             <div>
                                 <h3 className="font-bold mb-2">Grupo B</h3>
                                 <ul className="text-sm text-muted-foreground">
-                                    {participants.groupB.map(p => <li key={p.id}>{p.name}</li>)}
+                                    {participants.groupB?.map(p => <li key={p.id}>{p.name}</li>)}
                                 </ul>
                             </div>
                         </div>
@@ -163,6 +187,10 @@ export default function DisputePage() {
                 </CardContent>
             </Card>
             <div className="flex flex-col gap-2">
+                <Button variant="outline" onClick={openProjection}>
+                  <Projector className="mr-2" />
+                  Abrir Tela de Projeção
+                </Button>
                 <Button 
                     className="w-full" 
                     size="lg" 
@@ -179,5 +207,3 @@ export default function DisputePage() {
     </div>
   );
 }
-
-    

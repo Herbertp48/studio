@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { ParticipantGroup } from '@/components/app/participant-group';
@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Upload, Play } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { database } from '@/lib/firebase';
+import { ref, set, onValue, get, child } from 'firebase/database';
 
 export type Participant = {
   id: string;
@@ -24,6 +26,26 @@ export default function Home() {
   const { toast } = useToast();
   const router = useRouter();
 
+  useEffect(() => {
+    const participantsRef = ref(database, 'participants');
+    const unsubscribe = onValue(participantsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setGroupA(data.groupA || []);
+        setGroupB(data.groupB || []);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const updateParticipantsInDB = (newGroupA: Participant[], newGroupB: Participant[]) => {
+    set(ref(database, 'participants'), {
+      groupA: newGroupA,
+      groupB: newGroupB,
+    });
+  };
+
   const addParticipant = (name: string, group: 'A' | 'B') => {
     const newParticipant: Participant = {
       id: `${group}-${Date.now()}`,
@@ -32,17 +54,25 @@ export default function Home() {
       eliminated: false,
     };
     if (group === 'A') {
-      setGroupA(prev => [...prev, newParticipant]);
+      const newGroup = [...groupA, newParticipant];
+      setGroupA(newGroup);
+      updateParticipantsInDB(newGroup, groupB);
     } else {
-      setGroupB(prev => [...prev, newParticipant]);
+      const newGroup = [...groupB, newParticipant];
+      setGroupB(newGroup);
+      updateParticipantsInDB(groupA, newGroup);
     }
   };
 
   const removeParticipant = (id: string, group: 'A' | 'B') => {
     if (group === 'A') {
-      setGroupA(prev => prev.filter(p => p.id !== id));
+      const newGroup = groupA.filter(p => p.id !== id);
+      setGroupA(newGroup);
+      updateParticipantsInDB(newGroup, groupB);
     } else {
-      setGroupB(prev => prev.filter(p => p.id !== id));
+      const newGroup = groupB.filter(p => p.id !== id);
+      setGroupB(newGroup);
+      updateParticipantsInDB(groupA, newGroup);
     }
   };
   
@@ -111,9 +141,13 @@ export default function Home() {
                 }
             });
         }
+        
+        const updatedGroupA = [...groupA, ...newGroupA];
+        const updatedGroupB = [...groupB, ...newGroupB];
+        setGroupA(updatedGroupA);
+        setGroupB(updatedGroupB);
+        updateParticipantsInDB(updatedGroupA, updatedGroupB);
 
-        setGroupA(prev => [...prev, ...newGroupA]);
-        setGroupB(prev => [...prev, ...newGroupB]);
 
         toast({
           title: 'Sucesso!',
@@ -144,8 +178,16 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
-  const startDispute = () => {
-    localStorage.setItem('participants', JSON.stringify({ groupA, groupB }));
+  const startDispute = async () => {
+    const dbRef = ref(database);
+    const snapshot = await get(child(dbRef, 'participants'));
+    if (!snapshot.exists() || (!snapshot.val().groupA?.length && !snapshot.val().groupB?.length)) {
+        updateParticipantsInDB(groupA, groupB);
+    }
+    await set(ref(database, 'dispute'), {
+        words: [],
+        state: null,
+    })
     router.push('/disputa');
   };
 
