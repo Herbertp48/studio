@@ -54,6 +54,7 @@ export default function ProjectionPage() {
     const stopSound = () => {
         if (audioRef.current) {
             audioRef.current.pause();
+            audioRef.current.currentTime = 0;
             audioRef.current = null;
         }
     };
@@ -64,6 +65,7 @@ export default function ProjectionPage() {
             clearInterval(shufflingInterval.current);
             shufflingInterval.current = null;
         }
+        stopSound();
         setIsShuffling(false);
     }
 
@@ -190,7 +192,7 @@ export default function ProjectionPage() {
                         </p>
                     </div>
                 </div>
-
+                 
                 <div className="relative w-full flex-1 flex items-center justify-center">
                     <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
                         <div className="col-start-2 col-span-4 text-center">
@@ -271,5 +273,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
