@@ -120,7 +120,7 @@ export default function ProjectionPage() {
                  <h1 id="titulo-projetado" className="text-[100px] font-melison font-bold tracking-tight">
                     Disputa de Soletração
                 </h1>
-                <Image src="/bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
+                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
 
             <div id="Psorteio-box" className="mt-12 text-center text-white w-[80%] flex-1 flex flex-col justify-center items-center font-melison">
@@ -197,3 +197,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
