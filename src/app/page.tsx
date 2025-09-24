@@ -15,7 +15,8 @@ export default function Home() {
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
 
   useEffect(() => {
-    setImageUrls(PlaceHolderImages.map(p => p.imageUrl));
+    const placeholderUrls = PlaceHolderImages.map(p => p.imageUrl);
+    setImageUrls(placeholderUrls);
   }, []);
 
   useEffect(() => {
@@ -27,12 +28,14 @@ export default function Home() {
         urls.forEach(url => URL.revokeObjectURL(url));
       };
     } else {
+      // Only reset to placeholders if the current URLs are not already the placeholder URLs
       const placeholderUrls = PlaceHolderImages.map(p => p.imageUrl);
       if (JSON.stringify(imageUrls) !== JSON.stringify(placeholderUrls)) {
         setImageUrls(placeholderUrls);
       }
     }
-  }, [images, imageUrls]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [images]);
 
   const handleClearImages = () => {
     setImages([]);
