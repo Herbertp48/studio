@@ -81,17 +81,21 @@ const getInitialState = (): PageState => {
 export default function ProjectionPage() {
     const [state, setState] = useState<PageState>(getInitialState());
     const [animationKey, setAnimationKey] = useState(0);
+    const [lastActionTimestamp, setLastActionTimestamp] = useState(0);
 
     useEffect(() => {
-        const handleStorageChange = (event?: StorageEvent) => {
-            // Only listen for changes on the 'disputeAction' key, or if event is null (initial call)
-            if (event && event.key !== 'disputeAction') return;
-            
+        const handleStorageChange = () => {
             const item = localStorage.getItem('disputeAction');
             if (!item) return;
 
             try {
                 const action = JSON.parse(item);
+                
+                // Only update if the action is new
+                if (action.timestamp && action.timestamp <= lastActionTimestamp) {
+                    return;
+                }
+                setLastActionTimestamp(action.timestamp || 0);
 
                 setState(prevState => {
                     switch (action.type) {
@@ -102,8 +106,7 @@ export default function ProjectionPage() {
                                 word: null,
                                 showWord: false,
                                 winnerMessage: null,
-                                // Keep final winner if set, otherwise clear everything
-                                finalWinner: prevState.finalWinner && !action.word ? prevState.finalWinner : null
+                                finalWinner: null
                             };
                         case 'UPDATE_PARTICIPANTS':
                             return {
@@ -143,12 +146,11 @@ export default function ProjectionPage() {
             }
         };
 
-        // Run once on mount to get initial state
-        handleStorageChange(); 
+        const intervalId = setInterval(handleStorageChange, 100); // Check every 100ms
 
-        window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
-    }, []);
+        return () => clearInterval(intervalId); // Cleanup on unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lastActionTimestamp]);
     
     useEffect(() => {
         if(state.winnerMessage) {
@@ -243,3 +245,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
