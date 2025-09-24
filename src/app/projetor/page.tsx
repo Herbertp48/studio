@@ -168,7 +168,7 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className={cn("relative w-full flex-1 flex items-start justify-center transition-opacity duration-300", (showWord || isShuffling) ? "opacity-100 visible" : "opacity-0 invisible")}>
+                <div className={cn("relative w-full flex-1 flex items-start justify-center transition-opacity duration-300", !showWord ? "opacity-100 visible" : "opacity-0 invisible")}>
                     <div id="disputa-container" className="absolute inset-0 flex items-center justify-center pt-16 mt-16">
                         {/* Participant A */}
                         <div className="w-1/3 text-center">
