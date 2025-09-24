@@ -157,7 +157,7 @@ export default function ProjectionPage() {
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
             
-            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-start items-center pt-20">
                  
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
@@ -168,7 +168,7 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className="relative w-full flex-1 flex items-center justify-center">
+                <div className="relative w-full flex-1 flex items-start justify-center">
                     <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-start justify-center h-full">
                         {/* Participant A */}
                         <div className="absolute left-0 w-1/3 text-center">
@@ -253,5 +253,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
