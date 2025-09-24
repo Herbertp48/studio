@@ -6,13 +6,12 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dices, Trophy, Crown, Star, RefreshCw } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -29,8 +28,9 @@ export default function RafflePage() {
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
   const [currentWord, setCurrentWord] = useState<string | null>(null);
   const [raffleState, setRaffleState] = useState<RaffleState>('idle');
-  const [winner, setWinner] = useState<Participant | null>(null);
-  const [isFinishing, setIsFinishing] = useState(false);
+  const [roundWinner, setRoundWinner] = useState<Participant | null>(null);
+  const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
+  const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -39,7 +39,6 @@ export default function RafflePage() {
     const storedParticipants = localStorage.getItem('participants');
     if (storedParticipants) {
       const parsed = JSON.parse(storedParticipants);
-      // Ensure stars property exists
       parsed.groupA.forEach((p: Participant) => p.stars = p.stars || 0);
       parsed.groupB.forEach((p: Participant) => p.stars = p.stars || 0);
       setParticipants(parsed);
@@ -62,20 +61,47 @@ export default function RafflePage() {
   useEffect(() => {
     if (participants) {
       localStorage.setItem('participants', JSON.stringify(participants));
+      checkForWinner();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants]);
 
+  const checkForWinner = () => {
+    if (!participants) return;
+    
+    const activeGroupA = participants.groupA.filter(p => !p.eliminated);
+    const activeGroupB = participants.groupB.filter(p => !p.eliminated);
+
+    if (activeGroupA.length > 0 && activeGroupB.length === 0) {
+      if (activeGroupA.length === 1) {
+        setFinalWinner(activeGroupA[0]);
+        setShowFinalWinnerDialog(true);
+      }
+    } else if (activeGroupB.length > 0 && activeGroupA.length === 0) {
+      if (activeGroupB.length === 1) {
+        setFinalWinner(activeGroupB[0]);
+        setShowFinalWinnerDialog(true);
+      }
+    }
+  }
+
   const sortParticipants = () => {
-    if (!participants || participants.groupA.length === 0 || participants.groupB.length === 0) {
-      toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes nos dois grupos." });
+    if (!participants) return;
+    
+    const activeGroupA = participants.groupA.filter(p => !p.eliminated);
+    const activeGroupB = participants.groupB.filter(p => !p.eliminated);
+
+    if (activeGroupA.length === 0 || activeGroupB.length === 0) {
+      toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
+      checkForWinner();
       return;
     }
     
-    setWinner(null);
+    setRoundWinner(null);
     setCurrentWord(null);
 
-    const participantA = participants.groupA[Math.floor(Math.random() * participants.groupA.length)];
-    const participantB = participants.groupB[Math.floor(Math.random() * participants.groupB.length)];
+    const participantA = activeGroupA[Math.floor(Math.random() * activeGroupA.length)];
+    const participantB = activeGroupB[Math.floor(Math.random() * activeGroupB.length)];
 
     setCurrentDuel({ participantA, participantB });
     setRaffleState('participants_sorted');
@@ -83,7 +109,8 @@ export default function RafflePage() {
 
   const sortWord = () => {
     if (availableWords.length === 0) {
-      toast({ variant: "destructive", title: "Fim das palavras", description: "Todas as palavras já foram sorteadas." });
+      toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
+      setAvailableWords(words);
       return;
     }
 
@@ -98,191 +125,159 @@ export default function RafflePage() {
   const handleWinner = (winnerId: string) => {
     if (!currentDuel || !currentWord) return;
 
-    const isWinnerA = currentDuel.participantA.id === winnerId;
-    const roundWinner = isWinnerA ? currentDuel.participantA : currentDuel.participantB;
-    const roundLoser = isWinnerA ? currentDuel.participantB : currentDuel.participantA;
+    const winnerIsA = currentDuel.participantA.id === winnerId;
+    const winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
+    const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
 
     setParticipants(prev => {
       if (!prev) return null;
       
-      const winnerGroupKey = roundWinner.id.startsWith('A') ? 'groupA' : 'groupB';
-      const loserGroupKey = roundLoser.id.startsWith('A') ? 'groupA' : 'groupB';
+      const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
+      const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
 
       const nextState = { ...prev };
       
-      // Update winner's stars
       nextState[winnerGroupKey] = nextState[winnerGroupKey].map(p => 
-        p.id === roundWinner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
+        p.id === winner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
       );
 
-      // Remove loser
-      nextState[loserGroupKey] = nextState[loserGroupKey].filter(p => p.id !== roundLoser.id);
+      nextState[loserGroupKey] = nextState[loserGroupKey].map(p => 
+        p.id === loser.id ? { ...p, eliminated: true } : p
+      );
 
       return nextState;
     });
 
-    setWinner(roundWinner);
-    toast({ title: "Disputa Encerrada!", description: `${roundWinner.name} venceu a rodada!`});
+    setRoundWinner(winner);
+    toast({
+      title: "Disputa Encerrada!",
+      description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
+    });
     
-    // Check for overall winner
-    if (participants && (participants.groupA.length === 0 || participants.groupB.length === 0) && participants[isWinnerA ? 'groupA' : 'groupB'].length === 1) {
-        setIsFinishing(true);
-    } else {
-        setRaffleState('round_finished');
-    }
+    setRaffleState('round_finished');
   };
   
   const nextRound = () => {
     setCurrentDuel(null);
     setCurrentWord(null);
-    setWinner(null);
+    setRoundWinner(null);
     setRaffleState('idle');
-  }
-
-  const getOverallWinner = () => {
-    if(!participants) return null;
-    if (participants.groupA.length > 0 && participants.groupB.length === 0) {
-        return participants.groupA[0];
-    }
-    if (participants.groupB.length > 0 && participants.groupA.length === 0) {
-        return participants.groupB[0];
-    }
-    return null;
-  }
-  
-  const finishCompetition = () => {
-    const finalWinner = getOverallWinner();
-    if (finalWinner) {
-        setWinner(finalWinner);
-        setIsFinishing(true);
-    }
+    checkForWinner(); // Check for overall winner before starting next round
   }
 
   const renderState = () => {
     if (!participants) {
-      return <p>Carregando...</p>;
+      return <p className="text-center text-muted-foreground">Carregando...</p>;
     }
     
+    const activeParticipantsA = participants.groupA.filter(p => !p.eliminated).length;
+    const activeParticipantsB = participants.groupB.filter(p => !p.eliminated).length;
+
     if (raffleState === 'idle') {
-        return (
-            <div className="text-center">
-                <p className="text-xl mb-6">Pronto para a próxima rodada?</p>
-                <Button size="lg" onClick={sortParticipants}><Dices className="mr-2"/>Sortear Participantes</Button>
-            </div>
-        )
+      return (
+        <div className="text-center flex flex-col items-center gap-6">
+          <h2 className="text-3xl font-bold">Próxima Rodada</h2>
+          <div className="text-lg text-muted-foreground">
+            <p>Grupo A: {activeParticipantsA} participantes</p>
+            <p>Grupo B: {activeParticipantsB} participantes</p>
+          </div>
+          <Button size="lg" onClick={sortParticipants} disabled={activeParticipantsA === 0 || activeParticipantsB === 0}>
+            <Dices className="mr-2"/>Sortear Participantes
+          </Button>
+          {(activeParticipantsA === 0 || activeParticipantsB === 0) && activeParticipantsA + activeParticipantsB > 0 && (
+             <p className="text-amber-600">Um dos grupos não tem mais participantes. Verificando o vencedor final...</p>
+          )}
+        </div>
+      )
     }
 
     if (raffleState === 'participants_sorted' && currentDuel) {
-        return (
-            <div className="text-center">
-                <p className="text-lg mb-4">Participantes sorteados!</p>
-                <p className="text-2xl font-bold">{currentDuel.participantA.name} vs. {currentDuel.participantB.name}</p>
-                <Button size="lg" onClick={sortWord} className="mt-6">Sortear Palavra</Button>
-            </div>
-        )
+      return (
+        <div className="text-center flex flex-col items-center gap-6">
+          <h2 className="text-2xl font-bold text-primary">Disputa Definida!</h2>
+          <div className="flex items-center justify-center gap-4 text-2xl font-semibold">
+              <div className="flex items-center gap-2">
+                <Trophy className="text-amber-400" />
+                <span>{currentDuel.participantA.name}</span>
+              </div>
+              <span className="text-muted-foreground">vs.</span>
+              <div className="flex items-center gap-2">
+                <span>{currentDuel.participantB.name}</span>
+                <Trophy className="text-amber-400" />
+              </div>
+          </div>
+          <Button size="lg" onClick={sortWord} className="mt-4">
+            <PartyPopper className="mr-2"/>Sortear Palavra
+          </Button>
+        </div>
+      )
     }
     
     if (raffleState === 'word_sorted' && currentDuel && currentWord) {
-        return (
-            <div className="text-center">
-                <p className="text-lg mb-2">A palavra é:</p>
-                <p className="text-4xl font-bold tracking-widest uppercase mb-8">{currentWord}</p>
-                <p className="text-lg mb-4">Quem venceu a disputa?</p>
-                <div className="flex justify-center gap-4">
-                    <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantA.id)}>
-                        <Trophy className="mr-2"/> {currentDuel.participantA.name}
-                    </Button>
-                    <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantB.id)}>
-                        <Trophy className="mr-2"/> {currentDuel.participantB.name}
-                    </Button>
-                </div>
+      return (
+        <div className="text-center flex flex-col items-center gap-6">
+            <p className="text-lg text-muted-foreground">A palavra é:</p>
+            <p className="text-5xl font-bold tracking-widest uppercase text-primary">{currentWord}</p>
+            <p className="text-xl font-semibold mt-4">Quem venceu a disputa?</p>
+            <div className="flex justify-center gap-4">
+                <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantA.id)}>
+                    <Star className="mr-2"/> {currentDuel.participantA.name}
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantB.id)}>
+                    <Star className="mr-2"/> {currentDuel.participantB.name}
+                </Button>
             </div>
-        )
+        </div>
+      )
     }
 
-    if (raffleState === 'round_finished' && winner) {
-        return (
-            <div className="text-center">
-                <p className="text-2xl font-bold mb-4">{winner.name} venceu a rodada!</p>
-                <p className="text-lg mb-6 text-yellow-500 flex items-center justify-center gap-2">
-                    <Star /> Ganhou 1 estrela!
-                </p>
-                <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
-            </div>
-        )
+    if (raffleState === 'round_finished' && roundWinner) {
+      return (
+        <div className="text-center flex flex-col items-center gap-6">
+            <h2 className="text-3xl font-bold">{roundWinner.name} venceu!</h2>
+            <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
+                <Star /> Ganhou 1 estrela!
+            </p>
+            <p className="text-muted-foreground">{participants.groupA.filter(p => !p.eliminated).length} vs {participants.groupB.filter(p => !p.eliminated).length}</p>
+            <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
+        </div>
+      )
     }
     
     return null;
   }
   
-  const finalWinner = getOverallWinner();
-
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Coluna Esquerda - Participantes */}
-            <div className="md:col-span-1 space-y-4">
-                <Card>
-                    <CardHeader><CardTitle>Grupo A ({participants?.groupA.length})</CardTitle></CardHeader>
-                    <CardContent>
-                        <ul className="space-y-1 text-sm text-muted-foreground">
-                            {participants?.groupA.map(p => (
-                                <li key={p.id} className="flex justify-between items-center">
-                                    <span>{p.name}</span>
-                                    <span className="flex items-center gap-1 text-yellow-500 font-bold">{p.stars > 0 && `x${p.stars}`}<Star className="w-4 h-4" /></span>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle>Grupo B ({participants?.groupB.length})</CardTitle></CardHeader>
-                    <CardContent>
-                         <ul className="space-y-1 text-sm text-muted-foreground">
-                            {participants?.groupB.map(p => (
-                                <li key={p.id} className="flex justify-between items-center">
-                                    <span>{p.name}</span>
-                                    <span className="flex items-center gap-1 text-yellow-500 font-bold">{p.stars > 0 && `x${p.stars}`}<Star className="w-4 h-4" /></span>
-                                </li>
-                            ))}
-                        </ul>
-                    </CardContent>
-                </Card>
-            </div>
+      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+        <Card className="w-full max-w-2xl min-h-[28rem] flex items-center justify-center shadow-2xl">
+            <CardContent className="pt-10 w-full">
+                {renderState()}
+            </CardContent>
+        </Card>
 
-            {/* Coluna Direita - Sorteio */}
-            <div className="md:col-span-2">
-                <Card className="min-h-[24rem] flex items-center justify-center">
-                    <CardContent className="pt-6">
-                        {renderState()}
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-
-        <AlertDialog open={isFinishing} onOpenChange={setIsFinishing}>
+        <AlertDialog open={showFinalWinnerDialog} onOpenChange={setShowFinalWinnerDialog}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                <AlertDialogTitle className="text-center text-2xl">A disputa acabou!</AlertDialogTitle>
+                <AlertDialogTitle className="text-center text-3xl font-bold">A disputa acabou!</AlertDialogTitle>
                 <AlertDialogDescription className="text-center text-lg">
-                    <div className="flex flex-col items-center justify-center gap-4 py-4">
-                        <Crown className="w-16 h-16 text-yellow-500" />
-                        <p className="text-xl font-bold">O grande vencedor é</p>
-                        <p className="text-3xl font-bold text-foreground">{finalWinner?.name}</p>
+                    <div className="flex flex-col items-center justify-center gap-4 py-6">
+                        <Crown className="w-20 h-20 text-yellow-400" />
+                        <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
+                        <p className="text-4xl font-bold text-foreground">{finalWinner?.name}</p>
+                         <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
+                            {`x${finalWinner?.stars || 0}`}<Star className="w-6 h-6" />
+                        </p>
                     </div>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                    <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-
       </main>
     </div>
   );
 }
-
-    
