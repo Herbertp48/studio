@@ -55,29 +55,60 @@ export default function Home() {
         const workbook = read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = utils.sheet_to_json<any>(worksheet);
+        const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
+        
+        if (json.length === 0) {
+            throw new Error("A planilha está vazia.");
+        }
+
+        const header = json[0] as string[];
+        const hasGroupColumns = header.includes('Grupo A') || header.includes('Grupo B');
+        const jsonData = utils.sheet_to_json<any>(worksheet);
 
         const newGroupA: Participant[] = [];
         const newGroupB: Participant[] = [];
 
-        json.forEach((row, index) => {
-          if (row['Grupo A']) {
-            newGroupA.push({
-              id: `A-${Date.now()}-${index}`,
-              name: row['Grupo A'],
-              stars: 0,
-              eliminated: false,
+        if (hasGroupColumns) {
+            jsonData.forEach((row, index) => {
+                if (row['Grupo A']) {
+                    newGroupA.push({
+                    id: `A-${Date.now()}-${index}`,
+                    name: String(row['Grupo A']),
+                    stars: 0,
+                    eliminated: false,
+                    });
+                }
+                if (row['Grupo B']) {
+                    newGroupB.push({
+                    id: `B-${Date.now()}-${index}`,
+                    name: String(row['Grupo B']),
+                    stars: 0,
+                    eliminated: false,
+                    });
+                }
             });
-          }
-          if (row['Grupo B']) {
-            newGroupB.push({
-              id: `B-${Date.now()}-${index}`,
-              name: row['Grupo B'],
-              stars: 0,
-              eliminated: false,
+        } else {
+            const allNames = jsonData.map(row => String(Object.values(row)[0])).filter(name => name.trim() !== '' && name.toLowerCase() !== header[0].toLowerCase());
+            const midPoint = Math.ceil(allNames.length / 2);
+            
+            allNames.forEach((name, index) => {
+                if (index < midPoint) {
+                    newGroupA.push({
+                        id: `A-${Date.now()}-${index}`,
+                        name: name,
+                        stars: 0,
+                        eliminated: false,
+                    });
+                } else {
+                    newGroupB.push({
+                        id: `B-${Date.now()}-${index}`,
+                        name: name,
+                        stars: 0,
+                        eliminated: false,
+                    });
+                }
             });
-          }
-        });
+        }
 
         setGroupA(prev => [...prev, ...newGroupA]);
         setGroupB(prev => [...prev, ...newGroupB]);
@@ -88,14 +119,17 @@ export default function Home() {
         });
 
       } catch (error) {
+        let errorMessage = 'Não foi possível ler o arquivo. Verifique o formato e tente novamente.';
+        if(error instanceof Error) {
+            errorMessage = error.message;
+        }
         console.error("Erro ao importar arquivo:", error);
         toast({
           variant: "destructive",
           title: 'Erro de Importação',
-          description: 'Não foi possível ler o arquivo. Verifique o formato e tente novamente.',
+          description: errorMessage,
         });
       } finally {
-        // Limpa o valor do input para permitir o upload do mesmo arquivo novamente
         if(fileInputRef.current) {
           fileInputRef.current.value = '';
         }
