@@ -169,20 +169,20 @@ export default function ProjectionPage() {
                 </div>
 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-center justify-center h-full">
+                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-center justify-around h-full">
                         {/* Participant A */}
-                        <div className="absolute left-0 w-1/3 text-center max-w-md mx-auto">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
+                        <div className="w-1/3 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantA?.name || 'Participante A'}</h3>
                         </div>
 
                         {/* Vs. */}
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                        <div className="flex-shrink-0">
+                            <h3 className="text-8xl font-bold font-melison mb-8">Vs.</h3>
                         </div>
 
                         {/* Participant B */}
-                        <div className="absolute right-0 w-1/3 text-center max-w-md mx-auto">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
+                        <div className="w-1/3 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
                 </div>
