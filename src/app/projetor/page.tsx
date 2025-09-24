@@ -177,16 +177,16 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className={cn("flex w-full justify-center px-16 transition-opacity duration-300", showWord ? 'pt-48' : 'pt-0')}>
-                    <div className="flex-1 text-center">
+                <div className={cn("w-full grid grid-cols-[1fr_auto_1fr] items-center gap-x-8 px-16 transition-opacity duration-300", showWord ? 'pt-48' : 'pt-0')}>
+                    <div className="text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                     </div>
 
-                    <div className="flex-shrink-0 w-48 text-center self-start">
-                         <h3 className="text-8xl font-bold mx-8 font-melison mb-4">Vs.</h3>
+                    <div className="text-center">
+                         <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                     </div>
 
-                    <div className="flex-1 text-center">
+                    <div className="text-center">
                        <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
                     </div>
                 </div>
