@@ -83,6 +83,7 @@ export default function ProjectionPage() {
             const action: DisputeState = snapshot.val();
             
             if (!action) {
+                // On initial load or reset, just reset to initial visual state.
                 const s = getInitialState();
                 setParticipantA(s.participantA);
                 setParticipantB(s.participantB);
@@ -333,16 +334,17 @@ export default function ProjectionPage() {
         )
     }
 
-    const renderContent = () => {
+    const renderOverlay = () => {
         if (winnerMessage) return <WinnerMessage />;
         if (finalWinner) return <FinalWinnerMessage />;
         if (showWinners) return <WinnersTable />;
-        return <MainContent />;
+        return null;
     }
 
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
-            {renderContent()}
+            <MainContent />
+            {renderOverlay()}
         </div>
     );
 }
