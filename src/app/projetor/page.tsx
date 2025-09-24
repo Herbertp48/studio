@@ -19,19 +19,74 @@ type PageState = {
     finalWinner: Participant | null;
 }
 
+// Helper function to get the initial state from localStorage
+const getInitialState = (): PageState => {
+    const item = typeof window !== 'undefined' ? localStorage.getItem('disputeAction') : null;
+    if (!item) {
+        return {
+            participantA: null,
+            participantB: null,
+            word: null,
+            showWord: false,
+            winnerMessage: null,
+            finalWinner: null,
+        };
+    }
+    try {
+        const action = JSON.parse(item);
+        // This function is just to get a baseline, we won't process all actions here,
+        // just the ones that set a persistent state.
+        switch(action.type) {
+            case 'FINAL_WINNER':
+                return {
+                    participantA: null,
+                    participantB: null,
+                    word: null,
+                    showWord: false,
+                    winnerMessage: null,
+                    finalWinner: action.winner,
+                };
+            case 'UPDATE_PARTICIPANTS':
+                 return {
+                    participantA: action.participantA,
+                    participantB: action.participantB,
+                    word: null,
+                    showWord: false,
+                    winnerMessage: null,
+                    finalWinner: null,
+                };
+            default:
+                 return {
+                    participantA: null,
+                    participantB: null,
+                    word: null,
+                    showWord: false,
+                    winnerMessage: null,
+                    finalWinner: null,
+                };
+        }
+    } catch {
+        return {
+            participantA: null,
+            participantB: null,
+            word: null,
+            showWord: false,
+            winnerMessage: null,
+            finalWinner: null,
+        };
+    }
+};
+
+
 export default function ProjectionPage() {
-    const [state, setState] = useState<PageState>({
-        participantA: null,
-        participantB: null,
-        word: null,
-        showWord: false,
-        winnerMessage: null,
-        finalWinner: null,
-    });
+    const [state, setState] = useState<PageState>(getInitialState());
     const [animationKey, setAnimationKey] = useState(0);
 
     useEffect(() => {
-        const handleStorageChange = () => {
+        const handleStorageChange = (event?: StorageEvent) => {
+            // Only listen for changes on the 'disputeAction' key, or if event is null (initial call)
+            if (event && event.key !== 'disputeAction') return;
+            
             const item = localStorage.getItem('disputeAction');
             if (!item) return;
 
@@ -47,7 +102,8 @@ export default function ProjectionPage() {
                                 word: null,
                                 showWord: false,
                                 winnerMessage: null,
-                                finalWinner: prevState.finalWinner, // Keep final winner if already set
+                                // Keep final winner if set, otherwise clear everything
+                                finalWinner: prevState.finalWinner && !action.word ? prevState.finalWinner : null
                             };
                         case 'UPDATE_PARTICIPANTS':
                             return {
@@ -57,6 +113,7 @@ export default function ProjectionPage() {
                                 word: null,
                                 showWord: false,
                                 winnerMessage: null,
+                                finalWinner: null, // Clear final winner when a new duel starts
                             };
                         case 'SHOW_WORD':
                              return {
@@ -70,7 +127,8 @@ export default function ProjectionPage() {
                         case 'ROUND_WINNER':
                             setAnimationKey(prev => prev + 1); // Trigger animation
                             return { 
-                                ...prevState, 
+                                ...prevState,
+                                showWord: false,
                                 winnerMessage: { winner: action.winner, loser: action.loser, word: action.word }
                             };
                         case 'FINAL_WINNER':

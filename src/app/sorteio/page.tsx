@@ -31,7 +31,11 @@ type DisputeAction = {
 }
 
 const setDisputeAction = (action: Omit<DisputeAction, 'timestamp'>) => {
-    localStorage.setItem('disputeAction', JSON.stringify({ ...action, timestamp: new Date().getTime() }));
+    try {
+        localStorage.setItem('disputeAction', JSON.stringify({ ...action, timestamp: new Date().getTime() }));
+    } catch (e) {
+        console.error("Failed to set dispute action in localStorage", e);
+    }
 }
 
 
@@ -50,50 +54,55 @@ export default function RafflePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedParticipants = localStorage.getItem('participants');
-    if (storedParticipants) {
-      const parsed = JSON.parse(storedParticipants);
-      const ensureData = (p: Participant) => ({ ...p, stars: p.stars || 0, eliminated: p.eliminated || false });
-      parsed.groupA = parsed.groupA.map(ensureData);
-      parsed.groupB = parsed.groupB.map(ensureData);
-      setParticipants(parsed);
-    } else {
-        toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
+    try {
+        const storedParticipants = localStorage.getItem('participants');
+        if (storedParticipants) {
+          const parsed = JSON.parse(storedParticipants);
+          const ensureData = (p: any): Participant => ({ ...p, id: p.id || '', name: p.name || 'Unknown', stars: p.stars || 0, eliminated: p.eliminated || false });
+          parsed.groupA = Array.isArray(parsed.groupA) ? parsed.groupA.map(ensureData) : [];
+          parsed.groupB = Array.isArray(parsed.groupB) ? parsed.groupB.map(ensureData) : [];
+          setParticipants(parsed);
+          checkForWinner(parsed);
+        } else {
+            toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
+            router.push('/');
+        }
+
+        const storedWords = localStorage.getItem('words');
+        if (storedWords) {
+          const parsedWords = JSON.parse(storedWords);
+          setWords(parsedWords);
+          setAvailableWords(parsedWords);
+        } else {
+            toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
+            router.push('/disputa');
+        }
+
+        setDisputeAction({ type: 'RESET' });
+    } catch (e) {
+        console.error("Failed to initialize raffle page state from localStorage", e);
+        toast({ variant: "destructive", title: "Erro de inicialização", description: "Não foi possível carregar os dados. Tente voltar e iniciar a disputa novamente."});
         router.push('/');
     }
-
-    const storedWords = localStorage.getItem('words');
-    if (storedWords) {
-      const parsedWords = JSON.parse(storedWords);
-      setWords(parsedWords);
-      setAvailableWords(parsedWords);
-    } else {
-        toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
-        router.push('/disputa');
-    }
-
-    setDisputeAction({ type: 'RESET' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const checkForWinner = (currentParticipants: { groupA: Participant[], groupB: Participant[] }) => {
-    if (!currentParticipants) return;
+    if (!currentParticipants || finalWinner) return;
     
     const activeGroupA = currentParticipants.groupA.filter(p => !p.eliminated);
     const activeGroupB = currentParticipants.groupB.filter(p => !p.eliminated);
 
     let winner: Participant | null = null;
-    if (activeGroupA.length > 0 && activeGroupB.length === 0) {
-      if (activeGroupA.length === 1) {
+    
+    // Condition for a final winner: one group is empty, the other has exactly one participant
+    if (activeGroupA.length === 1 && activeGroupB.length === 0) {
         winner = activeGroupA[0];
-      }
-    } else if (activeGroupB.length > 0 && activeGroupA.length === 0) {
-      if (activeGroupB.length === 1) {
+    } else if (activeGroupB.length === 1 && activeGroupA.length === 0) {
         winner = activeGroupB[0];
-      }
     }
 
-    if (winner && !finalWinner) {
+    if (winner) {
       setFinalWinner(winner);
       setShowFinalWinnerDialog(true);
       setDisputeAction({ type: 'FINAL_WINNER', winner });
@@ -111,8 +120,10 @@ export default function RafflePage() {
     let activeGroupB = participants.groupB.filter(p => !p.eliminated);
 
     if (activeGroupA.length === 0 || activeGroupB.length === 0) {
-      toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
-      checkForWinner(participants);
+      checkForWinner(participants); // This will trigger the final winner dialog if applicable
+      if(!finalWinner) {
+        toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
+      }
       return;
     }
     
@@ -131,6 +142,10 @@ export default function RafflePage() {
       setAvailableWords(words);
       currentAvailableWords = words;
     }
+     if (currentAvailableWords.length === 0) {
+        toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
+        return;
+    }
 
     const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
     const sortedWord = currentAvailableWords[wordIndex];
@@ -145,7 +160,7 @@ export default function RafflePage() {
     if (!currentDuel || !currentWord) return;
 
     const winnerIsA = currentDuel.participantA.id === winnerId;
-    const winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
+    let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
     const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
 
     const updatedParticipants = (() => {
@@ -154,15 +169,24 @@ export default function RafflePage() {
         const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
         const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
 
-        const nextState = { ...participants };
+        const nextState = JSON.parse(JSON.stringify(participants));
         
-        nextState[winnerGroupKey] = nextState[winnerGroupKey].map(p => 
-            p.id === winner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
-        );
+        let foundWinnerInMap: Participant | undefined;
+        nextState[winnerGroupKey] = nextState[winnerGroupKey].map((p: Participant) => {
+            if (p.id === winner.id) {
+                const updatedP = { ...p, stars: (p.stars || 0) + 1 };
+                foundWinnerInMap = updatedP;
+                return updatedP;
+            }
+            return p;
+        });
 
-        nextState[loserGroupKey] = nextState[loserGroupKey].map(p => 
+        nextState[loserGroupKey] = nextState[loserGroupKey].map((p: Participant) => 
             p.id === loser.id ? { ...p, eliminated: true } : p
         );
+        
+        // This is the winner data with updated stars
+        if(foundWinnerInMap) winner = foundWinnerInMap;
 
         return nextState;
     })();
@@ -170,19 +194,21 @@ export default function RafflePage() {
     if (updatedParticipants) {
         setParticipants(updatedParticipants);
         localStorage.setItem('participants', JSON.stringify(updatedParticipants));
-        checkForWinner(updatedParticipants);
     }
     
-    const finalWinnerData = winner; // Winner with updated stars
-    setRoundWinner(finalWinnerData);
+    setRoundWinner(winner);
 
-    setDisputeAction({ type: 'ROUND_WINNER', winner: finalWinnerData, loser, word: currentWord });
+    setDisputeAction({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
     toast({
       title: "Disputa Encerrada!",
       description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
     });
     
     setRaffleState('round_finished');
+    // Check for a final winner AFTER the state for the round is finished.
+    if(updatedParticipants) {
+        setTimeout(() => checkForWinner(updatedParticipants), 100);
+    }
   };
   
   const nextRound = () => {
@@ -210,11 +236,11 @@ export default function RafflePage() {
             <p>Grupo A: {activeParticipantsA} participantes</p>
             <p>Grupo B: {activeParticipantsB} participantes</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsA === 0 || activeParticipantsB === 0}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || (activeParticipantsA === 0 || activeParticipantsB === 0)}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {(activeParticipantsA === 0 || activeParticipantsB === 0) && activeParticipantsA + activeParticipantsB > 0 && !finalWinner &&(
-             <p className="text-amber-600">Um dos grupos não tem mais participantes. Verificando o vencedor final...</p>
+          {(activeParticipantsA === 0 || activeParticipantsB === 0) && (activeParticipantsA > 0 || activeParticipantsB > 0) && !finalWinner &&(
+             <p className="text-amber-600 mt-4">Um dos grupos não tem mais participantes. O vencedor será declarado.</p>
           )}
         </div>
       )
