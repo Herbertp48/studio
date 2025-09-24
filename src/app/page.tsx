@@ -10,7 +10,7 @@ import { Upload, Play } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, get, child } from 'firebase/database';
+import { ref, set, onValue } from 'firebase/database';
 
 export type Participant = {
   id: string;
@@ -179,15 +179,16 @@ export default function Home() {
   };
 
   const startDispute = async () => {
-    const dbRef = ref(database);
-    const snapshot = await get(child(dbRef, 'participants'));
-    if (!snapshot.exists() || (!snapshot.val().groupA?.length && !snapshot.val().groupB?.length)) {
-        updateParticipantsInDB(groupA, groupB);
-    }
+    // Garante que os participantes na tela estão salvos no DB
+    updateParticipantsInDB(groupA, groupB);
+    
+    // Limpa o estado da disputa anterior no DB
     await set(ref(database, 'dispute'), {
         words: [],
         state: null,
-    })
+    });
+    
+    // Navega para a página de preparação da disputa
     router.push('/disputa');
   };
 
