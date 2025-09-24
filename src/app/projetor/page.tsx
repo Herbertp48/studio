@@ -158,7 +158,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-accent mt-8">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -166,7 +166,7 @@ export default function ProjectionPage() {
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
             
-            <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center font-melison">
+            <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center">
                  <div className={cn("absolute top-1/4 w-full flex flex-col items-center", !showWord && 'invisible')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-1/3 font-subjectivity">
@@ -254,3 +254,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
