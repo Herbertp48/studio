@@ -87,7 +87,7 @@ export default function ProjectionPage() {
                     setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setWord(null);
-                    setShowWord(false);
+                    setShowWord(true); // Show the VS. section while shuffling
                     setWinnerMessage(null);
                     setFinalWinner(null);
                     const activeParticipants = action.activeParticipants || [];
@@ -157,31 +157,48 @@ export default function ProjectionPage() {
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
             
-            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-start items-center pt-20">
+            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-start items-center">
                  
-                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0')}>
+                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
                         <p id="premioSorteado" className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
                             {word || '...'}
                         </p>
                     </div>
-                </div>
 
-                <div className="relative w-full flex-1 flex items-start justify-center">
-                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-start justify-center h-full">
+                    <div id="disputa-container" className="mt-16 relative w-full max-w-7xl mx-auto flex items-center justify-center h-full">
                         {/* Participant A */}
                         <div className="absolute left-0 w-1/3 text-center">
-                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
                         </div>
 
                         {/* Vs. */}
-                         <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '20px' }}>
+                         <div className="absolute left-1/2 -translate-x-1/2">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
 
                         {/* Participant B */}
                         <div className="absolute right-0 w-1/3 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div className={cn("relative w-full flex-1 flex items-start justify-center", showWord ? "opacity-0 invisible" : "opacity-100 visible")}>
+                    <div id="disputa-container-idle" className="relative w-full max-w-7xl mx-auto flex items-center justify-center h-full pt-16">
+                        {/* Participant A */}
+                        <div className="w-1/3 text-center">
+                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
+                        </div>
+
+                        {/* Vs. */}
+                         <div className="w-1/3 text-center">
+                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                        </div>
+
+                        {/* Participant B */}
+                        <div className="w-1/3 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
