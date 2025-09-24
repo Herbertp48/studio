@@ -5,14 +5,25 @@ import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { ParticipantGroup } from '@/components/app/participant-group';
 import { Button } from '@/components/ui/button';
-import { Upload, Play, UserPlus } from 'lucide-react';
+import { Upload, Play, UserPlus, Trash2 } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue } from 'firebase/database';
+import { ref, set, onValue, remove } from 'firebase/database';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export type Participant = {
   id: string;
@@ -24,6 +35,7 @@ export type Participant = {
 export default function Home() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [newParticipantName, setNewParticipantName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -44,6 +56,16 @@ export default function Home() {
     set(ref(database, 'participants'), {
       all: newParticipants,
     });
+  };
+  
+  const removeAllParticipants = () => {
+    setParticipants([]);
+    remove(ref(database, 'participants'));
+    toast({
+        title: 'Sucesso!',
+        description: 'Todos os participantes foram removidos.',
+    });
+    setShowDeleteConfirm(false);
   };
 
   const addParticipant = (e: React.FormEvent) => {
@@ -181,6 +203,27 @@ export default function Home() {
                  <Play className="mr-2 h-4 w-4" />
                  Iniciar Disputa
                </Button>
+               <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+                  <AlertDialogTrigger asChild>
+                     <Button variant="destructive" className="w-full" disabled={participants.length === 0}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Apagar Todos os Participantes
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Essa ação não pode ser desfeita. Todos os participantes serão removidos permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={removeAllParticipants}>Apagar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
             </div>
           </div>
           <div className="md:col-span-2">
