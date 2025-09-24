@@ -87,7 +87,7 @@ export default function DisputePage() {
 
   const startRaffle = () => {
     localStorage.setItem('words', JSON.stringify(words));
-    localStorage.setItem('disputeAction', JSON.stringify({ type: 'RESET' }));
+    localStorage.setItem('disputeAction', JSON.stringify({ type: 'RESET', timestamp: Date.now() }));
     router.push('/sorteio');
   };
   
