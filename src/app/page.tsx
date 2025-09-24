@@ -1,74 +1,67 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import AppHeader from "@/components/app/header";
-import ImageUploader from "@/components/app/image-uploader";
-import PreviewControls from "@/components/app/preview-controls";
-import ImageGrid from "@/components/app/image-grid";
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useState } from 'react';
+import { AppHeader } from '@/components/app/header';
+import { ParticipantGroup } from '@/components/app/participant-group';
+import { AddParticipantForm } from '@/components/app/add-participant-form';
+import { Button } from '@/components/ui/button';
+import { Upload, Play } from 'lucide-react';
 
-type PreviewDevice = "desktop" | "tablet" | "mobile";
+export type Participant = {
+  id: string;
+  name: string;
+  stars: number;
+  eliminated: boolean;
+};
 
 export default function Home() {
-  const [images, setImages] = useState<File[]>([]);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
+  const [groupA, setGroupA] = useState<Participant[]>([]);
+  const [groupB, setGroupB] = useState<Participant[]>([]);
 
-  useEffect(() => {
-    const placeholderUrls = PlaceHolderImages.map(p => p.imageUrl);
-    setImageUrls(placeholderUrls);
-  }, []);
-
-  useEffect(() => {
-    if (images.length > 0) {
-      const urls = images.map(file => URL.createObjectURL(file));
-      setImageUrls(urls);
-      
-      return () => {
-        urls.forEach(url => URL.revokeObjectURL(url));
-      };
+  const addParticipant = (name: string, group: 'A' | 'B') => {
+    const newParticipant: Participant = {
+      id: `${group}-${Date.now()}`,
+      name,
+      stars: 0,
+      eliminated: false,
+    };
+    if (group === 'A') {
+      setGroupA(prev => [...prev, newParticipant]);
     } else {
-      // Only reset to placeholders if the current URLs are not already the placeholder URLs
-      const placeholderUrls = PlaceHolderImages.map(p => p.imageUrl);
-      if (JSON.stringify(imageUrls) !== JSON.stringify(placeholderUrls)) {
-        setImageUrls(placeholderUrls);
-      }
+      setGroupB(prev => [...prev, newParticipant]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images]);
-
-  const handleClearImages = () => {
-    setImages([]);
   };
 
-  const containerWidthClass = {
-    desktop: "w-full",
-    tablet: "w-[768px]",
-    mobile: "w-[375px]",
-  }[previewDevice];
+  const removeParticipant = (id: string, group: 'A' | 'B') => {
+    if (group === 'A') {
+      setGroupA(prev => prev.filter(p => p.id !== id));
+    } else {
+      setGroupB(prev => prev.filter(p => p.id !== id));
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-8 xl:gap-12">
-          <aside className="w-full lg:w-80 xl:w-96 flex-shrink-0">
-            <div className="sticky top-8 space-y-6">
-              <ImageUploader setImages={setImages} />
-              <PreviewControls
-                images={images}
-                onDeviceChange={setPreviewDevice}
-                onClear={handleClearImages}
-                activeDevice={previewDevice}
-              />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-1 space-y-6">
+            <h2 className="text-2xl font-bold">Controles</h2>
+            <AddParticipantForm onAddParticipant={addParticipant} />
+             <div className="space-y-4">
+               <Button variant="outline" className="w-full">
+                 <Upload className="mr-2 h-4 w-4" />
+                 Importar de Excel
+               </Button>
+               <Button className="w-full" disabled>
+                 <Play className="mr-2 h-4 w-4" />
+                 Iniciar Disputa
+               </Button>
             </div>
-          </aside>
-          <div className="flex-grow flex justify-center lg:items-start min-w-0">
-            <div className={`transition-all duration-500 ease-in-out mx-auto ${containerWidthClass}`}>
-              <div className="border rounded-xl shadow-lg p-2 bg-card/50">
-                <ImageGrid imageUrls={imageUrls} />
-              </div>
-            </div>
+          </div>
+          <div className="md:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <ParticipantGroup title="Grupo A" participants={groupA} onRemove={id => removeParticipant(id, 'A')} />
+            <ParticipantGroup title="Grupo B" participants={groupB} onRemove={id => removeParticipant(id, 'B')}/>
           </div>
         </div>
       </main>
