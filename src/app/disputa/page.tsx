@@ -167,6 +167,10 @@ export default function DisputePage() {
                 </CardContent>
             </Card>
             <div className="flex flex-col gap-2">
+                <Button variant="outline" onClick={openProjection}>
+                    <Projector className="mr-2" />
+                    Abrir Tela de Projeção
+                </Button>
                 <Button 
                     className="w-full" 
                     size="lg" 
@@ -175,10 +179,6 @@ export default function DisputePage() {
                     >
                     <Play className="mr-2" />
                     Começar Sorteio
-                </Button>
-                 <Button variant="outline" onClick={openProjection}>
-                    <Projector className="mr-2" />
-                    Abrir Tela de Projeção
                 </Button>
             </div>
           </div>
