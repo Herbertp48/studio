@@ -9,7 +9,7 @@ export default function ImageGrid({ imageUrls }: ImageGridProps) {
   if (imageUrls.length === 0) {
     return (
       <div className="aspect-video flex items-center justify-center text-muted-foreground">
-        <p>Upload images to begin your showcase.</p>
+        <p>Envie imagens para começar seu mostruário.</p>
       </div>
     );
   }
@@ -28,7 +28,7 @@ export default function ImageGrid({ imageUrls }: ImageGridProps) {
         >
           <Image
             src={url}
-            alt={`Uploaded image ${index + 1}`}
+            alt={`Imagem enviada ${index + 1}`}
             fill
             className="object-cover"
             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"

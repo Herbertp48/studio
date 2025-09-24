@@ -20,16 +20,16 @@ export default function ImageUploader({ setImages }: ImageUploaderProps) {
       const imageFiles = Array.from(files).filter(file => file.type.startsWith("image/"));
       if (imageFiles.length === 0) {
         toast({
-          title: "Invalid File Type",
-          description: "Please upload image files only.",
+          title: "Tipo de arquivo inválido",
+          description: "Por favor, envie apenas arquivos de imagem.",
           variant: "destructive",
         });
         return;
       }
       setImages(imageFiles);
       toast({
-        title: "Images Uploaded",
-        description: `${imageFiles.length} image(s) have been loaded.`,
+        title: "Imagens Enviadas",
+        description: `${imageFiles.length} imagem(ns) foram carregadas.`,
       });
     }
   };
@@ -84,10 +84,10 @@ export default function ImageUploader({ setImages }: ImageUploaderProps) {
       />
       <div className="flex flex-col items-center gap-2 text-muted-foreground">
         <UploadCloud className="w-10 h-10 text-primary" />
-        <p className="font-semibold text-foreground">Drag & drop photos here</p>
-        <p className="text-xs">or</p>
+        <p className="font-semibold text-foreground">Arraste e solte as fotos aqui</p>
+        <p className="text-xs">ou</p>
         <Button type="button" variant="outline" size="sm" className="pointer-events-none rounded-full">
-          Browse Files
+          Procurar Arquivos
         </Button>
       </div>
     </div>

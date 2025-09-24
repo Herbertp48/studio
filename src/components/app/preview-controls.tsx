@@ -61,7 +61,7 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
 
   const handleThemeGeneration = () => {
     if (images.length === 0) {
-      toast({ title: "No Images Uploaded", description: "Please upload images to generate a theme.", variant: "destructive" });
+      toast({ title: "Nenhuma imagem enviada", description: "Por favor, envie imagens para gerar um tema.", variant: "destructive" });
       return;
     }
     startTransition(async () => {
@@ -69,9 +69,9 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
         const photoDataUris = await Promise.all(images.map(fileToBase64));
         const result = await generateThemeAction({ photoDataUris });
         setSuggestedTheme(result.theme);
-        toast({ title: "Theme Suggested!", description: "A new theme has been generated from your images." });
+        toast({ title: "Tema Sugerido!", description: "Um novo tema foi gerado a partir de suas imagens." });
       } catch (error) {
-        toast({ title: "Theme Generation Failed", description: "Could not generate a theme. Please try again.", variant: "destructive" });
+        toast({ title: "Falha na Geração do Tema", description: "Não foi possível gerar um tema. Por favor, tente novamente.", variant: "destructive" });
       }
     });
   };
@@ -87,13 +87,13 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
     document.documentElement.style.removeProperty('--primary');
     document.documentElement.style.removeProperty('--accent');
     setSuggestedTheme(null);
-    toast({ title: "Theme Reset", description: "The theme has been reset to default." });
+    toast({ title: "Tema Redefinido", description: "O tema foi redefinido para o padrão." });
   };
   
   const handleActionClick = (action: string) => {
     toast({
-      title: "Feature Not Implemented",
-      description: `${action} functionality is not yet available.`,
+      title: "Recurso não implementado",
+      description: `A funcionalidade de ${action} ainda não está disponível.`,
     });
   };
 
@@ -102,25 +102,25 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Palette />Theme</CardTitle>
-            <CardDescription>Generate a custom color theme from your photos.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><Palette />Tema</CardTitle>
+            <CardDescription>Gere um tema de cores personalizado a partir de suas fotos.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Button onClick={handleThemeGeneration} disabled={isPending || images.length === 0} className="w-full">
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-              Suggest Theme
+              Sugerir Tema
             </Button>
             {suggestedTheme && (
               <div className="space-y-2 pt-2">
                  <div className="flex items-center justify-between">
-                   <p className="text-sm font-medium">Suggested Colors:</p>
-                   <Button variant="ghost" size="sm" onClick={resetTheme}>Reset</Button>
+                   <p className="text-sm font-medium">Cores Sugeridas:</p>
+                   <Button variant="ghost" size="sm" onClick={resetTheme}>Redefinir</Button>
                  </div>
                  <div className="flex justify-around p-2 rounded-lg bg-muted/50">
                     {[
-                      { label: 'Background', color: suggestedTheme.backgroundColor },
-                      { label: 'Primary', color: suggestedTheme.primaryColor },
-                      { label: 'Accent', color: suggestedTheme.accentColor }
+                      { label: 'Fundo', color: suggestedTheme.backgroundColor },
+                      { label: 'Primária', color: suggestedTheme.primaryColor },
+                      { label: 'Destaque', color: suggestedTheme.accentColor }
                     ].map(item => (
                        <Tooltip key={item.label}>
                          <TooltipTrigger asChild>
@@ -134,7 +134,7 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
                        </Tooltip>
                     ))}
                  </div>
-                 <Button className="w-full" onClick={() => applyTheme(suggestedTheme)}>Apply Theme</Button>
+                 <Button className="w-full" onClick={() => applyTheme(suggestedTheme)}>Aplicar Tema</Button>
               </div>
             )}
           </CardContent>
@@ -142,33 +142,33 @@ export default function PreviewControls({ images, onDeviceChange, onClear, activ
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Monitor />Preview</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Monitor />Visualização</CardTitle>
           </CardHeader>
           <CardContent>
-            <ToggleGroup type="single" value={activeDevice} onValueChange={(value) => value && onDeviceChange(value as PreviewDevice)} className="w-full" aria-label="Device Preview">
-              <ToggleGroupItem value="desktop" aria-label="Desktop preview" className="w-full"><Monitor className="h-4 w-4" /></ToggleGroupItem>
-              <ToggleGroupItem value="tablet" aria-label="Tablet preview" className="w-full"><Tablet className="h-4 w-4" /></ToggleGroupItem>
-              <ToggleGroupItem value="mobile" aria-label="Mobile preview" className="w-full"><Smartphone className="h-4 w-4" /></ToggleGroupItem>
+            <ToggleGroup type="single" value={activeDevice} onValueChange={(value) => value && onDeviceChange(value as PreviewDevice)} className="w-full" aria-label="Visualização do Dispositivo">
+              <ToggleGroupItem value="desktop" aria-label="Visualização Desktop" className="w-full"><Monitor className="h-4 w-4" /></ToggleGroupItem>
+              <ToggleGroupItem value="tablet" aria-label="Visualização Tablet" className="w-full"><Tablet className="h-4 w-4" /></ToggleGroupItem>
+              <ToggleGroupItem value="mobile" aria-label="Visualização Celular" className="w-full"><Smartphone className="h-4 w-4" /></ToggleGroupItem>
             </ToggleGroup>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Info />Actions</CardTitle>
+            <CardTitle className="flex items-center gap-2"><Info />Ações</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Download</Button>
+                <Button variant="outline"><Download className="mr-2 h-4 w-4" />Baixar</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleActionClick('PDF Download')}>Download as PDF</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleActionClick('ZIP Download')}>Download as .zip</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleActionClick('Baixar como PDF')}>Baixar como PDF</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleActionClick('Baixar como .zip')}>Baixar como .zip</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button variant="outline" onClick={() => handleActionClick('Share')}><Share2 className="mr-2 h-4 w-4" />Share</Button>
-            <Button variant="destructive" onClick={onClear} className="col-span-2" disabled={images.length === 0}><Trash2 className="mr-2 h-4 w-4" />Clear</Button>
+            <Button variant="outline" onClick={() => handleActionClick('Compartilhar')}><Share2 className="mr-2 h-4 w-4" />Compartilhar</Button>
+            <Button variant="destructive" onClick={onClear} className="col-span-2" disabled={images.length === 0}><Trash2 className="mr-2 h-4 w-4" />Limpar</Button>
           </CardContent>
         </Card>
       </div>

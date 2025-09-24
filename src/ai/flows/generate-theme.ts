@@ -38,9 +38,9 @@ const prompt = ai.definePrompt({
   name: 'generateThemePrompt',
   input: {schema: GenerateThemeInputSchema},
   output: {schema: GenerateThemeOutputSchema},
-  prompt: `You are a color theme expert. Please analyze the images provided and suggest a color theme that complements the images. The color theme should include a primary color, a background color, and an accent color.
+  prompt: `Você é um especialista em temas de cores. Analise as imagens fornecidas e sugira um tema de cores que complemente as imagens. O tema de cores deve incluir uma cor primária, uma cor de fundo e uma cor de destaque.
 
-Images:
+Imagens:
 {{#each photoDataUris}}
   {{media url=this}}
 {{/each}}`,
