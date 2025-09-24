@@ -176,7 +176,7 @@ export default function ProjectionPage() {
                         </div>
 
                         {/* Vs. */}
-                         <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: '20px' }}>
+                         <div className="absolute left-1/2 -translate-x-1/2" style={{ top: '20px' }}>
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
 
