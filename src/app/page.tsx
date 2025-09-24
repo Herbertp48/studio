@@ -61,9 +61,11 @@ export default function Home() {
   const removeAllParticipants = () => {
     setParticipants([]);
     remove(ref(database, 'participants'));
+    remove(ref(database, 'winners'));
+    remove(ref(database, 'wordlists'));
     toast({
         title: 'Sucesso!',
-        description: 'Todos os participantes foram removidos.',
+        description: 'Todos os dados da aplicação foram removidos.',
     });
     setShowDeleteConfirm(false);
   };
@@ -153,6 +155,7 @@ export default function Home() {
     updateParticipantsInDB(resetedParticipants);
     // Also clear words and dispute state
     set(ref(database, 'dispute'), null);
+    remove(ref(database, 'winners'));
     router.push('/disputa');
   };
 
@@ -205,21 +208,21 @@ export default function Home() {
                </Button>
                <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
                   <AlertDialogTrigger asChild>
-                     <Button variant="destructive" className="w-full" disabled={participants.length === 0}>
+                     <Button variant="destructive" className="w-full">
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Apagar Todos os Participantes
+                        Apagar Todos os Dados
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Essa ação não pode ser desfeita. Todos os participantes serão removidos permanentemente.
+                        Essa ação não pode ser desfeita. Todos os dados da aplicação (participantes, listas de palavras e ganhadores) serão removidos.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={removeAllParticipants}>Apagar</AlertDialogAction>
+                      <AlertDialogAction onClick={removeAllParticipants}>Apagar Tudo</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>

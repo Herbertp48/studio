@@ -1,4 +1,4 @@
-import { SpellCheck, Home, List, Dices } from 'lucide-react';
+import { SpellCheck, Home, List, Dices, Trophy } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
@@ -11,6 +11,7 @@ export function AppHeader() {
     { href: '/', label: 'Início', icon: Home },
     { href: '/disputa', label: 'Disputa', icon: List },
     { href: '/sorteio', label: 'Sorteio', icon: Dices },
+    { href: '/ganhadores', label: 'Ganhadores', icon: Trophy },
   ];
 
   return (

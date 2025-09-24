@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, update } from 'firebase/database';
+import { ref, set, onValue, update, push } from 'firebase/database';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 
@@ -204,6 +204,14 @@ export default function RafflePage() {
       return;
     }
     
+    // Save winner to the 'winners' list
+    const newWinnerEntryRef = push(ref(database, 'winners'));
+    await set(newWinnerEntryRef, {
+      name: winner.name,
+      word: currentWord,
+      stars: 1
+    });
+
     const updates: any = {};
     const newStars = (winnerInDb.stars || 0) + 1;
     
@@ -418,5 +426,3 @@ export default function RafflePage() {
     </div>
   );
 }
-
-    
