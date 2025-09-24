@@ -177,7 +177,7 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className={cn("flex w-full items-center justify-center px-16 transition-opacity duration-300", showWord ? 'opacity-0' : 'opacity-100')}>
+                <div className={cn("flex w-full items-center justify-center px-16 transition-opacity duration-300", showWord ? 'pt-48' : 'pt-0')}>
                     <div className="flex-1 text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                     </div>
