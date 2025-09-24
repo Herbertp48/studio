@@ -18,18 +18,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, get, child, update } from 'firebase/database';
+import { ref, set, onValue, update } from 'firebase/database';
 
 
-type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished';
+type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished' | 'shuffling';
 type DisputeState = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
     winner?: Participant | null;
     loser?: Participant | null;
     finalWinner?: Participant | null;
+    activeParticipants?: Participant[];
 }
 
 const setDisputeState = (state: DisputeState | null) => {
@@ -124,14 +125,19 @@ export default function RafflePage() {
       }
       return;
     }
-    
-    const shuffled = activeParticipants.sort(() => 0.5 - Math.random());
-    const participantA = shuffled[0];
-    const participantB = shuffled[1];
 
-    setCurrentDuel({ participantA, participantB });
-    setRaffleState('participants_sorted');
-    setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
+    setRaffleState('shuffling');
+    setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', activeParticipants });
+    
+    setTimeout(() => {
+        const shuffled = activeParticipants.sort(() => 0.5 - Math.random());
+        const participantA = shuffled[0];
+        const participantB = shuffled[1];
+
+        setCurrentDuel({ participantA, participantB });
+        setRaffleState('participants_sorted');
+        setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
+    }, 4000); // Animation duration
   };
 
   const sortWord = () => {
@@ -162,23 +168,26 @@ export default function RafflePage() {
     let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
     const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
     
-    const winnerIndex = participants.findIndex(p => p.id === winner.id);
-    const loserIndex = participants.findIndex(p => p.id === loser.id);
-    
-    if (winnerIndex === -1 || loserIndex === -1) {
-        toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
-        return;
-    }
+    const winnerInDb = participants.find(p => p.id === winner.id);
+    const loserInDb = participants.find(p => p.id === loser.id);
 
-    const updates: any = {};
-    const newStars = (participants[winnerIndex].stars || 0) + 1;
+    if (!winnerInDb || !loserInDb) {
+      toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado para atualização." });
+      return;
+    }
     
-    updates[`/participants/all/${winnerIndex}/stars`] = newStars;
-    updates[`/participants/all/${loserIndex}/eliminated`] = true;
+    const updates: any = {};
+    const newStars = (winnerInDb.stars || 0) + 1;
+    
+    updates[`participants/all/${participants.findIndex(p => p.id === winner.id)}/stars`] = newStars;
+    updates[`participants/all/${participants.findIndex(p => p.id === loser.id)}/eliminated`] = true;
     
     await update(ref(database), updates);
     
     const updatedParticipants = [...participants];
+    const winnerIndex = updatedParticipants.findIndex(p => p.id === winner.id);
+    const loserIndex = updatedParticipants.findIndex(p => p.id === loser.id);
+    
     winner = { ...winner, stars: newStars };
     updatedParticipants[winnerIndex] = winner;
     updatedParticipants[loserIndex] = { ...loser, eliminated: true };
@@ -219,6 +228,16 @@ export default function RafflePage() {
     
     const activeParticipantsCount = participants.filter(p => !p.eliminated).length;
 
+    if (raffleState === 'shuffling') {
+      return (
+        <div className="text-center flex flex-col items-center gap-6">
+          <h2 className="text-3xl font-bold">Embaralhando...</h2>
+          <p className="text-lg text-muted-foreground">Aguarde, os participantes estão sendo sorteados.</p>
+          <Dices className="animate-spin h-10 w-10 text-primary" />
+        </div>
+      );
+    }
+    
     if (raffleState === 'idle') {
       return (
         <div className="text-center flex flex-col items-center gap-6">

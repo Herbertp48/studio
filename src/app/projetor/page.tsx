@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
 import { Crown, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,13 +9,14 @@ import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
 
 type DisputeState = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
     winner?: Participant | null;
     loser?: Participant | null;
     finalWinner?: Participant | null;
+    activeParticipants?: Participant[];
 }
 
 const getInitialState = () => ({
@@ -25,6 +26,7 @@ const getInitialState = () => ({
     showWord: false,
     winnerMessage: null,
     finalWinner: null,
+    isShuffling: false,
 });
 
 export default function ProjectionPage() {
@@ -34,14 +36,27 @@ export default function ProjectionPage() {
     const [showWord, setShowWord] = useState(false);
     const [winnerMessage, setWinnerMessage] = useState<{ winner?: Participant, loser?: Participant, word?: string} | null>(null);
     const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
+    const [isShuffling, setIsShuffling] = useState(false);
 
     const [animationKey, setAnimationKey] = useState(0);
+    const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
+
+
+    const stopShuffling = () => {
+        if (shufflingInterval.current) {
+            clearInterval(shufflingInterval.current);
+            shufflingInterval.current = null;
+        }
+        setIsShuffling(false);
+    }
 
     useEffect(() => {
         const disputeStateRef = ref(database, 'dispute/state');
 
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeState = snapshot.val();
+            
+            stopShuffling();
 
             if (!action) {
                 const s = getInitialState();
@@ -51,6 +66,7 @@ export default function ProjectionPage() {
                 setShowWord(s.showWord);
                 setWinnerMessage(s.winnerMessage);
                 setFinalWinner(s.finalWinner);
+                setIsShuffling(s.isShuffling);
                 return;
             };
 
@@ -64,8 +80,27 @@ export default function ProjectionPage() {
                     setShowWord(s.showWord);
                     setWinnerMessage(s.winnerMessage);
                     setFinalWinner(s.finalWinner);
+                    setIsShuffling(s.isShuffling);
+                    break;
+                case 'SHUFFLING_PARTICIPANTS':
+                    setIsShuffling(true);
+                    setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
+                    setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
+                    setWord(null);
+                    setShowWord(false);
+                    setWinnerMessage(null);
+                    setFinalWinner(null);
+                    const activeParticipants = action.activeParticipants || [];
+                    if (activeParticipants.length > 1) {
+                        shufflingInterval.current = setInterval(() => {
+                            const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
+                            setParticipantA(shuffled[0]);
+                            setParticipantB(shuffled[1]);
+                        }, 100);
+                    }
                     break;
                 case 'UPDATE_PARTICIPANTS':
+                    stopShuffling();
                     setParticipantA(action.participantA || null);
                     setParticipantB(action.participantB || null);
                     setWord(null);
@@ -101,7 +136,10 @@ export default function ProjectionPage() {
             }
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            stopShuffling();
+        };
     }, []);
     
     useEffect(() => {
@@ -124,7 +162,7 @@ export default function ProjectionPage() {
             </header>
 
             <div id="Psorteio-box" className="mt-12 text-center text-white w-[80%] flex-1 flex flex-col justify-center items-center font-melison">
-                <h2 id="Sbtitulo" className="text-8xl font-bold text-[#fdc244] uppercase">The Word Is</h2>
+                <h2 id="Sbtitulo" className="text-8xl font-bold text-[#fdc244] uppercase">{isShuffling ? 'Sorteando...' : 'The Word Is'}</h2>
                 <div id="premio-box" className={cn("mt-4 h-32 flex items-center justify-center bg-[#f4bb47] text-[#6d21db] rounded-2xl w-[30%] font-subjectivity", !showWord && 'invisible')}>
                     <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
                         {word || '...'}
