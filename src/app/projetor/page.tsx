@@ -65,7 +65,6 @@ export default function ProjectionPage() {
             clearInterval(shufflingInterval.current);
             shufflingInterval.current = null;
         }
-        stopSound();
         setIsShuffling(false);
     }
 
@@ -89,6 +88,7 @@ export default function ProjectionPage() {
 
             switch (action.type) {
                 case 'RESET':
+                    stopSound();
                     stopShuffling();
                     setAnimationKey(0);
                     const s = getInitialState();
@@ -121,7 +121,7 @@ export default function ProjectionPage() {
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShuffling();
-                    playSound('sino.mp3');
+                    playSound('sinos.mp3');
                     setIsShuffling(false);
                     setParticipantA(action.participantA || null);
                     setParticipantB(action.participantB || null);
@@ -142,6 +142,7 @@ export default function ProjectionPage() {
                      setWinnerMessage(null);
                      break;
                 case 'ROUND_WINNER':
+                    stopSound();
                     stopShuffling();
                     playSound('vencedor.mp3');
                     setIsShuffling(false);
@@ -150,6 +151,7 @@ export default function ProjectionPage() {
                     setWinnerMessage({ winner: action.winner, loser: action.loser, word: action.word });
                     break;
                 case 'FINAL_WINNER':
+                    stopSound();
                     stopShuffling();
                     playSound('vencedor.mp3');
                     setIsShuffling(false);
