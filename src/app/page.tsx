@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { ParticipantGroup } from '@/components/app/participant-group';
 import { AddParticipantForm } from '@/components/app/add-participant-form';
 import { Button } from '@/components/ui/button';
 import { Upload, Play } from 'lucide-react';
-import { read, utils, WorkSheet } from 'xlsx';
+import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 
 export type Participant = {
@@ -21,6 +22,7 @@ export default function Home() {
   const [groupB, setGroupB] = useState<Participant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   const addParticipant = (name: string, group: 'A' | 'B') => {
     const newParticipant: Participant = {
@@ -142,6 +144,11 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
+  const startDispute = () => {
+    localStorage.setItem('participants', JSON.stringify({ groupA, groupB }));
+    router.push('/disputa');
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
@@ -162,7 +169,11 @@ export default function Home() {
                  <Upload className="mr-2 h-4 w-4" />
                  Importar de Excel
                </Button>
-               <Button className="w-full" disabled={groupA.length === 0 || groupB.length === 0}>
+               <Button 
+                className="w-full" 
+                disabled={groupA.length === 0 || groupB.length === 0}
+                onClick={startDispute}
+               >
                  <Play className="mr-2 h-4 w-4" />
                  Iniciar Disputa
                </Button>
