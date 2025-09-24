@@ -96,7 +96,8 @@ export default function RafflePage() {
         setShowFinalWinnerDialog(true);
         setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
     } else if (activeParticipants.length === 0 && currentParticipants.length > 0) {
-        const winner = currentParticipants.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
+        // This case handles a tie or if all are eliminated at once
+        const winner = currentParticipants.sort((a,b) => b.stars - a.stars)[0];
         setFinalWinner(winner);
         setShowFinalWinnerDialog(true);
         setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
@@ -160,6 +161,11 @@ export default function RafflePage() {
     const winnerIndex = participants.findIndex(p => p.id === winner.id);
     const loserIndex = participants.findIndex(p => p.id === loser.id);
     
+    if (winnerIndex === -1 || loserIndex === -1) {
+        toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
+        return;
+    }
+
     const updates: any = {};
     const newStars = (participants[winnerIndex].stars || 0) + 1;
     
@@ -168,7 +174,7 @@ export default function RafflePage() {
     
     await update(ref(database), updates);
     
-    winner.stars = newStars;
+    winner.stars = newStars; // Update local state for UI
     setRoundWinner(winner);
 
     setDisputeState({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
@@ -179,11 +185,14 @@ export default function RafflePage() {
     
     setRaffleState('round_finished');
     
-    const dbRef = ref(database);
-    const snapshot = await get(child(dbRef, 'participants/all'));
-    if(snapshot.exists()) {
-        setTimeout(() => checkForWinner(snapshot.val()), 100);
-    }
+    // Use a small timeout to allow the database to update before checking for a final winner
+    setTimeout(() => {
+        get(child(ref(database), 'participants/all')).then((snapshot) => {
+            if(snapshot.exists()) {
+                checkForWinner(snapshot.val());
+            }
+        });
+    }, 500);
   };
   
   const nextRound = () => {
@@ -204,19 +213,19 @@ export default function RafflePage() {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
     }
     
-    const activeParticipants = participants.filter(p => !p.eliminated).length;
+    const activeParticipantsCount = participants.filter(p => !p.eliminated).length;
 
     if (raffleState === 'idle') {
       return (
         <div className="text-center flex flex-col items-center gap-6">
           <h2 className="text-3xl font-bold">Próxima Rodada</h2>
           <div className="text-lg text-muted-foreground">
-            <p>{activeParticipants} participantes ativos</p>
+            <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipants < 2}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {activeParticipants < 2 && participants.length > 0 && !finalWinner && (
+          {activeParticipantsCount < 2 && participants.length > 0 && !finalWinner && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
         </div>
@@ -270,7 +279,7 @@ export default function RafflePage() {
             <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
                 <Star /> Ganhou 1 estrela!
             </p>
-            <p className="text-muted-foreground">{activeParticipants} participantes restantes</p>
+            <p className="text-muted-foreground">{activeParticipantsCount} participantes restantes</p>
             <Button size="lg" onClick={nextRound} disabled={finalWinner != null}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )
