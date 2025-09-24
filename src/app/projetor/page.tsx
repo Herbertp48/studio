@@ -40,6 +40,23 @@ export default function ProjectionPage() {
 
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const playSound = (soundFile: string, loop = false) => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+        }
+        audioRef.current = new Audio(`/som/${soundFile}`);
+        audioRef.current.loop = loop;
+        audioRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
+    };
+    
+    const stopSound = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+    };
 
 
     const stopShuffling = () => {
@@ -90,6 +107,7 @@ export default function ProjectionPage() {
                     setWord(null);
                     setWinnerMessage(null);
                     setFinalWinner(null);
+                    playSound('tambor.mp3', true);
                     const activeParticipants = action.activeParticipants || [];
                     if (activeParticipants.length > 1) {
                         shufflingInterval.current = setInterval(() => {
@@ -101,6 +119,8 @@ export default function ProjectionPage() {
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShuffling();
+                    stopSound();
+                    playSound('sino.mp3');
                     setIsShuffling(false);
                     setParticipantA(action.participantA || null);
                     setParticipantB(action.participantB || null);
@@ -110,6 +130,7 @@ export default function ProjectionPage() {
                     setFinalWinner(null);
                     break;
                 case 'SHOW_WORD':
+                    playSound('premio.mp3');
                     setWord(action.word || null);
                     setShowWord(true);
                     setWinnerMessage(null);
@@ -121,6 +142,7 @@ export default function ProjectionPage() {
                      break;
                 case 'ROUND_WINNER':
                     stopShuffling();
+                    playSound('vencedor.mp3');
                     setIsShuffling(false);
                     setAnimationKey(prev => prev + 1);
                     setShowWord(false);
@@ -128,6 +150,7 @@ export default function ProjectionPage() {
                     break;
                 case 'FINAL_WINNER':
                     stopShuffling();
+                    playSound('vencedor.mp3');
                     setIsShuffling(false);
                     setAnimationKey(prev => prev + 1);
                     const finalState = getInitialState();
@@ -144,6 +167,7 @@ export default function ProjectionPage() {
         return () => {
             unsubscribe();
             stopShuffling();
+            stopSound();
         };
     }, []);
 
@@ -170,17 +194,12 @@ export default function ProjectionPage() {
 
                 <div className="relative w-full flex-1 flex items-center justify-center">
                     <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
-                        {/* Participant A */}
                         <div className="col-start-2 col-span-4 text-center">
                              <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
                         </div>
-
-                        {/* Vs. */}
-                         <div className="col-span-2 text-center">
+                        <div className="col-span-2 text-center">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
-
-                        {/* Participant B */}
                         <div className="col-span-4 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
                         </div>
@@ -253,3 +272,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
