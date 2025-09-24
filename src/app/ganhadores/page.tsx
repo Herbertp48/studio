@@ -5,7 +5,7 @@ import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Star, Trash2, Download } from 'lucide-react';
+import { Star, Trash2, Download, Trophy } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue, remove } from 'firebase/database';
 import { utils, writeFile } from 'xlsx';
