@@ -121,6 +121,7 @@ export default function ProjectionPage() {
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShuffling();
+                    stopSound();
                     playSound('sinos.mp3');
                     setIsShuffling(false);
                     setParticipantA(action.participantA || null);
