@@ -158,37 +158,39 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
-            <header className="flex items-center gap-4 text-accent mt-8">
+         <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
+            <header className="flex items-center gap-4 text-accent">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
                 </h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
             
-            <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center">
-                 <div className={cn("absolute top-1/4 w-full flex flex-col items-center", !showWord && 'invisible')}>
-                    <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
-                    <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-1/3 font-subjectivity">
-                        <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
-                            {word || '...'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-around items-center px-16">
+            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+                 
+                <div className="flex w-full items-center justify-around px-16">
                     <div className="w-2/5 text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                     </div>
-                    <div className="w-1/5 text-center">
-                        <h3 className="text-8xl font-bold mx-8 font-melison">Vs.</h3>
+
+                    <div className="w-1/5 text-center flex flex-col items-center justify-center">
+                        <div className={cn("flex flex-col items-center transition-opacity duration-300", showWord ? 'opacity-100' : 'opacity-0')}>
+                            <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
+                            <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-md font-subjectivity">
+                                <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
+                                    {word || '...'}
+                                </p>
+                            </div>
+                        </div>
+                         <h3 className={cn("text-8xl font-bold mx-8 font-melison transition-opacity duration-300", showWord ? 'opacity-100' : 'opacity-0', 'mt-4')}>Vs.</h3>
                     </div>
+
                     <div className="w-2/5 text-center">
                        <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
                     </div>
                 </div>
             </div>
-             {/* Placeholder for the logo */}
+
             <div className="absolute bottom-4 right-4 w-32 h-16">
                  {/* You can place your logo component or an <img> tag here */}
             </div>
