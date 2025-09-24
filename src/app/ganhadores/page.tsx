@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Star, Trash2, Download, Trophy } from 'lucide-react';
+import { Star, Trash2, Download, Trophy, Projector } from 'lucide-react';
 import { database } from '@/lib/firebase';
-import { ref, onValue, remove } from 'firebase/database';
+import { ref, onValue, remove, set } from 'firebase/database';
 import { utils, writeFile } from 'xlsx';
 import {
   AlertDialog,
@@ -28,11 +28,16 @@ type Winner = {
   stars: number;
 };
 
-type AggregatedWinner = {
+export type AggregatedWinner = {
     name: string;
     words: { [key: string]: number };
     totalStars: number;
 }
+
+const setDisputeState = (state: any) => {
+    set(ref(database, 'dispute/state'), state);
+}
+
 
 export default function WinnersPage() {
   const [winners, setWinners] = useState<AggregatedWinner[]>([]);
@@ -78,6 +83,11 @@ export default function WinnersPage() {
     writeFile(workbook, 'ganhadores.xlsx');
   };
 
+  const projectWinners = () => {
+    setDisputeState({ type: 'SHOW_WINNERS', winners });
+    toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
@@ -107,6 +117,7 @@ export default function WinnersPage() {
                         </AlertDialogContent>
                     </AlertDialog>
                     <Button onClick={exportToExcel} disabled={winners.length === 0}><Download className="mr-2" /> Exportar</Button>
+                    <Button onClick={projectWinners} disabled={winners.length === 0}><Projector className="mr-2" /> Projetar</Button>
                 </div>
             </div>
           </CardHeader>

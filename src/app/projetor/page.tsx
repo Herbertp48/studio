@@ -7,9 +7,11 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
+import type { AggregatedWinner } from '@/app/ganhadores/page';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type DisputeState = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
@@ -17,6 +19,7 @@ type DisputeState = {
     loser?: Participant | null;
     finalWinner?: Participant | null;
     activeParticipants?: Participant[];
+    winners?: AggregatedWinner[];
 }
 
 const getInitialState = () => ({
@@ -27,6 +30,8 @@ const getInitialState = () => ({
     winnerMessage: null,
     finalWinner: null,
     isShuffling: false,
+    showWinners: false,
+    winners: [],
 });
 
 export default function ProjectionPage() {
@@ -37,6 +42,9 @@ export default function ProjectionPage() {
     const [winnerMessage, setWinnerMessage] = useState<{ winner?: Participant, loser?: Participant, word?: string} | null>(null);
     const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
     const [isShuffling, setIsShuffling] = useState(false);
+    const [showWinners, setShowWinners] = useState(false);
+    const [winners, setWinners] = useState<AggregatedWinner[]>([]);
+
 
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
@@ -83,6 +91,8 @@ export default function ProjectionPage() {
                 setWinnerMessage(s.winnerMessage);
                 setFinalWinner(s.finalWinner);
                 setIsShuffling(s.isShuffling);
+                setShowWinners(s.showWinners);
+                setWinners(s.winners);
                 return;
             };
 
@@ -99,6 +109,8 @@ export default function ProjectionPage() {
                     setWinnerMessage(s.winnerMessage);
                     setFinalWinner(s.finalWinner);
                     setIsShuffling(s.isShuffling);
+                    setShowWinners(s.showWinners);
+                    setWinners(s.winners);
                     break;
                 case 'SHUFFLING_PARTICIPANTS':
                     stopShuffling();
@@ -109,6 +121,7 @@ export default function ProjectionPage() {
                     setWord(null);
                     setWinnerMessage(null);
                     setFinalWinner(null);
+                    setShowWinners(false);
                     playSound('tambor.mp3', true);
                     const activeParticipants = action.activeParticipants || [];
                     if (activeParticipants.length > 1) {
@@ -130,12 +143,14 @@ export default function ProjectionPage() {
                     setShowWord(false);
                     setWinnerMessage(null);
                     setFinalWinner(null);
+                    setShowWinners(false);
                     break;
                 case 'SHOW_WORD':
                     playSound('premio.mp3');
                     setWord(action.word || null);
                     setShowWord(true);
                     setWinnerMessage(null);
+                    setShowWinners(false);
                     break;
                 case 'HIDE_WORD':
                      setShowWord(false);
@@ -164,6 +179,19 @@ export default function ProjectionPage() {
                     setShowWord(finalState.showWord);
                     setWinnerMessage(finalState.winnerMessage);
                     setFinalWinner(action.finalWinner || null);
+                    setShowWinners(false);
+                    break;
+                case 'SHOW_WINNERS':
+                    const resetState = getInitialState();
+                    setParticipantA(resetState.participantA);
+                    setParticipantB(resetState.participantB);
+                    setWord(resetState.word);
+                    setShowWord(resetState.showWord);
+                    setWinnerMessage(resetState.winnerMessage);
+                    setFinalWinner(resetState.finalWinner);
+                    setIsShuffling(resetState.isShuffling);
+                    setShowWinners(true);
+                    setWinners(action.winners || []);
                     break;
             }
         });
@@ -177,7 +205,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500", (winnerMessage || finalWinner) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500", (winnerMessage || finalWinner || showWinners) ? 'opacity-0 invisible' : 'opacity-100 visible')}>
             <header className="flex items-center gap-4 text-accent">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -267,12 +295,51 @@ export default function ProjectionPage() {
         )
     }
 
+    const WinnersTable = () => {
+        if (!showWinners || winners.length === 0) return null;
+
+        return (
+            <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8">
+                <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8">
+                    Quadro de Ganhadores
+                </h1>
+                <div className="w-full max-w-6xl bg-stone-50/90 rounded-2xl shadow-2xl p-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="border-0">
+                                <TableHead className="w-1/2 text-center text-accent-foreground font-bold text-5xl font-melison py-4">Nome</TableHead>
+                                <TableHead className="w-1/2 text-center text-accent-foreground font-bold text-5xl font-melison py-4">Estrelas</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {winners.map((winner) => (
+                                <TableRow key={winner.name} className="border-t-4 border-amber-300">
+                                <TableCell className="font-bold text-accent-foreground text-center text-4xl p-6 font-subjectivity">
+                                    {winner.name}
+                                </TableCell>
+                                <TableCell className="text-center p-6">
+                                    <div className="flex items-center justify-center gap-2">
+                                    {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                        <Star key={i} className="w-10 h-10 text-yellow-400 fill-yellow-400" />
+                                    ))}
+                                    </div>
+                                </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
+        )
+    }
+
 
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
             <MainContent />
             <WinnerMessage />
             <FinalWinnerMessage />
+            <WinnersTable />
         </div>
     );
 }
