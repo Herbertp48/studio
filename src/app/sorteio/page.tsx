@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper } from 'lucide-react';
+import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -219,6 +219,10 @@ export default function RafflePage() {
     setDisputeAction({ type: 'RESET' });
     if(participants) checkForWinner(participants);
   }
+  
+  const openProjection = () => {
+    window.open('/projetor', '_blank', 'width=1920,height=1080');
+  }
 
   const renderState = () => {
     if (!participants) {
@@ -305,12 +309,19 @@ export default function RafflePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex items-center justify-center">
+      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center">
         <Card className="w-full max-w-2xl min-h-[28rem] flex items-center justify-center shadow-2xl">
             <CardContent className="pt-10 w-full">
                 {renderState()}
             </CardContent>
         </Card>
+        
+        <div className="mt-8">
+            <Button variant="outline" onClick={openProjection}>
+                <Projector className="mr-2" />
+                Abrir Tela de Projeção
+            </Button>
+        </div>
 
         <AlertDialog open={showFinalWinnerDialog} onOpenChange={setShowFinalWinnerDialog}>
             <AlertDialogContent>
@@ -336,3 +347,5 @@ export default function RafflePage() {
     </div>
   );
 }
+
+    

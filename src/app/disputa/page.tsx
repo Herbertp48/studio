@@ -6,7 +6,7 @@ import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { List, Trash2, Play, Upload, Projector } from 'lucide-react';
+import { List, Trash2, Play, Upload } from 'lucide-react';
 import type { Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
@@ -90,10 +90,6 @@ export default function DisputePage() {
     localStorage.setItem('disputeAction', JSON.stringify({ type: 'RESET', timestamp: Date.now() }));
     router.push('/sorteio');
   };
-  
-  const openProjection = () => {
-    window.open('/projetor', '_blank', 'width=1920,height=1080');
-  }
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -167,10 +163,6 @@ export default function DisputePage() {
                 </CardContent>
             </Card>
             <div className="flex flex-col gap-2">
-                <Button variant="outline" onClick={openProjection}>
-                    <Projector className="mr-2" />
-                    Abrir Tela de Projeção
-                </Button>
                 <Button 
                     className="w-full" 
                     size="lg" 
@@ -187,3 +179,5 @@ export default function DisputePage() {
     </div>
   );
 }
+
+    
