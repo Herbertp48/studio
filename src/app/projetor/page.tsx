@@ -159,7 +159,7 @@ export default function ProjectionPage() {
             
             <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
                  
-                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300", showWord ? 'opacity-100' : 'opacity-0')}>
+                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl font-subjectivity">
                         <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em] break-all px-4">
@@ -169,9 +169,9 @@ export default function ProjectionPage() {
                 </div>
 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-center justify-center">
+                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-center justify-center h-full">
                         {/* Participant A */}
-                        <div className="absolute left-0 w-1/3 text-center">
+                        <div className="absolute left-0 w-1/3 text-center max-w-md mx-auto">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantA?.name || 'Participante A'}</h3>
                         </div>
 
@@ -181,7 +181,7 @@ export default function ProjectionPage() {
                         </div>
 
                         {/* Participant B */}
-                        <div className="absolute right-0 w-1/3 text-center">
+                        <div className="absolute right-0 w-1/3 text-center max-w-md mx-auto">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity truncate">{participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
@@ -200,12 +200,12 @@ export default function ProjectionPage() {
 
         return (
              <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8">
-                 <header className="flex items-center gap-4 text-accent mb-8">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">
                         Spelling Bee
                     </h1>
                     <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
-                </header>
+                </div>
 
                 <div id="mensagem-vencedor" className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
                      <div className="text-6xl mb-6 inline-block">
