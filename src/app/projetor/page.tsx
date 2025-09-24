@@ -83,8 +83,8 @@ export default function ProjectionPage() {
                     break;
                 case 'SHUFFLING_PARTICIPANTS':
                     stopShuffling();
-                    setIsShuffling(true);
                     setShowWord(false);
+                    setIsShuffling(true);
                     setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setWord(null);
@@ -157,7 +157,7 @@ export default function ProjectionPage() {
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
             
-            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-start items-center">
+            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
                  
                  <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0')}>
                     <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
@@ -168,8 +168,8 @@ export default function ProjectionPage() {
                     </div>
                 </div>
 
-                <div className="relative w-full flex-1 flex items-start justify-center pt-20">
-                    <div id="disputa-container" className="flex items-center justify-center w-full">
+                <div className="relative w-full flex-1 flex items-center justify-center">
+                    <div id="disputa-container" className={cn("flex items-center justify-center w-full", showWord ? 'mt-16' : '')}>
                         {/* Participant A */}
                         <div className="w-1/3 text-center">
                              <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
