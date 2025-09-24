@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { List, Trash2, Play } from 'lucide-react';
+import { List, Trash2, Play, Upload } from 'lucide-react';
 import type { Participant } from '@/app/page';
+import { read, utils } from 'xlsx';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DisputePage() {
   const [words, setWords] = useState<string[]>([]);
   const [newWord, setNewWord] = useState('');
   const [participants, setParticipants] = useState<{ groupA: Participant[], groupB: Participant[] } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const storedParticipants = localStorage.getItem('participants');
@@ -30,6 +34,55 @@ export default function DisputePage() {
   const removeWord = (index: number) => {
     setWords(prev => prev.filter((_, i) => i !== index));
   };
+  
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
+        
+        if (json.length === 0) {
+            throw new Error("A planilha está vazia.");
+        }
+
+        const newWords = json
+          .map(row => String(row[0]).trim())
+          .filter(word => word && word.length > 0);
+
+        setWords(prev => [...prev, ...newWords]);
+
+        toast({
+          title: 'Sucesso!',
+          description: 'Palavras importadas com sucesso.',
+        });
+
+      } catch (error) {
+        console.error("Erro ao importar arquivo de palavras:", error);
+        toast({
+          variant: "destructive",
+          title: 'Erro de Importação',
+          description: 'Não foi possível ler o arquivo. Verifique se a primeira coluna contém as palavras.',
+        });
+      } finally {
+        if(fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -51,6 +104,19 @@ export default function DisputePage() {
                     onKeyDown={(e) => e.key === 'Enter' && addWord()}
                   />
                   <Button onClick={addWord}>Adicionar</Button>
+                </div>
+                 <div className="space-y-4 mb-4">
+                   <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileUpload}
+                      className="hidden" 
+                      accept=".xlsx, .xls"
+                    />
+                   <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
+                     <Upload className="mr-2 h-4 w-4" />
+                     Importar Palavras do Excel
+                   </Button>
                 </div>
                 <ul className="space-y-2 max-h-80 overflow-y-auto">
                   {words.length > 0 ? words.map((word, index) => (
