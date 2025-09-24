@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { List, Trash2, Play, Upload, Projector, PlusCircle } from 'lucide-react';
+import { List, Trash2, Play, Upload, Projector, PlusCircle, FileText } from 'lucide-react';
 import type { Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, push, remove as removeDb } from 'firebase/database';
+import { ref, set, onValue, push, remove as removeDb, get, child } from 'firebase/database';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +24,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Textarea } from '@/components/ui/textarea';
 
 
 export type WordList = {
@@ -37,6 +48,8 @@ export default function DisputePage() {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [newWord, setNewWord] = useState('');
   const [newListName, setNewListName] = useState('');
+  const [massImportText, setMassImportText] = useState('');
+  const [isMassImportDialogOpen, setIsMassImportDialogOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -159,6 +172,69 @@ export default function DisputePage() {
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
   };
+
+  const handleMassImport = async () => {
+    if (!massImportText.trim()) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'O campo de texto está vazio.'});
+        return;
+    }
+
+    try {
+        const wordListsRef = ref(database, 'wordlists');
+        const snapshot = await get(wordListsRef);
+        const existingLists: WordList[] = snapshot.exists() 
+            ? Object.entries(snapshot.val()).map(([id, list]: [string, any]) => ({ id, ...list }))
+            : [];
+
+        const groups = massImportText.split(/--{10,}/);
+        const newLists: { [key: string]: string[] } = {};
+
+        for (const group of groups) {
+            if (!group.trim()) continue;
+            
+            const lines = group.trim().split('\n');
+            const firstLine = lines[0];
+            const match = firstLine.match(/^(.+?):/);
+            
+            if (!match) continue;
+
+            const listName = match[1].trim();
+            const wordsContent = group.substring(match[0].length);
+            const words = wordsContent.split(' - ')
+                                      .map(w => w.trim().replace(/\n/g, ' '))
+                                      .filter(w => w.length > 0);
+
+            if (!newLists[listName]) {
+                newLists[listName] = [];
+            }
+            newLists[listName].push(...words);
+        }
+        
+        for (const listName in newLists) {
+            const uniqueWords = Array.from(new Set(newLists[listName]));
+            const existingList = existingLists.find(l => l.name === listName);
+
+            if (existingList) {
+                // Merge words, avoiding duplicates
+                const updatedWords = Array.from(new Set([...(existingList.words || []), ...uniqueWords]));
+                updateWordsInDB(existingList.id, updatedWords);
+            } else {
+                // Create new list
+                const newListRef = push(wordListsRef);
+                set(newListRef, { name: listName, words: uniqueWords });
+            }
+        }
+        
+        toast({ title: 'Sucesso!', description: 'Listas de palavras importadas e atualizadas.'});
+        setMassImportText('');
+        setIsMassImportDialogOpen(false);
+
+    } catch (error) {
+        console.error("Erro na importação em massa:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Ocorreu um erro ao importar as listas.'});
+    }
+};
+
   
   const openProjection = () => {
     window.open('/projetor', '_blank', 'width=1920,height=1080');
@@ -265,7 +341,7 @@ export default function DisputePage() {
                   />
                   <Button onClick={addWord}>Adicionar</Button>
                 </div>
-                 <div className="space-y-4 mb-4">
+                 <div className="grid grid-cols-2 gap-4 mb-4">
                    <input 
                       type="file" 
                       ref={fileInputRef} 
@@ -275,8 +351,38 @@ export default function DisputePage() {
                     />
                    <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
                      <Upload className="mr-2 h-4 w-4" />
-                     Importar Palavras do Excel
+                     Importar Excel
                    </Button>
+                    <Dialog open={isMassImportDialogOpen} onOpenChange={setIsMassImportDialogOpen}>
+                      <DialogTrigger asChild>
+                         <Button variant="outline" className="w-full">
+                            <FileText className="mr-2 h-4 w-4" />
+                            Importar Texto
+                         </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[600px]">
+                        <DialogHeader>
+                          <DialogTitle>Importação em Massa</DialogTitle>
+                          <DialogDescription>
+                            Cole o conteúdo do seu arquivo (.doc, .txt, etc.) abaixo. O sistema irá separar as listas e palavras automaticamente.
+                            O formato esperado é "Nome da Lista: PALAVRA1 - PALAVRA2" e as listas separadas por "----------".
+                          </DialogDescription>
+                        </DialogHeader>
+                        <Textarea 
+                            placeholder="Ex: 2° ano: HELLO - WORLD..."
+                            className="min-h-[250px] mt-4"
+                            value={massImportText}
+                            onChange={(e) => setMassImportText(e.target.value)}
+                        />
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="secondary">Cancelar</Button>
+                            </DialogClose>
+                            <Button onClick={handleMassImport} disabled={!massImportText.trim()}>Importar Listas</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
                 </div>
                 <ul className="space-y-2 max-h-60 overflow-y-auto">
                   {selectedList && selectedList.words && selectedList.words.length > 0 ? selectedList.words.map((word, index) => (
@@ -321,3 +427,5 @@ export default function DisputePage() {
     </div>
   );
 }
+
+    
