@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

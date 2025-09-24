@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
 import { Button } from '@/components/ui/button';
