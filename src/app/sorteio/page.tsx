@@ -21,9 +21,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { database } from '@/lib/firebase';
 import { ref, set, onValue, update } from 'firebase/database';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 
 type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished' | 'shuffling';
+type SortMode = 'random' | 'sequential';
 type DisputeState = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
     participantA?: Participant | null;
@@ -51,6 +54,7 @@ export default function RafflePage() {
   const [roundWinner, setRoundWinner] = useState<Participant | null>(null);
   const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
   const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('random');
 
   const { toast } = useToast();
   const router = useRouter();
@@ -156,22 +160,31 @@ export default function RafflePage() {
   };
 
   const sortWord = () => {
-    let currentAvailableWords = availableWords;
+    let currentAvailableWords = [...availableWords];
     if (currentAvailableWords.length === 0 && selectedList) {
       toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
-      setAvailableWords(selectedList.words);
-      currentAvailableWords = selectedList.words;
+      const newWords = selectedList.words || [];
+      setAvailableWords(newWords);
+      currentAvailableWords = newWords;
     }
      if (currentAvailableWords.length === 0) {
         toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
         return;
     }
 
-    const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
-    const sortedWord = currentAvailableWords[wordIndex];
+    let sortedWord: string;
+    let wordIndex: number;
+
+    if (sortMode === 'sequential') {
+      wordIndex = 0;
+      sortedWord = currentAvailableWords[wordIndex];
+    } else {
+      wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
+      sortedWord = currentAvailableWords[wordIndex];
+    }
     
     setCurrentWord(sortedWord);
-    setAvailableWords(prev => prev.filter((_, i) => i !== wordIndex));
+    setAvailableWords(prev => prev.filter((_, i) => i !== prev.indexOf(sortedWord)));
     setRaffleState('word_sorted');
     setDisputeState({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
   };
@@ -336,11 +349,11 @@ export default function RafflePage() {
         <Card className="w-full max-w-2xl shadow-xl">
              <CardHeader>
                 <CardTitle>Configuração do Sorteio</CardTitle>
-                <CardDescription>Selecione a lista de palavras para a disputa atual.</CardDescription>
+                <CardDescription>Selecione a lista de palavras e o modo de sorteio para a disputa atual.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
                 <Select onValueChange={setSelectedListId} value={selectedListId || ''} disabled={raffleState !== 'idle'}>
-                    <SelectTrigger className="mb-4">
+                    <SelectTrigger>
                         <SelectValue placeholder="Selecione uma lista de palavras" />
                     </SelectTrigger>
                     <SelectContent>
@@ -349,6 +362,22 @@ export default function RafflePage() {
                         ))}
                     </SelectContent>
                 </Select>
+                 <RadioGroup 
+                    defaultValue="random" 
+                    onValueChange={(value: SortMode) => setSortMode(value)}
+                    className="flex items-center gap-4"
+                    disabled={raffleState !== 'idle'}
+                >
+                    <Label>Modo de Sorteio:</Label>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="random" id="r-random" />
+                        <Label htmlFor="r-random">Aleatório</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="sequential" id="r-sequential" />
+                        <Label htmlFor="r-sequential">Sequencial</Label>
+                    </div>
+                </RadioGroup>
             </CardContent>
         </Card>
         
@@ -389,3 +418,5 @@ export default function RafflePage() {
     </div>
   );
 }
+
+    
