@@ -27,7 +27,7 @@ type DisputeAction = {
     word?: string | null;
     winner?: Participant | null;
     loser?: Participant | null;
-    timestamp?: number;
+    timestamp: number;
 }
 
 const setDisputeAction = (action: Omit<DisputeAction, 'timestamp'>) => {

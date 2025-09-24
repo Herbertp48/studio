@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,60 +22,15 @@ type PageState = {
 
 // Helper function to get the initial state from localStorage
 const getInitialState = (): PageState => {
-    const item = typeof window !== 'undefined' ? localStorage.getItem('disputeAction') : null;
-    if (!item) {
-        return {
-            participantA: null,
-            participantB: null,
-            word: null,
-            showWord: false,
-            winnerMessage: null,
-            finalWinner: null,
-        };
-    }
-    try {
-        const action = JSON.parse(item);
-        // This function is just to get a baseline, we won't process all actions here,
-        // just the ones that set a persistent state.
-        switch(action.type) {
-            case 'FINAL_WINNER':
-                return {
-                    participantA: null,
-                    participantB: null,
-                    word: null,
-                    showWord: false,
-                    winnerMessage: null,
-                    finalWinner: action.winner,
-                };
-            case 'UPDATE_PARTICIPANTS':
-                 return {
-                    participantA: action.participantA,
-                    participantB: action.participantB,
-                    word: null,
-                    showWord: false,
-                    winnerMessage: null,
-                    finalWinner: null,
-                };
-            default:
-                 return {
-                    participantA: null,
-                    participantB: null,
-                    word: null,
-                    showWord: false,
-                    winnerMessage: null,
-                    finalWinner: null,
-                };
-        }
-    } catch {
-        return {
-            participantA: null,
-            participantB: null,
-            word: null,
-            showWord: false,
-            winnerMessage: null,
-            finalWinner: null,
-        };
-    }
+    // We always start fresh, projector screen is stateless
+    return {
+        participantA: null,
+        participantB: null,
+        word: null,
+        showWord: false,
+        winnerMessage: null,
+        finalWinner: null,
+    };
 };
 
 
@@ -163,7 +119,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (state.winnerMessage || state.finalWinner) && 'blur-sm')}>
+        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (state.winnerMessage || state.finalWinner) ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-white">
                  <h1 id="titulo-projetado" className="text-7xl font-bold tracking-tight">
                     Disputa de Soletração
@@ -197,7 +153,7 @@ export default function ProjectionPage() {
 
         return (
             <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000">
-                <div id="mensagem-vencedor" className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
+                <div id="mensagem-vencedor" className="fixed inset-0 flex items-center justify-center bg-transparent z-50">
                     <div className="bg-white/95 text-purple-800 border-8 border-yellow-400 rounded-2xl p-16 shadow-2xl text-center max-w-4xl mx-auto">
                          <div className="text-6xl mb-4">
                             <b className="text-white bg-purple-700 px-6 py-2 rounded-lg whitespace-nowrap inline-block shadow-lg">{winner?.name}</b>
