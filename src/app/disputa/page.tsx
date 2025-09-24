@@ -1,66 +1,115 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { List, Trash2, Play, Upload, Projector } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { List, Trash2, Play, Upload, Projector, PlusCircle } from 'lucide-react';
 import type { Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue } from 'firebase/database';
+import { ref, set, onValue, push, remove as removeDb } from 'firebase/database';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+
+export type WordList = {
+    id: string;
+    name: string;
+    words: string[];
+}
 
 export default function DisputePage() {
-  const [words, setWords] = useState<string[]>([]);
+  const [wordLists, setWordLists] = useState<WordList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [newWord, setNewWord] = useState('');
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [newListName, setNewListName] = useState('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
 
+  const selectedList = wordLists.find(list => list.id === selectedListId);
+
   useEffect(() => {
-    const participantsRef = ref(database, 'participants');
-    const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
+    const wordListsRef = ref(database, 'wordlists');
+    const unsubscribe = onValue(wordListsRef, (snapshot) => {
        const data = snapshot.val();
        if (data) {
-        setParticipants(data.all || []);
+        const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
+            id,
+            name: list.name,
+            words: list.words || [],
+        }));
+        setWordLists(lists);
+        if (!selectedListId && lists.length > 0) {
+            setSelectedListId(lists[0].id);
+        }
+       } else {
+        setWordLists([]);
+        setSelectedListId(null);
        }
     });
 
-    const wordsRef = ref(database, 'dispute/words');
-    const unsubscribeWords = onValue(wordsRef, (snapshot) => {
-      setWords(snapshot.val() || []);
-    });
+    return () => unsubscribe();
+  }, [selectedListId]);
+  
+  const handleCreateList = () => {
+    if (!newListName.trim()) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'O nome da lista não pode estar vazio.'});
+        return;
+    }
+    const newListRef = push(ref(database, 'wordlists'));
+    set(newListRef, { name: newListName.trim(), words: [] });
+    setNewListName('');
+    toast({ title: 'Sucesso!', description: `A lista "${newListName.trim()}" foi criada.`});
+  }
 
-    return () => {
-        unsubscribeParticipants();
-        unsubscribeWords();
-    };
-  }, []);
+  const handleDeleteList = (listId: string) => {
+    removeDb(ref(database, `wordlists/${listId}`));
+    toast({ title: 'Sucesso!', description: 'A lista foi removida.'});
+    if (selectedListId === listId) {
+        setSelectedListId(null);
+    }
+  }
 
-  const updateWordsInDB = (newWords: string[]) => {
-    set(ref(database, 'dispute/words'), newWords);
+  const updateWordsInDB = (listId: string, newWords: string[]) => {
+    set(ref(database, `wordlists/${listId}/words`), newWords);
   };
 
   const addWord = () => {
-    if (newWord.trim()) {
-      const newWords = [...words, newWord.trim()];
-      setWords(newWords);
-      updateWordsInDB(newWords);
+    if (newWord.trim() && selectedList) {
+      const newWords = [...(selectedList.words || []), newWord.trim()];
+      updateWordsInDB(selectedList.id, newWords);
       setNewWord('');
     }
   };
 
   const removeWord = (index: number) => {
-    const newWords = words.filter((_, i) => i !== index);
-    setWords(newWords);
-    updateWordsInDB(newWords);
+    if (selectedList) {
+        const newWords = selectedList.words.filter((_, i) => i !== index);
+        updateWordsInDB(selectedList.id, newWords);
+    }
   };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedListId) {
+      toast({ variant: "destructive", title: 'Nenhuma lista selecionada', description: 'Selecione uma lista antes de importar palavras.' });
+      return;
+    }
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -81,9 +130,10 @@ export default function DisputePage() {
           .map(row => String(row[0]).trim())
           .filter(word => word && word.length > 0);
         
-        const updatedWords = [...words, ...newWords];
-        setWords(updatedWords);
-        updateWordsInDB(updatedWords);
+        if (selectedList) {
+            const updatedWords = [...(selectedList.words || []), ...newWords];
+            updateWordsInDB(selectedList.id, updatedWords);
+        }
 
         toast({
           title: 'Sucesso!',
@@ -115,21 +165,97 @@ export default function DisputePage() {
   }
 
   const startRaffle = () => {
-    router.push('/sorteio');
+    const activeParticipantsRef = ref(database, 'participants/all');
+    onValue(activeParticipantsRef, (snapshot) => {
+        const participants = snapshot.val();
+        const activeParticipants = participants?.filter((p: Participant) => !p.eliminated) || [];
+        if (!selectedList || selectedList.words.length === 0) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'A lista de palavras selecionada está vazia.' });
+            return;
+        }
+        if (activeParticipants.length < 2) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'São necessários pelo menos 2 participantes ativos.' });
+            return;
+        }
+        // Save selected list to be used in raffle
+        set(ref(database, 'dispute'), {
+            words: selectedList.words,
+        });
+        router.push('/sorteio');
+    }, { onlyOnce: true });
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold mb-6">Gerenciar Palavras</h2>
+        <h2 className="text-2xl font-bold mb-6">Gerenciar Listas de Palavras</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><List /> Lista de Palavras</CardTitle>
+                <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2"><List /> Lista de Palavras</div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Nova Lista</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Criar Nova Lista de Palavras</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            <Input 
+                                placeholder="Nome da nova lista"
+                                value={newListName}
+                                onChange={(e) => setNewListName(e.target.value)}
+                                className="mt-4"
+                            />
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleCreateList} disabled={!newListName.trim()}>Criar</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                </CardTitle>
+                <CardDescription>Selecione, crie e gerencie suas listas de palavras.</CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex gap-2 mb-4">
+                    <Select onValueChange={setSelectedListId} value={selectedListId || ''}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma lista" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {wordLists.map(list => (
+                                <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    {selectedListId && (
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Essa ação não pode ser desfeita. A lista "{selectedList?.name}" e todas as suas palavras serão removidas.
+                                </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteList(selectedListId)}>Apagar</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    )}
+                </div>
+
+                {selectedListId ? (
+                <>
                 <div className="flex gap-2 mb-4">
                   <Input 
                     placeholder="Digite uma nova palavra"
@@ -152,8 +278,8 @@ export default function DisputePage() {
                      Importar Palavras do Excel
                    </Button>
                 </div>
-                <ul className="space-y-2 max-h-80 overflow-y-auto">
-                  {words.length > 0 ? words.map((word, index) => (
+                <ul className="space-y-2 max-h-60 overflow-y-auto">
+                  {selectedList && selectedList.words && selectedList.words.length > 0 ? selectedList.words.map((word, index) => (
                     <li key={index} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
                       <span>{word}</span>
                       <Button variant="ghost" size="icon" onClick={() => removeWord(index)}>
@@ -161,26 +287,20 @@ export default function DisputePage() {
                       </Button>
                     </li>
                   )) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma palavra adicionada.</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma palavra nesta lista.</p>
                   )}
                 </ul>
+                </>
+                ) : (
+                    <p className="text-sm text-muted-foreground text-center py-10">
+                        {wordLists.length > 0 ? 'Selecione uma lista para começar.' : 'Crie uma nova lista para adicionar palavras.'}
+                    </p>
+                )}
               </CardContent>
             </Card>
           </div>
           <div className="space-y-4">
-             <Card>
-                <CardHeader><CardTitle>Participantes</CardTitle></CardHeader>
-                <CardContent>
-                    {participants.length > 0 ? (
-                        <div>
-                            <ul className="text-sm text-muted-foreground columns-2">
-                                {participants.map(p => <li key={p.id}>{p.name}</li>)}
-                            </ul>
-                        </div>
-                    ) : <p>Carregando participantes...</p>}
-                </CardContent>
-            </Card>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 pt-8">
                 <Button variant="outline" onClick={openProjection}>
                   <Projector className="mr-2" />
                   Abrir Tela de Projeção
@@ -188,11 +308,11 @@ export default function DisputePage() {
                 <Button 
                     className="w-full" 
                     size="lg" 
-                    disabled={words.length === 0 || participants.length < 2}
                     onClick={startRaffle}
+                    disabled={!selectedListId}
                     >
                     <Play className="mr-2" />
-                    Começar Sorteio
+                    Ir para o Sorteio
                 </Button>
             </div>
           </div>

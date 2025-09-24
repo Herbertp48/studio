@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
+import type { WordList } from '@/app/disputa/page';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -38,7 +40,8 @@ const setDisputeState = (state: DisputeState | null) => {
 }
 
 export default function RafflePage() {
-  const [words, setWords] = useState<string[]>([]);
+  const [wordLists, setWordLists] = useState<WordList[]>([]);
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   
@@ -51,6 +54,8 @@ export default function RafflePage() {
 
   const { toast } = useToast();
   const router = useRouter();
+
+  const selectedList = wordLists.find(list => list.id === selectedListId);
 
   useEffect(() => {
     const participantsRef = ref(database, 'participants/all');
@@ -67,14 +72,18 @@ export default function RafflePage() {
         }
     });
 
-    const wordsRef = ref(database, 'dispute/words');
-    const unsubscribeWords = onValue(wordsRef, (snapshot) => {
+    const wordListsRef = ref(database, 'wordlists');
+    const unsubscribeWordLists = onValue(wordListsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            setWords(data);
-            setAvailableWords(data);
+            const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
+                id,
+                name: list.name,
+                words: list.words || [],
+            }));
+            setWordLists(lists);
         } else {
-             toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
+             toast({ variant: "destructive", title: "Erro", description: "Nenhuma lista de palavras encontrada."});
              router.push('/disputa');
         }
     });
@@ -83,10 +92,16 @@ export default function RafflePage() {
 
     return () => {
         unsubscribeParticipants();
-        unsubscribeWords();
+        unsubscribeWordLists();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (selectedList) {
+      setAvailableWords(selectedList.words || []);
+    }
+  }, [selectedListId, wordLists, selectedList]);
   
   const checkForWinner = (currentParticipants: Participant[]) => {
     if (!currentParticipants || finalWinner) return;
@@ -142,10 +157,10 @@ export default function RafflePage() {
 
   const sortWord = () => {
     let currentAvailableWords = availableWords;
-    if (currentAvailableWords.length === 0) {
+    if (currentAvailableWords.length === 0 && selectedList) {
       toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
-      setAvailableWords(words);
-      currentAvailableWords = words;
+      setAvailableWords(selectedList.words);
+      currentAvailableWords = selectedList.words;
     }
      if (currentAvailableWords.length === 0) {
         toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
@@ -245,9 +260,12 @@ export default function RafflePage() {
           <div className="text-lg text-muted-foreground">
             <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2 || !selectedListId}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
+          {!selectedListId && (
+            <p className="text-amber-600 mt-4">Selecione uma lista de palavras para começar.</p>
+          )}
           {activeParticipantsCount < 2 && participants.length > 0 && !finalWinner && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
@@ -315,7 +333,26 @@ export default function RafflePage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center">
-        <Card className="w-full max-w-2xl min-h-[28rem] flex items-center justify-center shadow-2xl">
+        <Card className="w-full max-w-2xl shadow-xl">
+             <CardHeader>
+                <CardTitle>Configuração do Sorteio</CardTitle>
+                <CardDescription>Selecione a lista de palavras para a disputa atual.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Select onValueChange={setSelectedListId} value={selectedListId || ''} disabled={raffleState !== 'idle'}>
+                    <SelectTrigger className="mb-4">
+                        <SelectValue placeholder="Selecione uma lista de palavras" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {wordLists.map(list => (
+                            <SelectItem key={list.id} value={list.id}>{list.name} ({list.words.length} palavras)</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </CardContent>
+        </Card>
+        
+        <Card className="w-full max-w-2xl min-h-[22rem] flex items-center justify-center shadow-2xl mt-8">
             <CardContent className="pt-10 w-full">
                 {renderState()}
             </CardContent>
