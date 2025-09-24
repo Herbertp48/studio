@@ -87,7 +87,7 @@ export default function ProjectionPage() {
                     setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setWord(null);
-                    setShowWord(false); 
+                    setShowWord(false);
                     setWinnerMessage(null);
                     setFinalWinner(null);
                     const activeParticipants = action.activeParticipants || [];
@@ -169,7 +169,7 @@ export default function ProjectionPage() {
                 </div>
 
                 <div className={cn("relative w-full flex-1 flex items-start justify-center transition-opacity duration-300", (showWord || isShuffling) ? "opacity-100 visible" : "opacity-0 invisible")}>
-                    <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-center justify-center h-full pt-16 mt-16">
+                    <div id="disputa-container" className="absolute inset-0 flex items-center justify-center pt-16 mt-16">
                         {/* Participant A */}
                         <div className="w-1/3 text-center">
                              <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
