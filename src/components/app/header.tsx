@@ -8,7 +8,7 @@ export function AppHeader() {
           <div className="flex items-center gap-2">
             <SpellCheck className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Disputa de Soletração
+              Spelling Bee
             </h1>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Disputa de Soletração',
+  title: 'Spelling Bee',
   description: 'Gerencie e conduza uma disputa de soletração.',
 };
 

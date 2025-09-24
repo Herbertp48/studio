@@ -118,13 +118,13 @@ export default function ProjectionPage() {
         <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-[#fdc244]">
                  <h1 id="titulo-projetado" className="text-[100px] font-melison font-bold tracking-tight">
-                    Disputa de Soletração
+                    Spelling Bee
                 </h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
 
             <div id="Psorteio-box" className="mt-12 text-center text-white w-[80%] flex-1 flex flex-col justify-center items-center font-melison">
-                <h2 id="Sbtitulo" className="text-8xl font-bold text-[#fdc244] uppercase">A Palavra é</h2>
+                <h2 id="Sbtitulo" className="text-8xl font-bold text-[#fdc244] uppercase">The Word Is</h2>
                 <div id="premio-box" className={cn("mt-4 h-32 flex items-center justify-center bg-[#f4bb47] text-[#6d21db] rounded-2xl w-[30%] font-subjectivity", !showWord && 'invisible')}>
                     <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
                         {word || '...'}
@@ -197,5 +197,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
