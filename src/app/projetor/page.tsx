@@ -56,8 +56,6 @@ export default function ProjectionPage() {
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeState = snapshot.val();
             
-            stopShuffling();
-
             if (!action) {
                 const s = getInitialState();
                 setParticipantA(s.participantA);
@@ -72,6 +70,7 @@ export default function ProjectionPage() {
 
             switch (action.type) {
                 case 'RESET':
+                    stopShuffling();
                     setAnimationKey(0);
                     const s = getInitialState();
                     setParticipantA(s.participantA);
@@ -83,6 +82,7 @@ export default function ProjectionPage() {
                     setIsShuffling(s.isShuffling);
                     break;
                 case 'SHUFFLING_PARTICIPANTS':
+                    stopShuffling();
                     setIsShuffling(true);
                     setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
                     setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
@@ -119,11 +119,13 @@ export default function ProjectionPage() {
                      setWinnerMessage(null);
                      break;
                 case 'ROUND_WINNER':
+                    stopShuffling();
                     setAnimationKey(prev => prev + 1);
                     setShowWord(false);
                     setWinnerMessage({ winner: action.winner, loser: action.loser, word: action.word });
                     break;
                 case 'FINAL_WINNER':
+                    stopShuffling();
                     setAnimationKey(prev => prev + 1);
                     const finalState = getInitialState();
                     setParticipantA(finalState.participantA);
@@ -153,7 +155,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0' : 'opacity-100')}>
+        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-[#fdc244]">
                  <h1 id="titulo-projetado" className="text-[100px] font-melison font-bold tracking-tight">
                     Spelling Bee
