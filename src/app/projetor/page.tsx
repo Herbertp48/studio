@@ -200,7 +200,7 @@ export default function ProjectionPage() {
          const { winner, word: winnerWord } = winnerMessage;
 
         return (
-            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 z-50 bg-accent-foreground p-8">
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 z-50 bg-accent-foreground/90 p-8">
                  <header className="flex items-center gap-4 text-accent mb-8">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">
                         Spelling Bee
@@ -209,7 +209,7 @@ export default function ProjectionPage() {
                 </header>
 
                 <div id="mensagem-vencedor" className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
-                     <div className="text-5xl mb-6 inline-block">
+                     <div className="text-6xl mb-6 inline-block">
                         <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner?.name}</b>
                     </div>
                      <p className="text-5xl leading-tight font-semibold">
