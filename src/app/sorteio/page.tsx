@@ -95,12 +95,18 @@ export default function RafflePage() {
 
     let winner: Participant | null = null;
     
-    // Condition for a final winner: one group is empty, the other has exactly one participant
     if (activeGroupA.length === 1 && activeGroupB.length === 0) {
         winner = activeGroupA[0];
     } else if (activeGroupB.length === 1 && activeGroupA.length === 0) {
         winner = activeGroupB[0];
+    } else if (activeGroupA.length === 0 && activeGroupB.length === 0 && (currentParticipants.groupA.length > 0 || currentParticipants.groupB.length > 0)) {
+        // Tie-breaker: if both groups are empty, last round winner is the final winner
+        const lastWinner = roundWinner; 
+        const allParticipants = [...currentParticipants.groupA, ...currentParticipants.groupB];
+        const lastWinnerInFullList = allParticipants.find(p => p.id === lastWinner?.id);
+        if(lastWinnerInFullList) winner = lastWinnerInFullList;
     }
+
 
     if (winner) {
       setFinalWinner(winner);
@@ -114,13 +120,13 @@ export default function RafflePage() {
     
     setRoundWinner(null);
     setCurrentWord(null);
-    setDisputeAction({ type: 'HIDE_WORD' });
+    setDisputeAction({ type: 'RESET' });
 
     let activeGroupA = participants.groupA.filter(p => !p.eliminated);
     let activeGroupB = participants.groupB.filter(p => !p.eliminated);
 
     if (activeGroupA.length === 0 || activeGroupB.length === 0) {
-      checkForWinner(participants); // This will trigger the final winner dialog if applicable
+      checkForWinner(participants);
       if(!finalWinner) {
         toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
       }
@@ -153,7 +159,7 @@ export default function RafflePage() {
     setCurrentWord(sortedWord);
     setAvailableWords(prev => prev.filter((_, i) => i !== wordIndex));
     setRaffleState('word_sorted');
-    setDisputeAction({ type: 'SHOW_WORD', word: sortedWord });
+    setDisputeAction({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
   };
   
   const handleWinner = (winnerId: string) => {
@@ -185,7 +191,6 @@ export default function RafflePage() {
             p.id === loser.id ? { ...p, eliminated: true } : p
         );
         
-        // This is the winner data with updated stars
         if(foundWinnerInMap) winner = foundWinnerInMap;
 
         return nextState;
@@ -205,7 +210,6 @@ export default function RafflePage() {
     });
     
     setRaffleState('round_finished');
-    // Check for a final winner AFTER the state for the round is finished.
     if(updatedParticipants) {
         setTimeout(() => checkForWinner(updatedParticipants), 100);
     }
@@ -244,7 +248,7 @@ export default function RafflePage() {
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
           {(activeParticipantsA === 0 || activeParticipantsB === 0) && (activeParticipantsA > 0 || activeParticipantsB > 0) && !finalWinner &&(
-             <p className="text-amber-600 mt-4">Um dos grupos não tem mais participantes. O vencedor será declarado.</p>
+             <p className="text-amber-600 mt-4">Um dos grupos não tem mais participantes. Clique em "Sortear Participantes" para declarar o vencedor.</p>
           )}
         </div>
       )
@@ -347,5 +351,4 @@ export default function RafflePage() {
     </div>
   );
 }
-
     

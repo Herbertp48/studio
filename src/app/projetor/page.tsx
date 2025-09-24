@@ -56,6 +56,7 @@ export default function ProjectionPage() {
                 setState(prevState => {
                     switch (action.type) {
                         case 'RESET':
+                             setAnimationKey(0); // Reset animation as well
                             return {
                                 participantA: null,
                                 participantB: null,
