@@ -216,7 +216,7 @@ export default function ProjectionPage() {
                          <br/> 
                         corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{winnerWord}</b>
                         <br/> 
-                        e recebeu uma estrela <Star className="inline-block w-14 h-14 text-accent fill-accent" /> !
+                        e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
                     </p>
                 </div>
             </div>
