@@ -20,6 +20,19 @@ import {
 } from "@/components/ui/alert-dialog"
 
 type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished';
+type DisputeAction = {
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET';
+    participantA?: Participant | null;
+    participantB?: Participant | null;
+    word?: string | null;
+    winner?: Participant | null;
+    loser?: Participant | null;
+}
+
+const setDisputeAction = (action: DisputeAction) => {
+    localStorage.setItem('disputeAction', JSON.stringify({ ...action, timestamp: new Date().getTime() }));
+}
+
 
 export default function RafflePage() {
   const [words, setWords] = useState<string[]>([]);
@@ -72,16 +85,21 @@ export default function RafflePage() {
     const activeGroupA = participants.groupA.filter(p => !p.eliminated);
     const activeGroupB = participants.groupB.filter(p => !p.eliminated);
 
+    let winner: Participant | null = null;
     if (activeGroupA.length > 0 && activeGroupB.length === 0) {
       if (activeGroupA.length === 1) {
-        setFinalWinner(activeGroupA[0]);
-        setShowFinalWinnerDialog(true);
+        winner = activeGroupA[0];
       }
     } else if (activeGroupB.length > 0 && activeGroupA.length === 0) {
       if (activeGroupB.length === 1) {
-        setFinalWinner(activeGroupB[0]);
-        setShowFinalWinnerDialog(true);
+        winner = activeGroupB[0];
       }
+    }
+
+    if (winner) {
+      setFinalWinner(winner);
+      setShowFinalWinnerDialog(true);
+      setDisputeAction({ type: 'FINAL_WINNER', winner });
     }
   }
 
@@ -99,12 +117,14 @@ export default function RafflePage() {
     
     setRoundWinner(null);
     setCurrentWord(null);
+    setDisputeAction({ type: 'HIDE_WORD' });
 
     const participantA = activeGroupA[Math.floor(Math.random() * activeGroupA.length)];
     const participantB = activeGroupB[Math.floor(Math.random() * activeGroupB.length)];
 
     setCurrentDuel({ participantA, participantB });
     setRaffleState('participants_sorted');
+    setDisputeAction({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
   };
 
   const sortWord = () => {
@@ -120,6 +140,7 @@ export default function RafflePage() {
     setCurrentWord(sortedWord);
     setAvailableWords(prev => prev.filter((_, i) => i !== wordIndex));
     setRaffleState('word_sorted');
+    setDisputeAction({ type: 'SHOW_WORD', word: sortedWord });
   };
   
   const handleWinner = (winnerId: string) => {
@@ -149,6 +170,7 @@ export default function RafflePage() {
     });
 
     setRoundWinner(winner);
+    setDisputeAction({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
     toast({
       title: "Disputa Encerrada!",
       description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
@@ -162,6 +184,7 @@ export default function RafflePage() {
     setCurrentWord(null);
     setRoundWinner(null);
     setRaffleState('idle');
+    setDisputeAction({ type: 'RESET' });
     checkForWinner(); // Check for overall winner before starting next round
   }
 
@@ -281,3 +304,4 @@ export default function RafflePage() {
     </div>
   );
 }
+
