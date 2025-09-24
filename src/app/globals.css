@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+    font-family: 'Melison';
+    src: url('/fonts/Melison.ttf') format('truetype');
+}
+@font-face {
+    font-family: 'Melison';
+    src: url('/fonts/Melison-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+@font-face {
+    font-family: 'Subjectivity';
+    src: url('/fonts/Subjectivity-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+
 @layer base {
   :root {
     --background: 208 100% 97%;
@@ -10,19 +28,19 @@
     --card-foreground: 224 71.4% 4.1%;
     --popover: 208 100% 97%;
     --popover-foreground: 224 71.4% 4.1%;
-    --primary: 180 100% 25%;
-    --primary-foreground: 180 100% 97%;
+    --primary: 206 82% 51%; /* #3498db */
+    --primary-foreground: 0 0% 100%; /* #fff */
     --secondary: 220 14.3% 95.9%;
     --secondary-foreground: 220.9 39.3% 11%;
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
-    --accent: 16 100% 66%;
-    --accent-foreground: 355.7 100% 97.3%;
+    --accent: 45 98% 63%; /* #fdc244 */
+    --accent-foreground: 265 70% 30%; /* #6d21db */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 180 100% 25%;
+    --ring: 206 82% 51%;
     --radius: 0.5rem;
   }
   .dark {
@@ -32,19 +50,19 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 180 80% 45%;
-    --primary-foreground: 180 100% 97%;
+    --primary: 206 82% 51%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 16 100% 66%;
-    --accent-foreground: 26 83.3% 14.1%;
+    --accent: 45 98% 63%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 180 80% 45%;
+    --ring: 206 82% 51%;
   }
 }
 
@@ -54,5 +72,23 @@
   }
   body {
     @apply bg-background text-foreground;
+     font-family: 'Subjectivity', Arial, sans-serif;
+  }
+
+  .projetado-page {
+    color: #fdc244;
+    background-image: url('/images/background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+  }
+
+  .font-melison {
+    font-family: 'Melison', Arial, sans-serif;
+  }
+  .font-subjectivity {
+     font-family: 'Subjectivity', Arial, sans-serif;
   }
 }
+
