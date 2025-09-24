@@ -178,17 +178,8 @@ export default function Home() {
     fileInputRef.current?.click();
   };
 
-  const startDispute = async () => {
-    // Garante que os participantes na tela estão salvos no DB
+  const startDispute = () => {
     updateParticipantsInDB(groupA, groupB);
-    
-    // Limpa o estado da disputa anterior no DB
-    await set(ref(database, 'dispute'), {
-        words: [],
-        state: null,
-    });
-    
-    // Navega para a página de preparação da disputa
     router.push('/disputa');
   };
 
