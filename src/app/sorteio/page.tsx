@@ -27,9 +27,10 @@ type DisputeAction = {
     word?: string | null;
     winner?: Participant | null;
     loser?: Participant | null;
+    timestamp?: number;
 }
 
-const setDisputeAction = (action: DisputeAction) => {
+const setDisputeAction = (action: Omit<DisputeAction, 'timestamp'>) => {
     localStorage.setItem('disputeAction', JSON.stringify({ ...action, timestamp: new Date().getTime() }));
 }
 
@@ -52,10 +53,9 @@ export default function RafflePage() {
     const storedParticipants = localStorage.getItem('participants');
     if (storedParticipants) {
       const parsed = JSON.parse(storedParticipants);
-      // Ensure stars property exists
-      const ensureStars = (p: Participant) => ({ ...p, stars: p.stars || 0, eliminated: p.eliminated || false });
-      parsed.groupA = parsed.groupA.map(ensureStars);
-      parsed.groupB = parsed.groupB.map(ensureStars);
+      const ensureData = (p: Participant) => ({ ...p, stars: p.stars || 0, eliminated: p.eliminated || false });
+      parsed.groupA = parsed.groupA.map(ensureData);
+      parsed.groupB = parsed.groupB.map(ensureData);
       setParticipants(parsed);
     } else {
         toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
@@ -76,19 +76,11 @@ export default function RafflePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  useEffect(() => {
-    if (participants) {
-      localStorage.setItem('participants', JSON.stringify(participants));
-      checkForWinner();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants]);
-
-  const checkForWinner = () => {
-    if (!participants) return;
+  const checkForWinner = (currentParticipants: { groupA: Participant[], groupB: Participant[] }) => {
+    if (!currentParticipants) return;
     
-    const activeGroupA = participants.groupA.filter(p => !p.eliminated);
-    const activeGroupB = participants.groupB.filter(p => !p.eliminated);
+    const activeGroupA = currentParticipants.groupA.filter(p => !p.eliminated);
+    const activeGroupB = currentParticipants.groupB.filter(p => !p.eliminated);
 
     let winner: Participant | null = null;
     if (activeGroupA.length > 0 && activeGroupB.length === 0) {
@@ -120,7 +112,7 @@ export default function RafflePage() {
 
     if (activeGroupA.length === 0 || activeGroupB.length === 0) {
       toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
-      checkForWinner();
+      checkForWinner(participants);
       return;
     }
     
@@ -156,27 +148,35 @@ export default function RafflePage() {
     const winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
     const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
 
-    setParticipants(prev => {
-      if (!prev) return null;
-      
-      const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
-      const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
+    const updatedParticipants = (() => {
+        if (!participants) return null;
+        
+        const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
+        const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
 
-      const nextState = { ...prev, groupA: [...prev.groupA], groupB: [...prev.groupB] };
-      
-      nextState[winnerGroupKey] = nextState[winnerGroupKey].map(p => 
-        p.id === winner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
-      );
+        const nextState = { ...participants };
+        
+        nextState[winnerGroupKey] = nextState[winnerGroupKey].map(p => 
+            p.id === winner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
+        );
 
-      nextState[loserGroupKey] = nextState[loserGroupKey].map(p => 
-        p.id === loser.id ? { ...p, eliminated: true } : p
-      );
+        nextState[loserGroupKey] = nextState[loserGroupKey].map(p => 
+            p.id === loser.id ? { ...p, eliminated: true } : p
+        );
 
-      return nextState;
-    });
+        return nextState;
+    })();
 
-    setRoundWinner(winner);
-    setDisputeAction({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
+    if (updatedParticipants) {
+        setParticipants(updatedParticipants);
+        localStorage.setItem('participants', JSON.stringify(updatedParticipants));
+        checkForWinner(updatedParticipants);
+    }
+    
+    const finalWinnerData = winner; // Winner with updated stars
+    setRoundWinner(finalWinnerData);
+
+    setDisputeAction({ type: 'ROUND_WINNER', winner: finalWinnerData, loser, word: currentWord });
     toast({
       title: "Disputa Encerrada!",
       description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
@@ -191,7 +191,7 @@ export default function RafflePage() {
     setRoundWinner(null);
     setRaffleState('idle');
     setDisputeAction({ type: 'RESET' });
-    checkForWinner(); // Check for overall winner before starting next round
+    if(participants) checkForWinner(participants);
   }
 
   const renderState = () => {
@@ -210,7 +210,7 @@ export default function RafflePage() {
             <p>Grupo A: {activeParticipantsA} participantes</p>
             <p>Grupo B: {activeParticipantsB} participantes</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={activeParticipantsA === 0 || activeParticipantsB === 0}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsA === 0 || activeParticipantsB === 0}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
           {(activeParticipantsA === 0 || activeParticipantsB === 0) && activeParticipantsA + activeParticipantsB > 0 && !finalWinner &&(
@@ -268,7 +268,7 @@ export default function RafflePage() {
                 <Star /> Ganhou 1 estrela!
             </p>
             <p className="text-muted-foreground">{participants.groupA.filter(p => !p.eliminated).length} vs {participants.groupB.filter(p => !p.eliminated).length}</p>
-            <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
+            <Button size="lg" onClick={nextRound} disabled={finalWinner != null}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )
     }

@@ -28,7 +28,7 @@ export default function ProjectionPage() {
         winnerMessage: null,
         finalWinner: null,
     });
-    const [key, setKey] = useState(0);
+    const [animationKey, setAnimationKey] = useState(0);
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -54,8 +54,8 @@ export default function ProjectionPage() {
                                 ...prevState,
                                 participantA: action.participantA,
                                 participantB: action.participantB,
-                                showWord: false,
                                 word: null,
+                                showWord: false,
                                 winnerMessage: null,
                             };
                         case 'SHOW_WORD':
@@ -68,14 +68,14 @@ export default function ProjectionPage() {
                         case 'HIDE_WORD':
                             return { ...prevState, showWord: false, word: null, winnerMessage: null };
                         case 'ROUND_WINNER':
-                            setKey(prev => prev + 1);
+                            setAnimationKey(prev => prev + 1); // Trigger animation
                             return { 
                                 ...prevState, 
                                 winnerMessage: { winner: action.winner, loser: action.loser, word: action.word }
                             };
                         case 'FINAL_WINNER':
-                            setKey(prev => prev + 1);
-                            return { ...prevState, finalWinner: action.winner, winnerMessage: null };
+                             setAnimationKey(prev => prev + 1); // Trigger animation
+                             return { ...prevState, finalWinner: action.winner, winnerMessage: null, participantA: null, participantB: null, word: null, showWord: false };
                         default:
                             return prevState;
                     }
@@ -85,7 +85,9 @@ export default function ProjectionPage() {
             }
         };
 
-        handleStorageChange();
+        // Run once on mount to get initial state
+        handleStorageChange(); 
+
         window.addEventListener('storage', handleStorageChange);
         return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
@@ -103,7 +105,7 @@ export default function ProjectionPage() {
     const MainContent = () => (
         <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (state.winnerMessage || state.finalWinner) && 'blur-sm')}>
             <header className="flex items-center gap-4 text-white">
-                <h1 id="titulo-projetado" className="text-7xl font-bold tracking-tight">
+                 <h1 id="titulo-projetado" className="text-7xl font-bold tracking-tight">
                     Disputa de Soletração
                 </h1>
                 <Image src="/bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
@@ -134,7 +136,7 @@ export default function ProjectionPage() {
          const { winner, word } = state.winnerMessage;
 
         return (
-            <div key={key} className="animate-in fade-in zoom-in-95 duration-1000">
+            <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000">
                 <div id="mensagem-vencedor" className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
                     <div className="bg-white/95 text-purple-800 border-8 border-yellow-400 rounded-2xl p-16 shadow-2xl text-center max-w-4xl mx-auto">
                          <div className="text-6xl mb-4">
@@ -157,7 +159,7 @@ export default function ProjectionPage() {
          if (!state.finalWinner) return null;
 
         return (
-             <div key={key} className="animate-in fade-in zoom-in-95 duration-1000">
+             <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000">
                 <div id="mensagem-final-vencedor" className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
                     <div className="bg-gradient-to-br from-yellow-300 to-amber-500 text-purple-900 border-8 border-white rounded-3xl p-20 shadow-2xl text-center max-w-5xl mx-auto relative overflow-hidden">
                         <Crown className="absolute -top-16 -left-16 w-64 h-64 text-white/20 -rotate-12" />
