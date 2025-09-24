@@ -168,7 +168,7 @@ export default function ProjectionPage() {
             
             <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center font-melison">
                  <div className={cn("absolute top-1/4 w-full flex flex-col items-center", !showWord && 'invisible')}>
-                    <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-subjectivity">The Word Is</h2>
+                    <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-melison">The Word Is</h2>
                     <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-1/3 font-subjectivity">
                         <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
                             {word || '...'}
@@ -200,7 +200,7 @@ export default function ProjectionPage() {
          const { winner, word: winnerWord } = winnerMessage;
 
         return (
-            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 z-50 bg-accent-foreground/90 p-8">
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8">
                  <header className="flex items-center gap-4 text-accent mb-8">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">
                         Spelling Bee
