@@ -171,18 +171,18 @@ export default function ProjectionPage() {
                 <div className="relative w-full flex-1 flex items-center justify-center">
                     <div id="disputa-container" className="relative w-full max-w-7xl mx-auto flex items-start justify-center h-full">
                         {/* Participant A */}
-                        <div className="w-1/3 text-center">
-                             <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantA?.name || 'Participante A'}</h3>
+                        <div className="absolute left-0 w-1/3 text-center">
+                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
                         </div>
 
                         {/* Vs. */}
-                         <div className="w-1/6 flex-shrink-0 text-center">
-                            <h3 className="text-8xl font-bold font-melison mb-8">Vs.</h3>
+                         <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: '20px' }}>
+                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
 
                         {/* Participant B */}
-                        <div className="w-1/3 text-center">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantB?.name || 'Participante B'}</h3>
+                        <div className="absolute right-0 w-1/3 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
                 </div>
@@ -253,3 +253,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
