@@ -82,10 +82,12 @@ export default function WinnersPage() {
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="bg-[#fffbe6] border-none shadow-2xl">
-          <CardHeader>
+        <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
+          <CardHeader className="bg-accent p-4">
             <div className="flex items-center justify-between">
-                <CardTitle className="text-[#fd8c00] font-melison text-4xl">🏆 Ganhadores</CardTitle>
+                <CardTitle className="text-accent-foreground font-melison text-4xl flex items-center gap-3">
+                    <Trophy className="w-10 h-10" /> Ganhadores
+                </CardTitle>
                 <div className="flex gap-2">
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -107,44 +109,44 @@ export default function WinnersPage() {
                     <Button onClick={exportToExcel} disabled={winners.length === 0}><Download className="mr-2" /> Exportar</Button>
                 </div>
             </div>
-            <CardDescription className="text-accent-foreground/80">Lista de todos os vencedores das disputas.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <Table>
               <TableHeader>
-                <TableRow className="border-b-4 border-accent/80 hover:bg-accent/20">
-                  <TableHead className="text-accent-foreground font-bold text-lg font-melison">Nome</TableHead>
-                  <TableHead className="text-accent-foreground font-bold text-lg font-melison">Palavras (Vitórias)</TableHead>
-                  <TableHead className="text-right text-accent-foreground font-bold text-lg font-melison">Estrelas</TableHead>
+                <TableRow className="border-0 hover:bg-transparent">
+                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Nome</TableHead>
+                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Palavras</TableHead>
+                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Estrelas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {winners.length > 0 ? (
                   winners.map((winner, index) => (
-                    <TableRow key={winner.name} className={index % 2 === 0 ? 'bg-[#fff6d6]' : 'bg-[#fffbe6]'}>
-                      <TableCell className="font-bold text-white bg-accent-foreground rounded-md text-base">
+                    <TableRow key={winner.name} className="border-t-2 border-amber-300">
+                      <TableCell className="font-bold text-accent-foreground text-center text-base p-4">
                         {winner.name}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
+                      <TableCell className="text-center p-4">
+                        <div className="flex flex-wrap gap-2 justify-center">
                             {Object.entries(winner.words).map(([word, count]) => (
-                                <span key={word} className="bg-accent text-accent-foreground rounded-md px-3 py-1 text-sm font-subjectivity font-bold">
-                                    {word} <b className="text-white/80">(x{count})</b>
+                                <span key={word} className="text-accent-foreground text-base font-subjectivity font-bold">
+                                    {word} <b className="text-red-600/80">x{count}</b>
                                 </span>
                             ))}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                           <span className="font-bold text-2xl text-yellow-500">{winner.totalStars}</span>
-                           <Star className="w-8 h-8 text-yellow-400 fill-yellow-400" />
+                      <TableCell className="text-center p-4">
+                        <div className="flex items-center justify-center gap-1">
+                           {Array.from({ length: winner.totalStars }).map((_, i) => (
+                               <Star key={i} className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                           ))}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                       Nenhum ganhador registrado ainda.
                     </TableCell>
                   </TableRow>
