@@ -169,19 +169,19 @@ export default function ProjectionPage() {
                 </div>
 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div id="disputa-container" className={cn("flex items-center justify-center w-full", showWord ? 'mt-16' : '')}>
+                    <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
                         {/* Participant A */}
-                        <div className="w-1/3 text-center">
+                        <div className="col-start-2 col-span-4 text-center">
                              <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
                         </div>
 
                         {/* Vs. */}
-                         <div className="w-1/3 text-center">
+                         <div className="col-span-2 text-center">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
 
                         {/* Participant B */}
-                        <div className="w-1/3 text-center">
+                        <div className="col-span-4 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
