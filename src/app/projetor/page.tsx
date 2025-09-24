@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,9 +19,7 @@ type PageState = {
     finalWinner: Participant | null;
 }
 
-// Helper function to get the initial state from localStorage
 const getInitialState = (): PageState => {
-    // We always start fresh, projector screen is stateless
     return {
         participantA: null,
         participantB: null,
@@ -32,7 +29,6 @@ const getInitialState = (): PageState => {
         finalWinner: null,
     };
 };
-
 
 export default function ProjectionPage() {
     const [state, setState] = useState<PageState>(getInitialState());
@@ -47,66 +43,57 @@ export default function ProjectionPage() {
             try {
                 const action = JSON.parse(item);
                 
-                // Only update if the action is new
                 if (action.timestamp && action.timestamp <= lastActionTimestamp) {
                     return;
                 }
                 setLastActionTimestamp(action.timestamp || 0);
 
                 setState(prevState => {
+                    const nextState = { ...prevState };
+                    
                     switch (action.type) {
                         case 'RESET':
-                             setAnimationKey(0); // Reset animation as well
-                            return {
-                                participantA: null,
-                                participantB: null,
-                                word: null,
-                                showWord: false,
-                                winnerMessage: null,
-                                finalWinner: null
-                            };
+                            setAnimationKey(0);
+                            return getInitialState();
                         case 'UPDATE_PARTICIPANTS':
-                            return {
-                                ...prevState,
-                                participantA: action.participantA,
-                                participantB: action.participantB,
-                                word: null,
-                                showWord: false,
-                                winnerMessage: null,
-                                finalWinner: null, // Clear final winner when a new duel starts
-                            };
+                            nextState.participantA = action.participantA;
+                            nextState.participantB = action.participantB;
+                            nextState.word = null;
+                            nextState.showWord = false;
+                            nextState.winnerMessage = null;
+                            nextState.finalWinner = null;
+                            break;
                         case 'SHOW_WORD':
-                             return {
-                                ...prevState,
-                                word: action.word,
-                                showWord: true,
-                                winnerMessage: null,
-                            };
+                            nextState.word = action.word;
+                            nextState.showWord = true;
+                            nextState.winnerMessage = null;
+                            break;
                         case 'HIDE_WORD':
-                            return { ...prevState, showWord: false, word: null, winnerMessage: null };
+                             nextState.showWord = false;
+                             nextState.word = null;
+                             nextState.winnerMessage = null;
+                             break;
                         case 'ROUND_WINNER':
-                            setAnimationKey(prev => prev + 1); // Trigger animation
-                            return { 
-                                ...prevState,
-                                showWord: false,
-                                winnerMessage: { winner: action.winner, loser: action.loser, word: action.word }
-                            };
+                            setAnimationKey(prev => prev + 1);
+                            nextState.showWord = false;
+                            nextState.winnerMessage = { winner: action.winner, loser: action.loser, word: action.word };
+                            break;
                         case 'FINAL_WINNER':
-                             setAnimationKey(prev => prev + 1); // Trigger animation
-                             return { ...prevState, finalWinner: action.winner, winnerMessage: null, participantA: null, participantB: null, word: null, showWord: false };
+                            setAnimationKey(prev => prev + 1);
+                            return { ...getInitialState(), finalWinner: action.winner };
                         default:
                             return prevState;
                     }
+                    return nextState;
                 });
             } catch (error) {
                 console.error("Error processing storage event", error);
             }
         };
 
-        const intervalId = setInterval(handleStorageChange, 100); // Check every 100ms
+        const intervalId = setInterval(handleStorageChange, 100);
 
-        return () => clearInterval(intervalId); // Cleanup on unmount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        return () => clearInterval(intervalId);
     }, [lastActionTimestamp]);
     
     useEffect(() => {
@@ -202,5 +189,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
