@@ -196,7 +196,7 @@ export default function ProjectionPage() {
                     </div>
                 </div>
                  
-                <div className="relative w-full flex-1 flex items-center justify-center">
+                 <div className="relative w-full flex-1 flex items-center justify-center">
                     <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
                         <div className="col-start-2 col-span-4 text-center">
                              <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
