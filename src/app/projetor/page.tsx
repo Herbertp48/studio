@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { Participant } from '@/app/page';
-import { SpellCheck, Crown } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
@@ -47,7 +47,7 @@ export default function ProjectionPage() {
                                 word: null,
                                 showWord: false,
                                 winnerMessage: null,
-                                finalWinner: null,
+                                finalWinner: prevState.finalWinner, // Keep final winner if already set
                             };
                         case 'UPDATE_PARTICIPANTS':
                             return {
@@ -91,22 +91,17 @@ export default function ProjectionPage() {
     }, []);
     
     useEffect(() => {
-        if(state.winnerMessage || state.finalWinner) {
+        if(state.winnerMessage) {
             const timer = setTimeout(() => {
                 setState(prev => ({...prev, winnerMessage: null}));
-                 if (state.finalWinner) {
-                    // Don't clear final winner, just the message
-                } else {
-                   setKey(prev => prev + 1); // remount animation
-                }
             }, 10000); // show for 10 seconds
             return () => clearTimeout(timer);
         }
-    }, [state.winnerMessage, state.finalWinner]);
+    }, [state.winnerMessage]);
 
 
     const MainContent = () => (
-        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full", (state.winnerMessage || state.finalWinner) && 'blur-sm transition-all duration-500')}>
+        <div id="main-content" className={cn("flex flex-col items-center justify-center w-full h-full transition-all duration-500", (state.winnerMessage || state.finalWinner) && 'blur-sm')}>
             <header className="flex items-center gap-4 text-white">
                 <h1 id="titulo-projetado" className="text-7xl font-bold tracking-tight">
                     Disputa de Soletração

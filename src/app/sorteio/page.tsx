@@ -52,8 +52,10 @@ export default function RafflePage() {
     const storedParticipants = localStorage.getItem('participants');
     if (storedParticipants) {
       const parsed = JSON.parse(storedParticipants);
-      parsed.groupA.forEach((p: Participant) => p.stars = p.stars || 0);
-      parsed.groupB.forEach((p: Participant) => p.stars = p.stars || 0);
+      // Ensure stars property exists
+      const ensureStars = (p: Participant) => ({ ...p, stars: p.stars || 0, eliminated: p.eliminated || false });
+      parsed.groupA = parsed.groupA.map(ensureStars);
+      parsed.groupB = parsed.groupB.map(ensureStars);
       setParticipants(parsed);
     } else {
         toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
@@ -69,7 +71,10 @@ export default function RafflePage() {
         toast({ variant: "destructive", title: "Erro", description: "Palavras não encontradas."});
         router.push('/disputa');
     }
-  }, [router, toast]);
+
+    setDisputeAction({ type: 'RESET' });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   useEffect(() => {
     if (participants) {
@@ -96,7 +101,7 @@ export default function RafflePage() {
       }
     }
 
-    if (winner) {
+    if (winner && !finalWinner) {
       setFinalWinner(winner);
       setShowFinalWinnerDialog(true);
       setDisputeAction({ type: 'FINAL_WINNER', winner });
@@ -106,8 +111,12 @@ export default function RafflePage() {
   const sortParticipants = () => {
     if (!participants) return;
     
-    const activeGroupA = participants.groupA.filter(p => !p.eliminated);
-    const activeGroupB = participants.groupB.filter(p => !p.eliminated);
+    setRoundWinner(null);
+    setCurrentWord(null);
+    setDisputeAction({ type: 'HIDE_WORD' });
+
+    let activeGroupA = participants.groupA.filter(p => !p.eliminated);
+    let activeGroupB = participants.groupB.filter(p => !p.eliminated);
 
     if (activeGroupA.length === 0 || activeGroupB.length === 0) {
       toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
@@ -115,10 +124,6 @@ export default function RafflePage() {
       return;
     }
     
-    setRoundWinner(null);
-    setCurrentWord(null);
-    setDisputeAction({ type: 'HIDE_WORD' });
-
     const participantA = activeGroupA[Math.floor(Math.random() * activeGroupA.length)];
     const participantB = activeGroupB[Math.floor(Math.random() * activeGroupB.length)];
 
@@ -128,14 +133,15 @@ export default function RafflePage() {
   };
 
   const sortWord = () => {
-    if (availableWords.length === 0) {
+    let currentAvailableWords = availableWords;
+    if (currentAvailableWords.length === 0) {
       toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
       setAvailableWords(words);
-      return;
+      currentAvailableWords = words;
     }
 
-    const wordIndex = Math.floor(Math.random() * availableWords.length);
-    const sortedWord = availableWords[wordIndex];
+    const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
+    const sortedWord = currentAvailableWords[wordIndex];
     
     setCurrentWord(sortedWord);
     setAvailableWords(prev => prev.filter((_, i) => i !== wordIndex));
@@ -156,7 +162,7 @@ export default function RafflePage() {
       const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
       const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
 
-      const nextState = { ...prev };
+      const nextState = { ...prev, groupA: [...prev.groupA], groupB: [...prev.groupB] };
       
       nextState[winnerGroupKey] = nextState[winnerGroupKey].map(p => 
         p.id === winner.id ? { ...p, stars: (p.stars || 0) + 1 } : p
@@ -207,7 +213,7 @@ export default function RafflePage() {
           <Button size="lg" onClick={sortParticipants} disabled={activeParticipantsA === 0 || activeParticipantsB === 0}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {(activeParticipantsA === 0 || activeParticipantsB === 0) && activeParticipantsA + activeParticipantsB > 0 && (
+          {(activeParticipantsA === 0 || activeParticipantsB === 0) && activeParticipantsA + activeParticipantsB > 0 && !finalWinner &&(
              <p className="text-amber-600">Um dos grupos não tem mais participantes. Verificando o vencedor final...</p>
           )}
         </div>
@@ -284,13 +290,13 @@ export default function RafflePage() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                 <AlertDialogTitle className="text-center text-3xl font-bold">A disputa acabou!</AlertDialogTitle>
-                <AlertDialogDescription className="text-center text-lg">
+                <AlertDialogDescription className="text-center text-lg" asChild>
                     <div className="flex flex-col items-center justify-center gap-4 py-6">
                         <Crown className="w-20 h-20 text-yellow-400" />
                         <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
                         <p className="text-4xl font-bold text-foreground">{finalWinner?.name}</p>
                          <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
-                            {`x${finalWinner?.stars || 0}`}<Star className="w-6 h-6" />
+                            <Star className="w-6 h-6" /> {`x${finalWinner?.stars || 0}`}
                         </p>
                     </div>
                 </AlertDialogDescription>
@@ -304,4 +310,3 @@ export default function RafflePage() {
     </div>
   );
 }
-
