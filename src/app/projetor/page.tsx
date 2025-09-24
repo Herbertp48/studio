@@ -101,6 +101,7 @@ export default function ProjectionPage() {
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShuffling();
+                    setIsShuffling(false);
                     setParticipantA(action.participantA || null);
                     setParticipantB(action.participantB || null);
                     setWord(null);
@@ -120,12 +121,14 @@ export default function ProjectionPage() {
                      break;
                 case 'ROUND_WINNER':
                     stopShuffling();
+                    setIsShuffling(false);
                     setAnimationKey(prev => prev + 1);
                     setShowWord(false);
                     setWinnerMessage({ winner: action.winner, loser: action.loser, word: action.word });
                     break;
                 case 'FINAL_WINNER':
                     stopShuffling();
+                    setIsShuffling(false);
                     setAnimationKey(prev => prev + 1);
                     const finalState = getInitialState();
                     setParticipantA(finalState.participantA);
@@ -155,7 +158,7 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) ? 'opacity-0' : 'opacity-100')}>
+         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
             <header className="flex items-center gap-4 text-accent mt-8">
                  <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -206,13 +209,13 @@ export default function ProjectionPage() {
                 </header>
 
                 <div id="mensagem-vencedor" className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
-                     <div className="text-5xl mb-6">
-                        <b className="text-white bg-accent-foreground px-6 py-3 rounded-lg whitespace-nowrap inline-block shadow-lg">{winner?.name}</b>
+                     <div className="text-5xl mb-6 inline-block">
+                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner?.name}</b>
                     </div>
                      <p className="text-5xl leading-tight font-semibold">
                         Ganhou a disputa soletrando
                          <br/> 
-                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-1 rounded-lg shadow-md mx-2 uppercase">{winnerWord}</b>
+                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{winnerWord}</b>
                         <br/> 
                         e recebeu uma estrela <Star className="inline-block w-14 h-14 text-accent fill-accent" /> !
                     </p>
