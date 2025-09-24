@@ -39,7 +39,7 @@ const setDisputeState = (state: DisputeState | null) => {
 export default function RafflePage() {
   const [words, setWords] = useState<string[]>([]);
   const [availableWords, setAvailableWords] = useState<string[]>([]);
-  const [participants, setParticipants] = useState<{ groupA: Participant[], groupB: Participant[] } | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
   const [currentWord, setCurrentWord] = useState<string | null>(null);
@@ -52,16 +52,12 @@ export default function RafflePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const participantsRef = ref(database, 'participants');
+    const participantsRef = ref(database, 'participants/all');
     const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            const sanitizedData = {
-                groupA: data.groupA || [],
-                groupB: data.groupB || []
-            };
-            setParticipants(sanitizedData);
-            checkForWinner(sanitizedData);
+            setParticipants(data);
+            checkForWinner(data);
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
             router.push('/');
@@ -89,30 +85,21 @@ export default function RafflePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
-  const checkForWinner = (currentParticipants: { groupA: Participant[], groupB: Participant[] }) => {
+  const checkForWinner = (currentParticipants: Participant[]) => {
     if (!currentParticipants || finalWinner) return;
     
-    const activeGroupA = currentParticipants.groupA.filter(p => !p.eliminated);
-    const activeGroupB = currentParticipants.groupB.filter(p => !p.eliminated);
-
-    let winner: Participant | null = null;
+    const activeParticipants = currentParticipants.filter(p => !p.eliminated);
     
-    if (activeGroupA.length > 0 && activeGroupB.length === 0) {
-        winner = activeGroupA.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
-    } else if (activeGroupB.length > 0 && activeGroupA.length === 0) {
-        winner = activeGroupB.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
-    } else if (activeGroupA.length === 0 && activeGroupB.length === 0 && (currentParticipants.groupA.length > 0 || currentParticipants.groupB.length > 0)) {
-         const allParticipants = [...currentParticipants.groupA, ...currentParticipants.groupB];
-         if(allParticipants.length > 0){
-            winner = allParticipants.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
-         }
-    }
-
-
-    if (winner) {
-      setFinalWinner(winner);
-      setShowFinalWinnerDialog(true);
-      setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+    if (activeParticipants.length === 1) {
+        const winner = activeParticipants[0];
+        setFinalWinner(winner);
+        setShowFinalWinnerDialog(true);
+        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+    } else if (activeParticipants.length === 0 && currentParticipants.length > 0) {
+        const winner = currentParticipants.reduce((prev, current) => (prev.stars > current.stars) ? prev : current);
+        setFinalWinner(winner);
+        setShowFinalWinnerDialog(true);
+        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
     }
   }
 
@@ -123,19 +110,19 @@ export default function RafflePage() {
     setCurrentWord(null);
     setDisputeState({ type: 'RESET' });
 
-    let activeGroupA = participants.groupA.filter(p => !p.eliminated);
-    let activeGroupB = participants.groupB.filter(p => !p.eliminated);
+    let activeParticipants = participants.filter(p => !p.eliminated);
 
-    if (activeGroupA.length === 0 || activeGroupB.length === 0) {
+    if (activeParticipants.length < 2) {
       checkForWinner(participants);
       if(!finalWinner) {
-        toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter participantes ativos nos dois grupos." });
+        toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter pelo menos 2 participantes ativos." });
       }
       return;
     }
     
-    const participantA = activeGroupA[Math.floor(Math.random() * activeGroupA.length)];
-    const participantB = activeGroupB[Math.floor(Math.random() * activeGroupB.length)];
+    const shuffled = activeParticipants.sort(() => 0.5 - Math.random());
+    const participantA = shuffled[0];
+    const participantB = shuffled[1];
 
     setCurrentDuel({ participantA, participantB });
     setRaffleState('participants_sorted');
@@ -168,19 +155,16 @@ export default function RafflePage() {
 
     const winnerIsA = currentDuel.participantA.id === winnerId;
     let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
-    const loser = winnerIsA ? currentDuel.participantB : currentDuel.A;
-
-    const winnerGroupKey = winner.id.startsWith('A') ? 'groupA' : 'groupB';
-    const loserGroupKey = loser.id.startsWith('A') ? 'groupA' : 'groupB';
+    const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
     
-    const winnerIndex = participants[winnerGroupKey].findIndex(p => p.id === winner.id);
-    const loserIndex = participants[loserGroupKey].findIndex(p => p.id === loser.id);
+    const winnerIndex = participants.findIndex(p => p.id === winner.id);
+    const loserIndex = participants.findIndex(p => p.id === loser.id);
     
     const updates: any = {};
-    const newStars = (participants[winnerGroupKey][winnerIndex].stars || 0) + 1;
+    const newStars = (participants[winnerIndex].stars || 0) + 1;
     
-    updates[`/participants/${winnerGroupKey}/${winnerIndex}/stars`] = newStars;
-    updates[`/participants/${loserGroupKey}/${loserIndex}/eliminated`] = true;
+    updates[`/participants/all/${winnerIndex}/stars`] = newStars;
+    updates[`/participants/all/${loserIndex}/eliminated`] = true;
     
     await update(ref(database), updates);
     
@@ -195,9 +179,8 @@ export default function RafflePage() {
     
     setRaffleState('round_finished');
     
-    // Check for final winner after state has been updated
     const dbRef = ref(database);
-    const snapshot = await get(child(dbRef, 'participants'));
+    const snapshot = await get(child(dbRef, 'participants/all'));
     if(snapshot.exists()) {
         setTimeout(() => checkForWinner(snapshot.val()), 100);
     }
@@ -221,22 +204,20 @@ export default function RafflePage() {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
     }
     
-    const activeParticipantsA = participants.groupA?.filter(p => !p.eliminated).length || 0;
-    const activeParticipantsB = participants.groupB?.filter(p => !p.eliminated).length || 0;
+    const activeParticipants = participants.filter(p => !p.eliminated).length;
 
     if (raffleState === 'idle') {
       return (
         <div className="text-center flex flex-col items-center gap-6">
           <h2 className="text-3xl font-bold">Próxima Rodada</h2>
           <div className="text-lg text-muted-foreground">
-            <p>Grupo A: {activeParticipantsA} participantes</p>
-            <p>Grupo B: {activeParticipantsB} participantes</p>
+            <p>{activeParticipants} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || (activeParticipantsA === 0 || activeParticipantsB === 0)}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipants < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {(activeParticipantsA === 0 || activeParticipantsB === 0) && (activeParticipantsA > 0 || activeParticipantsB > 0) && !finalWinner &&(
-             <p className="text-amber-600 mt-4">Um dos grupos não tem mais participantes. Clique em "Sortear Participantes" para declarar o vencedor.</p>
+          {activeParticipants < 2 && participants.length > 0 && !finalWinner && (
+             <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
         </div>
       )
@@ -289,7 +270,7 @@ export default function RafflePage() {
             <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
                 <Star /> Ganhou 1 estrela!
             </p>
-            <p className="text-muted-foreground">{activeParticipantsA} vs {activeParticipantsB}</p>
+            <p className="text-muted-foreground">{activeParticipants} participantes restantes</p>
             <Button size="lg" onClick={nextRound} disabled={finalWinner != null}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )

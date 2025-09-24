@@ -1,7 +1,7 @@
 import type { Participant } from '@/app/page';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '../ui/button';
-import { Trash2, Star } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 
 interface ParticipantGroupProps {
@@ -18,7 +18,7 @@ export function ParticipantGroup({ title, participants, onRemove }: ParticipantG
         <CardDescription>{participants.length} participante(s)</CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-72">
+        <ScrollArea className="h-[60vh]">
           <ul className="space-y-2">
             {participants.length > 0 ? (
               participants.map(p => (

@@ -11,20 +11,20 @@ import type { Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, get, child } from 'firebase/database';
+import { ref, set, onValue } from 'firebase/database';
 
 export default function DisputePage() {
   const [words, setWords] = useState<string[]>([]);
   const [newWord, setNewWord] = useState('');
-  const [participants, setParticipants] = useState<{ groupA: Participant[], groupB: Participant[] } | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    const participantsRef = ref(database, 'participants');
+    const participantsRef = ref(database, 'participants/all');
     const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
-      setParticipants(snapshot.val());
+      setParticipants(snapshot.val() || []);
     });
 
     const wordsRef = ref(database, 'dispute/words');
@@ -168,20 +168,11 @@ export default function DisputePage() {
              <Card>
                 <CardHeader><CardTitle>Participantes</CardTitle></CardHeader>
                 <CardContent>
-                    {participants ? (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <h3 className="font-bold mb-2">Grupo A</h3>
-                                <ul className="text-sm text-muted-foreground">
-                                    {participants.groupA?.map(p => <li key={p.id}>{p.name}</li>)}
-                                </ul>
-                            </div>
-                            <div>
-                                <h3 className="font-bold mb-2">Grupo B</h3>
-                                <ul className="text-sm text-muted-foreground">
-                                    {participants.groupB?.map(p => <li key={p.id}>{p.name}</li>)}
-                                </ul>
-                            </div>
+                    {participants.length > 0 ? (
+                        <div>
+                            <ul className="text-sm text-muted-foreground columns-2">
+                                {participants.map(p => <li key={p.id}>{p.name}</li>)}
+                            </ul>
                         </div>
                     ) : <p>Carregando participantes...</p>}
                 </CardContent>
@@ -194,7 +185,7 @@ export default function DisputePage() {
                 <Button 
                     className="w-full" 
                     size="lg" 
-                    disabled={words.length === 0 || !participants}
+                    disabled={words.length === 0 || participants.length < 2}
                     onClick={startRaffle}
                     >
                     <Play className="mr-2" />

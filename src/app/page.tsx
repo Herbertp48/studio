@@ -4,13 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { ParticipantGroup } from '@/components/app/participant-group';
-import { AddParticipantForm } from '@/components/app/add-participant-form';
 import { Button } from '@/components/ui/button';
-import { Upload, Play } from 'lucide-react';
+import { Upload, Play, UserPlus } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
 import { ref, set, onValue } from 'firebase/database';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export type Participant = {
   id: string;
@@ -20,8 +22,8 @@ export type Participant = {
 };
 
 export default function Home() {
-  const [groupA, setGroupA] = useState<Participant[]>([]);
-  const [groupB, setGroupB] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [newParticipantName, setNewParticipantName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -31,49 +33,39 @@ export default function Home() {
     const unsubscribe = onValue(participantsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setGroupA(data.groupA || []);
-        setGroupB(data.groupB || []);
+        setParticipants(data.all || []);
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  const updateParticipantsInDB = (newGroupA: Participant[], newGroupB: Participant[]) => {
+  const updateParticipantsInDB = (newParticipants: Participant[]) => {
     set(ref(database, 'participants'), {
-      groupA: newGroupA,
-      groupB: newGroupB,
+      all: newParticipants,
     });
   };
 
-  const addParticipant = (name: string, group: 'A' | 'B') => {
-    const newParticipant: Participant = {
-      id: `${group}-${Date.now()}`,
-      name,
-      stars: 0,
-      eliminated: false,
-    };
-    if (group === 'A') {
-      const newGroup = [...groupA, newParticipant];
-      setGroupA(newGroup);
-      updateParticipantsInDB(newGroup, groupB);
-    } else {
-      const newGroup = [...groupB, newParticipant];
-      setGroupB(newGroup);
-      updateParticipantsInDB(groupA, newGroup);
+  const addParticipant = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newParticipantName.trim()) {
+      const newParticipant: Participant = {
+        id: `p-${Date.now()}`,
+        name: newParticipantName.trim(),
+        stars: 0,
+        eliminated: false,
+      };
+      const newParticipants = [...participants, newParticipant];
+      setParticipants(newParticipants);
+      updateParticipantsInDB(newParticipants);
+      setNewParticipantName('');
     }
   };
 
-  const removeParticipant = (id: string, group: 'A' | 'B') => {
-    if (group === 'A') {
-      const newGroup = groupA.filter(p => p.id !== id);
-      setGroupA(newGroup);
-      updateParticipantsInDB(newGroup, groupB);
-    } else {
-      const newGroup = groupB.filter(p => p.id !== id);
-      setGroupB(newGroup);
-      updateParticipantsInDB(groupA, newGroup);
-    }
+  const removeParticipant = (id: string) => {
+    const newParticipants = participants.filter(p => p.id !== id);
+    setParticipants(newParticipants);
+    updateParticipantsInDB(newParticipants);
   };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,67 +79,22 @@ export default function Home() {
         const workbook = read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
-        
+        const json = utils.sheet_to_json<any>(worksheet);
+
         if (json.length === 0) {
             throw new Error("A planilha está vazia.");
         }
 
-        const header = json[0] as string[];
-        const hasGroupColumns = header.includes('Grupo A') || header.includes('Grupo B');
-        const jsonData = utils.sheet_to_json<any>(worksheet);
-
-        const newGroupA: Participant[] = [];
-        const newGroupB: Participant[] = [];
-
-        if (hasGroupColumns) {
-            jsonData.forEach((row, index) => {
-                if (row['Grupo A']) {
-                    newGroupA.push({
-                    id: `A-${Date.now()}-${index}`,
-                    name: String(row['Grupo A']),
-                    stars: 0,
-                    eliminated: false,
-                    });
-                }
-                if (row['Grupo B']) {
-                    newGroupB.push({
-                    id: `B-${Date.now()}-${index}`,
-                    name: String(row['Grupo B']),
-                    stars: 0,
-                    eliminated: false,
-                    });
-                }
-            });
-        } else {
-            const allNames = jsonData.map(row => String(Object.values(row)[0])).filter(name => name.trim() !== '' && name.toLowerCase() !== header[0].toLowerCase());
-            const midPoint = Math.ceil(allNames.length / 2);
-            
-            allNames.forEach((name, index) => {
-                if (index < midPoint) {
-                    newGroupA.push({
-                        id: `A-${Date.now()}-${index}`,
-                        name: name,
-                        stars: 0,
-                        eliminated: false,
-                    });
-                } else {
-                    newGroupB.push({
-                        id: `B-${Date.now()}-${index}`,
-                        name: name,
-                        stars: 0,
-                        eliminated: false,
-                    });
-                }
-            });
-        }
+        const newParticipants: Participant[] = json.map((row: any, index: number) => ({
+            id: `p-${Date.now()}-${index}`,
+            name: String(Object.values(row)[0]),
+            stars: 0,
+            eliminated: false,
+        })).filter(p => p.name.trim() !== '');
         
-        const updatedGroupA = [...groupA, ...newGroupA];
-        const updatedGroupB = [...groupB, ...newGroupB];
-        setGroupA(updatedGroupA);
-        setGroupB(updatedGroupB);
-        updateParticipantsInDB(updatedGroupA, updatedGroupB);
-
+        const updatedParticipants = [...participants, ...newParticipants];
+        setParticipants(updatedParticipants);
+        updateParticipantsInDB(updatedParticipants);
 
         toast({
           title: 'Sucesso!',
@@ -179,7 +126,11 @@ export default function Home() {
   };
 
   const startDispute = () => {
-    updateParticipantsInDB(groupA, groupB);
+     // Reset all participants stars and eliminated status before starting
+    const resetedParticipants = participants.map(p => ({ ...p, stars: 0, eliminated: false }));
+    updateParticipantsInDB(resetedParticipants);
+    // Also clear words and dispute state
+    set(ref(database, 'dispute'), null);
     router.push('/disputa');
   };
 
@@ -190,7 +141,26 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1 space-y-6">
             <h2 className="text-2xl font-bold">Controles</h2>
-            <AddParticipantForm onAddParticipant={addParticipant} />
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UserPlus /> Adicionar Participante</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={addParticipant} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="participant-name">Nome</Label>
+                    <Input
+                      id="participant-name"
+                      placeholder="Nome do participante"
+                      value={newParticipantName}
+                      onChange={e => setNewParticipantName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">Adicionar</Button>
+                </form>
+              </CardContent>
+            </Card>
              <div className="space-y-4">
                <input 
                   type="file" 
@@ -205,7 +175,7 @@ export default function Home() {
                </Button>
                <Button 
                 className="w-full" 
-                disabled={groupA.length === 0 || groupB.length === 0}
+                disabled={participants.length < 2}
                 onClick={startDispute}
                >
                  <Play className="mr-2 h-4 w-4" />
@@ -213,9 +183,8 @@ export default function Home() {
                </Button>
             </div>
           </div>
-          <div className="md:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ParticipantGroup title="Grupo A" participants={groupA} onRemove={id => removeParticipant(id, 'A')} />
-            <ParticipantGroup title="Grupo B" participants={groupB} onRemove={id => removeParticipant(id, 'B')}/>
+          <div className="md:col-span-2">
+            <ParticipantGroup title="Participantes" participants={participants} onRemove={id => removeParticipant(id)} />
           </div>
         </div>
       </main>
