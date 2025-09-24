@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ export default function DisputePage() {
   const [participants, setParticipants] = useState<{ groupA: Participant[], groupB: Participant[] } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     const storedParticipants = localStorage.getItem('participants');
@@ -83,6 +85,10 @@ export default function DisputePage() {
     fileInputRef.current?.click();
   };
 
+  const startRaffle = () => {
+    localStorage.setItem('words', JSON.stringify(words));
+    router.push('/sorteio');
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -155,7 +161,12 @@ export default function DisputePage() {
                     ) : <p>Carregando participantes...</p>}
                 </CardContent>
             </Card>
-            <Button className="w-full" size="lg" disabled={words.length === 0 || !participants}>
+            <Button 
+              className="w-full" 
+              size="lg" 
+              disabled={words.length === 0 || !participants}
+              onClick={startRaffle}
+            >
               <Play className="mr-2" />
               Começar Sorteio
             </Button>
