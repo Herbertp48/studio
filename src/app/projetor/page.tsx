@@ -155,30 +155,39 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => (
-        <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
-            <header className="flex items-center gap-4 text-accent">
-                 <h1 id="titulo-projetado" className="text-[100px] font-melison font-bold tracking-tight">
+         <div id="main-content" className={cn("flex flex-col items-center justify-start w-full h-full pt-8 transition-all duration-500", (winnerMessage || finalWinner) && !isShuffling ? 'opacity-0' : 'opacity-100')}>
+            <header className="flex items-center gap-4 text-accent mt-8">
+                 <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
                 </h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
             </header>
 
-            <div id="Psorteio-box" className="mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center font-melison">
-                <h2 id="Sbtitulo" className="text-8xl font-bold text-accent uppercase">{isShuffling ? 'Sorteando...' : 'The Word Is'}</h2>
-                <div id="premio-box" className={cn("mt-8 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-[30%] font-subjectivity", !showWord && 'invisible')}>
-                    <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
-                        {word || '...'}
-                    </p>
-                </div>
-                <div id="disputa" className="mt-20 flex w-full items-center justify-center gap-16">
-                    <div id="participanteA" className="text-center text-5xl font-bold text-accent w-1/3">
-                        <h3>{participantA?.name || 'Participante A'}</h3>
-                    </div>
-                    <h3 className="text-8xl font-bold mx-8">Vs.</h3>
-                    <div id="participanteB" className="text-center text-5xl font-bold text-accent w-1/3">
-                        <h3>{participantB?.name || 'Participante B'}</h3>
+            <div id="Psorteio-box" className="relative mt-16 text-center text-white w-full flex-1 flex flex-col justify-start items-center font-melison">
+                <div className={cn("absolute top-0 w-full flex flex-col items-center", !showWord && 'invisible')}>
+                    <h2 id="Sbtitulo" className="text-6xl font-bold text-accent uppercase font-subjectivity">The Word Is</h2>
+                    <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-1/3 font-subjectivity">
+                        <p id="premioSorteado" className="text-4xl font-bold uppercase tracking-[0.2em]">
+                            {word || '...'}
+                        </p>
                     </div>
                 </div>
+
+                <div className="absolute top-1/3 transform -translate-y-1/2 w-full flex justify-center items-center">
+                    <div className="w-1/3 text-center">
+                        <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantA?.name || 'Participante A'}</h3>
+                    </div>
+                    <div className="w-1/3 text-center">
+                        <h3 className="text-8xl font-bold mx-8 font-melison">Vs.</h3>
+                    </div>
+                    <div className="w-1/3 text-center">
+                       <h3 className="text-5xl font-bold text-accent font-subjectivity">{participantB?.name || 'Participante B'}</h3>
+                    </div>
+                </div>
+            </div>
+             {/* Placeholder for the logo */}
+            <div className="absolute bottom-4 right-4 w-32 h-16">
+                 {/* You can place your logo component or an <img> tag here */}
             </div>
         </div>
     );
@@ -237,3 +246,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
