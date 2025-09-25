@@ -10,7 +10,8 @@ import { ref, onValue } from 'firebase/database';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-type DisputeState = {
+// Define os tipos de ações que podem ser recebidas do Firebase
+type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS';
     participantA?: Participant | null;
     participantB?: Participant | null;
@@ -22,54 +23,68 @@ type DisputeState = {
     winners?: AggregatedWinner[];
 }
 
-const getInitialState = () => ({
+// Define a estrutura do estado de exibição da página
+type DisplayState = {
+    view: 'main' | 'round_winner' | 'final_winner' | 'shuffling' | 'winners_table';
+    participantA: Participant | null;
+    participantB: Participant | null;
+    word: string | null;
+    showWord: boolean;
+    roundWinner?: { winner: Participant, loser: Participant, word: string };
+    finalWinner?: Participant;
+    winners?: AggregatedWinner[];
+};
+
+// Estado inicial para resetar a tela
+const initialDisplayState: DisplayState = {
+    view: 'main',
     participantA: null,
     participantB: null,
     word: null,
     showWord: false,
-    winnerMessage: null,
-    finalWinner: null,
-    isShuffling: false,
-    showWinners: false,
-    winners: [],
-});
+};
 
 export default function ProjectionPage() {
-    const [participantA, setParticipantA] = useState<Participant | null>(null);
-    const [participantB, setParticipantB] = useState<Participant | null>(null);
-    const [word, setWord] = useState<string | null>(null);
-    const [showWord, setShowWord] = useState(false);
-    const [winnerMessage, setWinnerMessage] = useState<{ winner?: Participant, loser?: Participant, word?: string} | null>(null);
-    const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
-    const [isShuffling, setIsShuffling] = useState(false);
-    const [showWinners, setShowWinners] = useState(false);
-    const [winners, setWinners] = useState<AggregatedWinner[]>([]);
-
-
-    const [animationKey, setAnimationKey] = useState(0);
-    const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
-    
+    const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
+    const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
+    const [animationKey, setAnimationKey] = useState(0);
 
+    // Efeito seguro para pré-carregar os áudios APENAS no cliente, uma única vez.
     useEffect(() => {
-        // This effect runs only once on the client, after hydration
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
+        let loadedSounds = 0;
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
                 const audio = new Audio(`/som/${file}`);
-                audio.load();
+                audio.load(); // Inicia o carregamento
+                audio.oncanplaythrough = () => {
+                    loadedSounds++;
+                };
                 sounds.current[file] = audio;
             }
         });
-    }, []); // Empty dependency array ensures this runs only once on the client
+
+        // Função de limpeza para garantir que os sons parem se o componente for desmontado
+        return () => {
+             Object.values(sounds.current).forEach(sound => {
+                if (sound) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
+            });
+        };
+    }, []); // Array vazio garante que rode apenas uma vez no cliente.
 
     const playSound = (soundFile: string, loop = false) => {
-        // Stop any currently playing sound
+        // Para todos os outros sons antes de tocar um novo
         Object.values(sounds.current).forEach(sound => {
-            sound.pause();
-            sound.currentTime = 0;
+            if(sound) {
+                sound.pause();
+                sound.currentTime = 0;
+            }
         });
-
+        
         const soundToPlay = sounds.current[soundFile];
         if (soundToPlay) {
             soundToPlay.loop = loop;
@@ -77,216 +92,194 @@ export default function ProjectionPage() {
         }
     };
 
-    const stopSound = () => {
+    const stopAllSounds = () => {
         Object.values(sounds.current).forEach(sound => {
-            sound.pause();
-            sound.currentTime = 0;
+            if (sound) {
+                sound.pause();
+                sound.currentTime = 0;
+            }
         });
     };
     
+    // Efeito para escutar as ações do Firebase e atualizar o estado de exibição
     useEffect(() => {
-        const stopShuffling = () => {
+        const stopShufflingAnimation = () => {
             if (shufflingInterval.current) {
                 clearInterval(shufflingInterval.current);
                 shufflingInterval.current = null;
             }
-            setIsShuffling(false);
-        }
+        };
 
         const disputeStateRef = ref(database, 'dispute/state');
 
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
-            const action: DisputeState = snapshot.val();
-            
+            const action: DisputeAction | null = snapshot.val();
+
+            // Se não houver ação, volta ao estado inicial
             if (!action) {
-                const s = getInitialState();
-                setParticipantA(s.participantA);
-                setParticipantB(s.participantB);
-                setWord(s.word);
-                setShowWord(s.showWord);
-                setWinnerMessage(s.winnerMessage);
-                setFinalWinner(s.finalWinner);
-                setIsShuffling(s.isShuffling);
-                setShowWinners(s.showWinners);
-                setWinners(s.winners);
+                stopAllSounds();
+                stopShufflingAnimation();
+                setDisplayState(initialDisplayState);
                 return;
-            };
+            }
 
             switch (action.type) {
                 case 'RESET':
-                    stopSound();
-                    stopShuffling();
-                    setAnimationKey(0);
-                    const s = getInitialState();
-                    setParticipantA(s.participantA);
-                    setParticipantB(s.participantB);
-                    setWord(s.word);
-                    setShowWord(s.showWord);
-                    setWinnerMessage(s.winnerMessage);
-                    setFinalWinner(s.finalWinner);
-                    setIsShuffling(s.isShuffling);
-                    setShowWinners(s.showWinners);
-                    setWinners(s.winners);
+                    stopAllSounds();
+                    stopShufflingAnimation();
+                    setDisplayState(initialDisplayState);
                     break;
+                
                 case 'SHUFFLING_PARTICIPANTS':
-                    stopShuffling();
-                    setShowWord(false);
-                    setIsShuffling(true);
-                    setParticipantA({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
-                    setParticipantB({ id: 'shuffle', name: '...', stars: 0, eliminated: false });
-                    setWord(null);
-                    setWinnerMessage(null);
-                    setFinalWinner(null);
-                    setShowWinners(false);
+                    stopShufflingAnimation();
                     playSound('tambor.mp3', true);
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'shuffling',
+                        participantA: { id: 'shuffleA', name: '...', stars: 0, eliminated: false },
+                        participantB: { id: 'shuffleB', name: '...', stars: 0, eliminated: false },
+                    });
+                    
                     const activeParticipants = action.activeParticipants || [];
                     if (activeParticipants.length > 1) {
                         shufflingInterval.current = setInterval(() => {
                             const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
-                            setParticipantA(shuffled[0]);
-                            setParticipantB(shuffled[1]);
-                        }, 100);
+                             setDisplayState(prevState => ({
+                                ...prevState,
+                                participantA: shuffled[0],
+                                participantB: shuffled[1],
+                            }));
+                        }, 150);
                     }
                     break;
+
                 case 'UPDATE_PARTICIPANTS':
-                    stopShuffling();
-                    stopSound();
+                    stopShufflingAnimation();
+                    stopAllSounds();
                     playSound('sinos.mp3');
-                    setIsShuffling(false);
-                    setParticipantA(action.participantA || null);
-                    setParticipantB(action.participantB || null);
-                    setWord(null);
-                    setShowWord(false);
-                    setWinnerMessage(null);
-                    setFinalWinner(null);
-                    setShowWinners(false);
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'main',
+                        participantA: action.participantA || null,
+                        participantB: action.participantB || null,
+                    });
                     break;
+
                 case 'SHOW_WORD':
                     playSound('premio.mp3');
-                    setWord(action.word || null);
-                    setShowWord(true);
-                    setWinnerMessage(null);
-                    setShowWinners(false);
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        word: action.word || null,
+                        showWord: true,
+                    }));
                     break;
+
                 case 'HIDE_WORD':
-                     setShowWord(false);
-                     setWord(null);
-                     setWinnerMessage(null);
+                     setDisplayState(prevState => ({ ...prevState, showWord: false, word: null }));
                      break;
+
                 case 'ROUND_WINNER':
-                    stopSound();
-                    stopShuffling();
+                    stopAllSounds();
+                    stopShufflingAnimation();
                     playSound('vencedor.mp3');
-                    setIsShuffling(false);
-                    setAnimationKey(prev => prev + 1);
-                    setShowWord(false);
-                    setWinnerMessage({ winner: action.winner, loser: action.loser, word: action.word });
+                    setAnimationKey(prev => prev + 1); // Força re-animação
+                    if (action.winner && action.loser && action.word) {
+                       setDisplayState({
+                           ...initialDisplayState,
+                           view: 'round_winner',
+                           roundWinner: { winner: action.winner, loser: action.loser, word: action.word }
+                       });
+                    }
                     break;
+
                 case 'FINAL_WINNER':
-                    stopSound();
-                    stopShuffling();
+                    stopAllSounds();
+                    stopShufflingAnimation();
                     playSound('vencedor.mp3');
-                    setIsShuffling(false);
-                    setAnimationKey(prev => prev + 1);
-                    const finalState = getInitialState();
-                    setParticipantA(finalState.participantA);
-                    setParticipantB(finalState.participantB);
-                    setWord(finalState.word);
-                    setShowWord(finalState.showWord);
-                    setWinnerMessage(finalState.winnerMessage);
-                    setFinalWinner(action.finalWinner || null);
-                    setShowWinners(false);
+                    setAnimationKey(prev => prev + 1); // Força re-animação
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'final_winner',
+                        finalWinner: action.finalWinner
+                    });
                     break;
+
                 case 'SHOW_WINNERS':
-                    const resetState = getInitialState();
-                    setParticipantA(resetState.participantA);
-                    setParticipantB(resetState.participantB);
-                    setWord(resetState.word);
-                    setShowWord(resetState.showWord);
-                    setWinnerMessage(resetState.winnerMessage);
-                    setFinalWinner(resetState.finalWinner);
-                    setIsShuffling(resetState.isShuffling);
-                    setShowWinners(true);
-                    setWinners((action.winners || []).sort((a,b) => b.totalStars - a.totalStars));
+                    stopAllSounds();
+                    stopShufflingAnimation();
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'winners_table',
+                        winners: (action.winners || []).sort((a,b) => b.totalStars - a.totalStars)
+                    });
                     break;
             }
         });
 
+        // Limpeza do efeito
         return () => {
             unsubscribe();
-            stopShuffling();
-            stopSound();
+            stopShufflingAnimation();
+            stopAllSounds();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, []); // Array vazio para garantir que o listener do Firebase seja configurado apenas uma vez
 
+    // ------ COMPONENTES DE RENDERIZAÇÃO ------
 
-    const MainContent = () => {
-        return (
-            <div id="main-content" className={cn(
-                "flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500",
-            )}>
-                <header className="flex items-center gap-4 text-accent">
-                    <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
-                        Spelling Bee
-                    </h1>
-                    <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
-                </header>
-                
-                <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
-                    
-                    <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0')}>
-                        <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-                        <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
-                            <p id="premioSorteado" className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
-                                {word || '...'}
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <div className="relative w-full flex-1 flex items-center justify-center">
-                        <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
-                            <div className="col-start-2 col-span-4 text-center">
-                                <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
-                            </div>
-                            <div className="col-span-2 text-center">
-                                <h3 className="text-8xl font-bold font-melison">Vs.</h3>
-                            </div>
-                            <div className="col-span-4 text-center">
-                                <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
-                            </div>
-                        </div>
+    const MainContent = () => (
+        <div className="flex flex-col items-center justify-start pt-8 w-full h-full">
+            <header className="flex items-center gap-4 text-accent">
+                <h1 className="text-8xl font-melison font-bold tracking-tight">
+                    Spelling Bee
+                </h1>
+                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
+            </header>
+            
+            <div className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+                    <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
+                    <div className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
+                        <p className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
+                            {displayState.word || '...'}
+                        </p>
                     </div>
                 </div>
-
-                <div className="absolute bottom-4 right-4 w-32 h-16">
-                    {/* You can place your logo component or an <img> tag here */}
+                
+                <div className="relative w-full flex-1 flex items-center justify-center">
+                    <div className="grid grid-cols-12 items-center w-full gap-4">
+                        <div className="col-start-2 col-span-4 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
+                        </div>
+                        <div className="col-span-2 text-center">
+                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                        </div>
+                        <div className="col-span-4 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantB?.name || 'Participante B'}</h3>
+                        </div>
+                    </div>
                 </div>
             </div>
-        );
-    }
-    
-    const WinnerMessage = () => {
-         if (!winnerMessage) return null;
-         const { winner, word: winnerWord } = winnerMessage;
+        </div>
+    );
+
+    const RoundWinnerMessage = () => {
+        if (!displayState.roundWinner) return null;
+        const { winner, word } = displayState.roundWinner;
 
         return (
              <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                 <div className="absolute top-8 flex items-center gap-4 text-accent">
-                    <h1 className="text-6xl font-melison font-bold tracking-tight">
-                        Spelling Bee
-                    </h1>
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                     <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
                 </div>
-
-                <div id="mensagem-vencedor" className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
                      <div className="text-6xl mb-6 inline-block">
-                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner?.name}</b>
+                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
                     </div>
                      <p className="text-5xl leading-tight font-semibold">
                         Ganhou a disputa soletrando
                          <br/> 
-                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{winnerWord}</b>
+                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>
                         <br/> 
                         e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
                     </p>
@@ -296,11 +289,12 @@ export default function ProjectionPage() {
     }
     
     const FinalWinnerMessage = () => {
-         if (!finalWinner) return null;
+         if (!displayState.finalWinner) return null;
+         const { finalWinner } = displayState;
 
         return (
              <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000 fixed inset-0 z-30">
-                <div id="mensagem-final-vencedor" className="flex items-center justify-center bg-black/60 w-full h-full">
+                <div className="flex items-center justify-center bg-black/60 w-full h-full">
                     <div className="bg-gradient-to-br from-yellow-300 to-amber-500 text-purple-900 border-8 border-white rounded-3xl p-20 shadow-2xl text-center max-w-5xl mx-auto relative overflow-hidden font-subjectivity">
                         <Crown className="absolute -top-16 -left-16 w-64 h-64 text-white/20 -rotate-12" />
                         <Crown className="absolute -bottom-20 -right-16 w-72 h-72 text-white/20 rotate-12" />
@@ -317,12 +311,12 @@ export default function ProjectionPage() {
     }
 
     const WinnersTable = () => {
-        if (!showWinners || winners.length === 0) return null;
+        if (!displayState.winners) return null;
 
         return (
             <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
                 <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8 flex items-center gap-4">
-                    <Trophy className="w-20 h-20" /> Classificação dos Ganhadores Spelling Bee
+                    <Trophy className="w-20 h-20" /> Classificação dos Ganhadores
                 </h1>
                 <div className="w-full max-w-6xl bg-stone-50/90 rounded-2xl shadow-2xl p-4">
                     <Table>
@@ -333,7 +327,7 @@ export default function ProjectionPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {winners.map((winner) => (
+                            {displayState.winners.map((winner) => (
                                 <TableRow key={winner.name} className="border-t-4 border-amber-300">
                                 <TableCell className="font-bold text-accent-foreground text-center text-4xl p-6 font-subjectivity">
                                     {winner.name}
@@ -354,17 +348,12 @@ export default function ProjectionPage() {
         )
     }
 
-    const renderOverlay = () => {
-        if (finalWinner) return <FinalWinnerMessage />;
-        if (winnerMessage) return <WinnerMessage />;
-        if (showWinners) return <WinnersTable />;
-        return null;
-    }
-
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
             <MainContent />
-            {renderOverlay()}
+            {displayState.view === 'round_winner' && <RoundWinnerMessage />}
+            {displayState.view === 'final_winner' && <FinalWinnerMessage />}
+            {displayState.view === 'winners_table' && <WinnersTable />}
         </div>
     );
 }
