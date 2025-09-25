@@ -32,9 +32,19 @@ export default function ProtectedRoute({ children, page }: ProtectedRouteProps) 
 
 
   const hasAccess = () => {
-    if (!user || !userPermissions) return false;
-    if (userPermissions.role === 'admin') return true;
-    if (page === 'admin') return false; // Only admin can access user management
+    if (loading || !user || !userPermissions) return false;
+    
+    // Admin has access to everything
+    if (userPermissions.role === 'admin') {
+      return true;
+    }
+    
+    // Regular users cannot access the 'admin' page
+    if (page === 'admin') {
+      return false;
+    }
+    
+    // Check specific permission for regular users
     return userPermissions.permissions?.[page] === true;
   };
   
@@ -47,7 +57,8 @@ export default function ProtectedRoute({ children, page }: ProtectedRouteProps) 
   }
 
   if (!user) {
-    return null; // Render nothing while redirecting
+    // router.replace is handled by the useEffect, return null to avoid rendering during redirect
+    return null; 
   }
   
   if (!hasAccess()) {
