@@ -217,6 +217,7 @@ export default function ProjectionPage() {
             stopShuffling();
             stopSound();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
