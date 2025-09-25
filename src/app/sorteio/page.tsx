@@ -78,18 +78,16 @@ function RafflePageContent() {
     
     if (activeParticipants.length < 2) {
         const allParticipants = Object.values(currentParticipants);
-        const maxStars = Math.max(...allParticipants.map(p => p.stars));
-
-        if (maxStars === 0 && activeParticipants.length === 1) {
-            // This case happens if there's only one person left but they never won a round.
-            // We can consider this a non-winner scenario or declare them winner. For now, no winner.
+        const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
+        
+        if (maxStars === 0) {
              setFinalWinners([]);
              setIsTie(false);
              setShowFinalWinnerDialog(true);
             return;
         }
         
-        const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
+        const winners = allParticipants.filter(p => p.stars === maxStars);
         
         if (winners.length > 0) {
             setFinalWinners(winners);
@@ -123,6 +121,7 @@ function RafflePageContent() {
               setAvailableWords(data.words);
               setOriginalWords(data.words);
             }
+            // Check for winner only when the state is idle to avoid interruptions
             if (raffleState === 'idle') {
                 checkForWinner(currentParticipants);
             }
@@ -156,7 +155,7 @@ function RafflePageContent() {
         unsubscribeWords();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [raffleState, router]);
+  }, [router]);
 
   
   const sortParticipants = () => {
@@ -175,10 +174,15 @@ function RafflePageContent() {
     }
 
     setRaffleState('shuffling');
-    setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', activeParticipants });
+    const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
+    setDisputeState({ 
+        type: 'SHUFFLING_PARTICIPANTS', 
+        activeParticipants,
+        participantA: shuffled[0],
+        participantB: shuffled[1]
+    });
     
     setTimeout(() => {
-        const shuffled = activeParticipants.sort(() => 0.5 - Math.random());
         const participantA = shuffled[0];
         const participantB = shuffled[1];
 
@@ -255,13 +259,22 @@ function RafflePageContent() {
     
     await update(ref(database), updates);
 
-    const winnerUpdate = { ...winner, stars: newStars };
+    const winnerUpdate = { ...winner, stars: newStars, eliminated: false };
+    const loserUpdate = { ...loser, eliminated: true };
+
+    // Update local state to reflect changes before Firebase listener, for UI responsiveness.
+    setParticipants(prev => ({
+        ...prev,
+        [winner.id]: winnerUpdate,
+        [loser.id]: loserUpdate,
+    }));
+
 
     setRoundWinner(winnerUpdate);
     setDisputeState({ 
         type: 'ROUND_WINNER', 
         winner: winnerUpdate, 
-        loser: { ...loser, eliminated: true }, 
+        loser: loserUpdate, 
         word: currentWord 
     });
     toast({
@@ -278,6 +291,13 @@ function RafflePageContent() {
     setRoundWinner(null);
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
+    
+    // Explicitly check for winner after setting state to idle
+    const currentParticipants = participants;
+    const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
+    if (activeParticipants.length < 2) {
+      checkForWinner(currentParticipants);
+    }
   }
   
   const openProjection = () => {
@@ -300,7 +320,7 @@ function RafflePageContent() {
         const finalistIds = finalWinners.map(winner => winner.id);
 
         participantsList.forEach(p => {
-            if (finalistIds.includes(p.id)) {
+             if (finalistIds.includes(p.id)) {
                 // Reactivate finalists for the tie-breaker
                 updates[`/dispute/participants/${p.id}/eliminated`] = false;
             } else {
@@ -309,8 +329,6 @@ function RafflePageContent() {
             }
         });
 
-        // This update will trigger the onValue listener, which will re-run checkForWinner
-        // and because there are now active participants, the winner dialog will not show.
         await update(ref(database), updates);
         
         setShowFinalWinnerDialog(false);
