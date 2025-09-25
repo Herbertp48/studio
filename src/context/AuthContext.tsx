@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, Auth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, database } from '@/lib/firebase';
 import { ref, onValue, off, get, set } from 'firebase/database';
 import { useRouter, usePathname } from 'next/navigation';
@@ -37,13 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
+        // Bypass Firebase DB check for temp admin
+        if (user.uid === 'temp-admin-user') {
+          setUserPermissions({
+            role: 'admin',
+            permissions: { inicio: true, disputa: true, sorteio: true, ganhadores: true },
+          });
+          setLoading(false);
+          return;
+        }
+
         const userPermsRef = ref(database, `users/${user.uid}`);
         onValue(userPermsRef, (snapshot) => {
             const perms = snapshot.val();
             if (perms) {
                 setUserPermissions(perms);
             } else {
-                // This can happen if a user exists in Auth but not in DB
                 setUserPermissions(null);
             }
             setLoading(false);
@@ -63,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
         unsubscribe();
-        if(user) {
+        if(user && user.uid !== 'temp-admin-user') {
             off(ref(database, `users/${user.uid}`));
         }
     };
@@ -71,16 +80,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
  const login = async (email: string, pass: string) => {
+    // PROVISÓRIO: Acesso de administrador temporário
+    if (email === 'admin@admin.com' && pass === 'admin123') {
+      const tempUser = {
+        uid: 'temp-admin-user',
+        email: 'admin@admin.com',
+      } as User;
+
+      setUser(tempUser);
+      // As permissões já são setadas no onAuthStateChanged
+      setLoading(false);
+      router.push('/');
+      return; 
+    }
+    
     try {
-      // The most common path is a normal login. We try this first.
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
-      // If the user is not found, it might be the very first user trying to register.
       if (error.code === 'auth/user-not-found') {
         const usersRef = ref(database, 'users');
         const snapshot = await get(usersRef);
 
-        // If the 'users' table in the database is empty, create this first user as admin.
         if (!snapshot.exists()) {
           const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
           const firstUser = userCredential.user;
@@ -93,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ganhadores: true,
             },
           };
-          // Save the admin user's permissions to the database.
           await set(ref(database, `users/${firstUser.uid}`), {
             email: firstUser.email,
             ...adminPermissions
@@ -101,13 +120,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return userCredential;
         }
       }
-      // If the error is not 'auth/user-not-found' or if the DB is not empty,
-      // we re-throw the original error to be caught by the login page UI.
       throw error;
     }
   };
 
   const logout = () => {
+    // Se o usuário for o admin temporário, apenas limpa o estado local
+    if(user && user.uid === 'temp-admin-user') {
+      setUser(null);
+      setUserPermissions(null);
+      router.push('/login');
+      return Promise.resolve();
+    }
     return signOut(auth);
   };
 
