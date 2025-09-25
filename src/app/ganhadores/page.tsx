@@ -96,7 +96,7 @@ export default function WinnersPage() {
           <CardHeader className="bg-accent p-4">
             <div className="flex items-center justify-between">
                 <CardTitle className="text-accent-foreground font-melison text-4xl flex items-center gap-3">
-                    <Trophy className="w-10 h-10" /> Ganhadores
+                    <Trophy className="w-10 h-10" /> Classificação dos Ganhadores Spelling Bee
                 </CardTitle>
                 <div className="flex gap-2">
                      <AlertDialog>

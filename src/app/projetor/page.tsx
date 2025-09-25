@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
-import { Crown, Star } from 'lucide-react';
+import { Crown, Star, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
@@ -192,7 +192,7 @@ export default function ProjectionPage() {
                     setFinalWinner(resetState.finalWinner);
                     setIsShuffling(resetState.isShuffling);
                     setShowWinners(true);
-                    setWinners(action.winners || []);
+                    setWinners((action.winners || []).sort((a,b) => b.totalStars - a.totalStars));
                     break;
             }
         });
@@ -205,46 +205,52 @@ export default function ProjectionPage() {
     }, []);
 
 
-    const MainContent = () => (
-         <div id="main-content" className={cn("flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500")}>
-            <header className="flex items-center gap-4 text-accent">
-                 <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
-                    Spelling Bee
-                </h1>
-                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
-            </header>
-            
-            <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
-                 
-                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0')}>
-                    <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-                    <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
-                        <p id="premioSorteado" className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
-                            {word || '...'}
-                        </p>
-                    </div>
-                </div>
-                 
-                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
-                        <div className="col-start-2 col-span-4 text-center">
-                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
-                        </div>
-                        <div className="col-span-2 text-center">
-                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
-                        </div>
-                        <div className="col-span-4 text-center">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
+    const MainContent = () => {
+        const isOverlayActive = winnerMessage || finalWinner || showWinners;
+        return (
+            <div id="main-content" className={cn(
+                "flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500",
+                isOverlayActive && 'opacity-0'
+            )}>
+                <header className="flex items-center gap-4 text-accent">
+                    <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
+                        Spelling Bee
+                    </h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized id="bee-icon" />
+                </header>
+                
+                <div id="Psorteio-box" className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+                    
+                    <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0')}>
+                        <h2 id="Sbtitulo" className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
+                        <div id="premio-box" className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
+                            <p id="premioSorteado" className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
+                                {word || '...'}
+                            </p>
                         </div>
                     </div>
+                    
+                    <div className="relative w-full flex-1 flex items-center justify-center">
+                        <div id="disputa-container" className="grid grid-cols-12 items-center w-full gap-4">
+                            <div className="col-start-2 col-span-4 text-center">
+                                <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
+                            </div>
+                            <div className="col-span-2 text-center">
+                                <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                            </div>
+                            <div className="col-span-4 text-center">
+                                <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div className="absolute bottom-4 right-4 w-32 h-16">
-                 {/* You can place your logo component or an <img> tag here */}
+                <div className="absolute bottom-4 right-4 w-32 h-16">
+                    {/* You can place your logo component or an <img> tag here */}
+                </div>
             </div>
-        </div>
-    );
+        );
+    }
     
     const WinnerMessage = () => {
          if (!winnerMessage) return null;
@@ -301,8 +307,8 @@ export default function ProjectionPage() {
 
         return (
             <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8">
-                <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8">
-                    Quadro de Ganhadores
+                <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8 flex items-center gap-4">
+                    <Trophy className="w-20 h-20" /> Classificação dos Ganhadores Spelling Bee
                 </h1>
                 <div className="w-full max-w-6xl bg-stone-50/90 rounded-2xl shadow-2xl p-4">
                     <Table>
