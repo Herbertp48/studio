@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (perms) {
                 setUserPermissions(perms);
             } else {
-                // This might happen for a brief moment if the DB entry isn't created yet.
                 setUserPermissions(null);
             }
             setLoading(false);
@@ -55,8 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserPermissions(null);
         setLoading(false);
-        // Only redirect if not on a public page and not the temp admin logging out
-        if (pathname !== '/login' && user?.uid !== 'temp-admin-user') {
+        if (pathname !== '/login') {
             router.replace('/login');
         }
       }
@@ -71,24 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
- const login = async (email: string, pass: string) => {
-    // PROVISÓRIO: Acesso de administrador temporário
-    if (email === 'admin@admin.com' && pass === 'admin123') {
-      const tempUser = {
-        uid: 'temp-admin-user',
-        email: 'admin@admin.com',
-      } as User;
-      
-      setUser(tempUser);
-      setUserPermissions({
-        role: 'admin',
-        permissions: { inicio: true, disputa: true, sorteio: true, ganhadores: true },
-      });
-      setLoading(false);
-      router.push('/');
-      return; 
-    }
-    
+  const login = async (email: string, pass: string) => {
     try {
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
@@ -123,13 +104,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    // Se o usuário for o admin temporário, apenas limpa o estado local
-    if(user && user.uid === 'temp-admin-user') {
-      setUser(null);
-      setUserPermissions(null);
-      router.push('/login');
-      return Promise.resolve();
-    }
     return signOut(auth);
   };
 
