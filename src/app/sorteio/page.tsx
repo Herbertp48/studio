@@ -6,7 +6,7 @@ import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye } from 'lucide-react';
+import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -71,28 +71,40 @@ function RafflePageContent() {
   const participantsList = Object.values(participants);
 
   const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-    if (!currentParticipants || finalWinners.length > 0) return;
+    if (!currentParticipants) return;
     
     const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
     
+    // Only check for a winner if there's less than 2 active players and the game has started
     if (activeParticipants.length < 2 && Object.keys(currentParticipants).length > 0) {
         const allParticipants = Object.values(currentParticipants);
+        
+        // Find the maximum number of stars any participant has
         const maxStars = Math.max(...allParticipants.map(p => p.stars));
 
+        // If maxStars is 0, it means no rounds have been won yet. Don't declare a winner.
         if (maxStars === 0 && allParticipants.length > 1) {
-            // No rounds played yet or no stars awarded, so it's not the end
             return;
         }
 
-        const winners = allParticipants.filter(p => p.stars === maxStars);
+        // Find all participants who have the maximum number of stars
+        const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
         
-        setFinalWinners(winners);
-        setIsTie(winners.length > 1);
-        setShowFinalWinnerDialog(true);
-        // For projection, we can send the first winner if not a tie, or handle tie display there
-        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners.length === 1 ? winners[0] : null });
+        // If there's at least one winner, show the final dialog
+        if (winners.length > 0) {
+            setFinalWinners(winners);
+            setIsTie(winners.length > 1);
+            setShowFinalWinnerDialog(true);
+            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners.length === 1 ? winners[0] : null });
+        } else {
+             // Case where all players are eliminated but no one has stars.
+            setFinalWinners([]);
+            setIsTie(false);
+            setShowFinalWinnerDialog(true);
+        }
     }
   }
+
 
   useEffect(() => {
     const disputeRef = ref(database, 'dispute');
@@ -103,13 +115,10 @@ function RafflePageContent() {
             const currentParticipants = data.participants || {};
             setParticipants(currentParticipants);
             
-            // Set words only on initial load
             if (originalWords.length === 0 && data.words.length > 0) {
               setAvailableWords(data.words);
               setOriginalWords(data.words);
             }
-            
-            checkForWinner(currentParticipants);
         } else {
             if(router) {
               toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
@@ -141,6 +150,11 @@ function RafflePageContent() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+      checkForWinner(participants);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participants]);
   
   const sortParticipants = () => {
     if (!participants) return;
@@ -152,10 +166,7 @@ function RafflePageContent() {
     let activeParticipants = Object.values(participants).filter(p => !p.eliminated);
 
     if (activeParticipants.length < 2) {
-      checkForWinner(participants);
-      if(finalWinners.length === 0) {
-        toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter pelo menos 2 participantes ativos." });
-      }
+      toast({ variant: "destructive", title: "Fim da Disputa", description: "Não há participantes ativos suficientes para uma nova rodada." });
       return;
     }
 
@@ -281,6 +292,25 @@ function RafflePageContent() {
     }
   };
 
+    const startTieBreaker = async () => {
+        const updates: { [key: string]: any } = {};
+        
+        participantsList.forEach(p => {
+            const isFinalist = finalWinners.some(winner => winner.id === p.id);
+            if (!isFinalist) {
+                 updates[`/dispute/participants/${p.id}/eliminated`] = true;
+            }
+        });
+
+        await update(ref(database), updates);
+        
+        setShowFinalWinnerDialog(false);
+        setFinalWinners([]);
+        setIsTie(false);
+        nextRound();
+        toast({ title: "Desempate!", description: "A rodada de desempate começou." });
+    }
+
   const renderState = () => {
     if (!participants) {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
@@ -374,8 +404,8 @@ function RafflePageContent() {
             <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
                 <Star /> Ganhou 1 estrela!
             </p>
-            <p className="text-muted-foreground">{activeParticipantsCount} participantes restantes</p>
-            <Button size="lg" onClick={nextRound} disabled={finalWinners.length > 0}><RefreshCw className="mr-2" />Próxima Rodada</Button>
+            <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
+            <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )
     }
@@ -455,10 +485,11 @@ function RafflePageContent() {
                 <AlertDialogTitle className="text-center text-3xl font-bold">A disputa acabou!</AlertDialogTitle>
                 <AlertDialogDescription className="text-center text-lg" asChild>
                     <div className="flex flex-col items-center justify-center gap-4 py-6">
-                        <Crown className="w-20 h-20 text-yellow-400" />
+                        
                         {isTie ? (
                             <>
-                                <p className="text-2xl font-bold mt-2">A disputa terminou em empate entre:</p>
+                                <ShieldAlert className="w-20 h-20 text-blue-500" />
+                                <p className="text-2xl font-bold mt-2">Houve um empate entre:</p>
                                 <div className="text-2xl font-bold text-foreground">
                                     {finalWinners.map(winner => (
                                         <div key={winner.id} className="flex items-center gap-2 justify-center">
@@ -470,20 +501,36 @@ function RafflePageContent() {
                                     ))}
                                 </div>
                             </>
-                        ) : (
+                        ) : finalWinners.length > 0 ? (
                              <>
+                                <Crown className="w-20 h-20 text-yellow-400" />
                                 <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
                                 <p className="text-4xl font-bold text-foreground">{finalWinners[0]?.name}</p>
                                 <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
                                     <Star className="w-6 h-6" /> {`x${finalWinners[0]?.stars || 0}`}
                                 </p>
                             </>
+                        ) : (
+                             <>
+                                <Trophy className="w-20 h-20 text-muted-foreground" />
+                                <p className="text-2xl font-bold mt-2">Fim da Disputa</p>
+                                <p className="text-base text-muted-foreground">Não houve vencedores nesta rodada.</p>
+                            </>
                         )}
                     </div>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                <AlertDialogFooter className="sm:justify-center">
+                    {isTie ? (
+                        <>
+                           <AlertDialogAction className="w-full sm:w-auto" onClick={startTieBreaker}>
+                                <RefreshCw className="mr-2" /> Iniciar Desempate
+                            </AlertDialogAction>
+                           <AlertDialogAction className="w-full sm:w-auto" variant="outline" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                        </>
+                    ) : (
+                        <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                    )}
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
