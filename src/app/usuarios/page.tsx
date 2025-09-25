@@ -97,7 +97,11 @@ function UsersPageContent() {
       setNewUserEmail('');
       setNewUserPassword('');
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao criar usuário', description: error.message });
+        let description = error.message;
+        if (error.code === 'auth/configuration-not-found') {
+            description = "O método de login por E-mail/Senha não está ativado no Firebase. Por favor, ative-o no Firebase Console em Authentication -> Sign-in method.";
+        }
+        toast({ variant: 'destructive', title: 'Erro ao criar usuário', description });
     }
   };
 
