@@ -53,13 +53,17 @@ export default function ProjectionPage() {
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
 
     useEffect(() => {
-        // Preload all sounds
-        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
-        soundFiles.forEach(file => {
-            const audio = new Audio(`/som/${file}`);
-            audio.load();
-            sounds.current[file] = audio;
-        });
+        // Preload sounds only on the client side
+        if (typeof window !== 'undefined') {
+            const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
+            soundFiles.forEach(file => {
+                if (!sounds.current[file]) {
+                    const audio = new Audio(`/som/${file}`);
+                    audio.load();
+                    sounds.current[file] = audio;
+                }
+            });
+        }
     }, []);
 
     const playSound = (soundFile: string, loop = false) => {
@@ -219,11 +223,9 @@ export default function ProjectionPage() {
 
 
     const MainContent = () => {
-        const isOverlayActive = winnerMessage || finalWinner || showWinners;
         return (
             <div id="main-content" className={cn(
                 "flex flex-col items-center justify-start pt-8 w-full h-full transition-opacity duration-500",
-                isOverlayActive && 'opacity-0'
             )}>
                 <header className="flex items-center gap-4 text-accent">
                     <h1 id="titulo-projetado" className="text-8xl font-melison font-bold tracking-tight">
@@ -270,7 +272,7 @@ export default function ProjectionPage() {
          const { winner, word: winnerWord } = winnerMessage;
 
         return (
-             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8">
+             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                 <div className="absolute top-8 flex items-center gap-4 text-accent">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">
                         Spelling Bee
@@ -298,8 +300,8 @@ export default function ProjectionPage() {
          if (!finalWinner) return null;
 
         return (
-             <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000">
-                <div id="mensagem-final-vencedor" className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+             <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000 fixed inset-0 z-30">
+                <div id="mensagem-final-vencedor" className="flex items-center justify-center bg-black/60 w-full h-full">
                     <div className="bg-gradient-to-br from-yellow-300 to-amber-500 text-purple-900 border-8 border-white rounded-3xl p-20 shadow-2xl text-center max-w-5xl mx-auto relative overflow-hidden font-subjectivity">
                         <Crown className="absolute -top-16 -left-16 w-64 h-64 text-white/20 -rotate-12" />
                         <Crown className="absolute -bottom-20 -right-16 w-72 h-72 text-white/20 rotate-12" />
@@ -319,7 +321,7 @@ export default function ProjectionPage() {
         if (!showWinners || winners.length === 0) return null;
 
         return (
-            <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8">
+            <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
                 <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8 flex items-center gap-4">
                     <Trophy className="w-20 h-20" /> Classificação dos Ganhadores Spelling Bee
                 </h1>
@@ -354,8 +356,8 @@ export default function ProjectionPage() {
     }
 
     const renderOverlay = () => {
-        if (winnerMessage) return <WinnerMessage />;
         if (finalWinner) return <FinalWinnerMessage />;
+        if (winnerMessage) return <WinnerMessage />;
         if (showWinners) return <WinnersTable />;
         return null;
     }
