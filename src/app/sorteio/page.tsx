@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
-import type { Participant } from '@/app/page';
+import type { Participant, WordList } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
@@ -21,6 +21,7 @@ import { database } from '@/lib/firebase';
 import { ref, set, onValue, update, push, get } from 'firebase/database';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished' | 'shuffling';
@@ -43,6 +44,7 @@ const setDisputeState = (state: DisputeState | null) => {
 export default function RafflePage() {
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [wordLists, setWordLists] = useState<WordList[]>([]);
   
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
   const [currentWord, setCurrentWord] = useState<string | null>(null);
@@ -83,11 +85,27 @@ export default function RafflePage() {
             }
         }
     });
+    
+    const wordListsRef = ref(database, 'wordlists');
+    const unsubscribeWords = onValue(wordListsRef, (snapshot) => {
+       const data = snapshot.val();
+       if (data) {
+        const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
+            id,
+            name: list.name,
+            words: list.words || [],
+        }));
+        setWordLists(lists);
+       } else {
+        setWordLists([]);
+       }
+    });
 
     setDisputeState({ type: 'RESET' });
 
     return () => {
         participantsListener();
+        unsubscribeWords();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -239,6 +257,16 @@ export default function RafflePage() {
     window.open('/projetor', '_blank', 'width=1920,height=1080');
   }
 
+  const handleWordListChange = (listId: string) => {
+    const selectedList = wordLists.find(list => list.id === listId);
+    if (selectedList) {
+        const newWords = selectedList.words || [];
+        setAvailableWords(newWords);
+        setOriginalWords(newWords);
+        toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
+    }
+  };
+
   const renderState = () => {
     if (!participants) {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
@@ -336,7 +364,7 @@ export default function RafflePage() {
         <Card className="w-full max-w-2xl shadow-xl">
              <CardHeader>
                 <CardTitle>Configuração do Sorteio</CardTitle>
-                <CardDescription>Ajuste o modo de sorteio para a disputa atual.</CardDescription>
+                <CardDescription>Ajuste o modo de sorteio e a lista de palavras para a disputa atual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                  <RadioGroup 
@@ -355,6 +383,19 @@ export default function RafflePage() {
                         <Label htmlFor="r-sequential">Sequencial</Label>
                     </div>
                 </RadioGroup>
+                <div className="flex flex-col space-y-2">
+                    <Label>Lista de Palavras em Jogo:</Label>
+                    <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma lista para alterar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {wordLists.map(list => (
+                                <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </CardContent>
         </Card>
         
