@@ -10,7 +10,6 @@ import { ref, onValue } from 'firebase/database';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-// Define os tipos de ações que podem ser recebidas do Firebase
 type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS';
     participantA?: Participant | null;
@@ -23,7 +22,6 @@ type DisputeAction = {
     winners?: AggregatedWinner[];
 }
 
-// Define a estrutura do estado de exibição da página
 type DisplayState = {
     view: 'main' | 'round_winner' | 'final_winner' | 'shuffling' | 'winners_table';
     participantA: Participant | null;
@@ -35,7 +33,6 @@ type DisplayState = {
     winners?: AggregatedWinner[];
 };
 
-// Estado inicial para resetar a tela
 const initialDisplayState: DisplayState = {
     view: 'main',
     participantA: null,
@@ -45,27 +42,25 @@ const initialDisplayState: DisplayState = {
 };
 
 export default function ProjectionPage() {
+    const [isMounted, setIsMounted] = useState(false);
     const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
     const [animationKey, setAnimationKey] = useState(0);
 
-    // Efeito seguro para pré-carregar os áudios APENAS no cliente, uma única vez.
+    // Efeito para garantir que o código só rode no cliente.
     useEffect(() => {
+        setIsMounted(true);
+
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
-        let loadedSounds = 0;
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
                 const audio = new Audio(`/som/${file}`);
-                audio.load(); // Inicia o carregamento
-                audio.oncanplaythrough = () => {
-                    loadedSounds++;
-                };
+                audio.load();
                 sounds.current[file] = audio;
             }
         });
-
-        // Função de limpeza para garantir que os sons parem se o componente for desmontado
+        
         return () => {
              Object.values(sounds.current).forEach(sound => {
                 if (sound) {
@@ -74,35 +69,36 @@ export default function ProjectionPage() {
                 }
             });
         };
-    }, []); // Array vazio garante que rode apenas uma vez no cliente.
+    }, []);
 
-    const playSound = (soundFile: string, loop = false) => {
-        // Para todos os outros sons antes de tocar um novo
-        Object.values(sounds.current).forEach(sound => {
-            if(sound) {
-                sound.pause();
-                sound.currentTime = 0;
-            }
-        });
-        
-        const soundToPlay = sounds.current[soundFile];
-        if (soundToPlay) {
-            soundToPlay.loop = loop;
-            soundToPlay.play().catch(e => console.error("Erro ao tocar áudio:", e));
-        }
-    };
-
-    const stopAllSounds = () => {
-        Object.values(sounds.current).forEach(sound => {
-            if (sound) {
-                sound.pause();
-                sound.currentTime = 0;
-            }
-        });
-    };
-    
-    // Efeito para escutar as ações do Firebase e atualizar o estado de exibição
+    // Efeito para o Firebase, depende do isMounted.
     useEffect(() => {
+        if (!isMounted) return;
+
+        const playSound = (soundFile: string, loop = false) => {
+            Object.values(sounds.current).forEach(sound => {
+                if(sound) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
+            });
+            
+            const soundToPlay = sounds.current[soundFile];
+            if (soundToPlay) {
+                soundToPlay.loop = loop;
+                soundToPlay.play().catch(e => console.error("Erro ao tocar áudio:", e));
+            }
+        };
+
+        const stopAllSounds = () => {
+            Object.values(sounds.current).forEach(sound => {
+                if (sound) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
+            });
+        };
+
         const stopShufflingAnimation = () => {
             if (shufflingInterval.current) {
                 clearInterval(shufflingInterval.current);
@@ -111,11 +107,8 @@ export default function ProjectionPage() {
         };
 
         const disputeStateRef = ref(database, 'dispute/state');
-
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeAction | null = snapshot.val();
-
-            // Se não houver ação, volta ao estado inicial
             if (!action) {
                 stopAllSounds();
                 stopShufflingAnimation();
@@ -182,7 +175,7 @@ export default function ProjectionPage() {
                     stopAllSounds();
                     stopShufflingAnimation();
                     playSound('vencedor.mp3');
-                    setAnimationKey(prev => prev + 1); // Força re-animação
+                    setAnimationKey(prev => prev + 1);
                     if (action.winner && action.loser && action.word) {
                        setDisplayState({
                            ...initialDisplayState,
@@ -196,7 +189,7 @@ export default function ProjectionPage() {
                     stopAllSounds();
                     stopShufflingAnimation();
                     playSound('vencedor.mp3');
-                    setAnimationKey(prev => prev + 1); // Força re-animação
+                    setAnimationKey(prev => prev + 1);
                     setDisplayState({
                         ...initialDisplayState,
                         view: 'final_winner',
@@ -216,13 +209,16 @@ export default function ProjectionPage() {
             }
         });
 
-        // Limpeza do efeito
         return () => {
             unsubscribe();
             stopShufflingAnimation();
             stopAllSounds();
         };
-    }, []); // Array vazio para garantir que o listener do Firebase seja configurado apenas uma vez
+    }, [isMounted]);
+
+    if (!isMounted) {
+      return null;
+    }
 
     // ------ COMPONENTES DE RENDERIZAÇÃO ------
 
