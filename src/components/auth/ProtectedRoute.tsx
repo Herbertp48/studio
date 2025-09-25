@@ -24,6 +24,13 @@ export default function ProtectedRoute({ children, page }: ProtectedRouteProps) 
   const { user, userPermissions, loading } = useAuth();
   const router = useRouter();
 
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+
+
   const hasAccess = () => {
     if (!user || !userPermissions) return false;
     if (userPermissions.role === 'admin') return true;
@@ -40,8 +47,7 @@ export default function ProtectedRoute({ children, page }: ProtectedRouteProps) 
   }
 
   if (!user) {
-    router.replace('/login');
-    return null;
+    return null; // Render nothing while redirecting
   }
   
   if (!hasAccess()) {
