@@ -1,4 +1,4 @@
-import { SpellCheck, Home, List, Dices, Trophy, LogOut, Users, User } from 'lucide-react';
+import { Bug, Home, List, Dices, Trophy, LogOut, Users, User } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
@@ -30,7 +30,7 @@ export function AppHeader() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
             <div className='flex items-center gap-2'>
-              <SpellCheck className="h-6 w-6 text-primary" />
+              <Bug className="h-6 w-6 text-primary" />
               <h1 className="text-xl font-bold tracking-tight text-foreground">
                 Spelling Bee
               </h1>
