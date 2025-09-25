@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
-import type { Participant, WordList } from '@/app/page';
+import type { Participant, ParticipantGroup } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
@@ -23,6 +23,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+export type WordList = {
+    id: string;
+    name: string;
+    words: string[];
+}
 
 type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished' | 'shuffling';
 type SortMode = 'random' | 'sequential';
@@ -64,11 +69,12 @@ export default function RafflePage() {
     get(disputeRef).then((snapshot) => {
         const data = snapshot.val();
         if (data && data.participants && data.words) {
-            setParticipants(data.participants);
+            const participantsArray = Array.isArray(data.participants) ? data.participants : Object.values(data.participants);
+            setParticipants(participantsArray);
             setAvailableWords(data.words);
             setOriginalWords(data.words);
              if (raffleState === 'round_finished' || raffleState === 'idle') {
-                checkForWinner(data.participants);
+                checkForWinner(participantsArray);
             }
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
@@ -79,9 +85,10 @@ export default function RafflePage() {
     const participantsListener = onValue(ref(database, 'dispute/participants'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            setParticipants(data);
+            const participantsArray = Array.isArray(data) ? data : Object.values(data);
+            setParticipants(participantsArray);
              if (raffleState === 'round_finished' || raffleState === 'idle') {
-                checkForWinner(data);
+                checkForWinner(participantsArray);
             }
         }
     });
@@ -196,11 +203,13 @@ export default function RafflePage() {
     const winnerIsA = currentDuel.participantA.id === winnerId;
     let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
     const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
-    
-    const winnerInDb = participants.find(p => p.id === winner.id);
-    const loserInDb = participants.find(p => p.id === loser.id);
 
-    if (!winnerInDb || !loserInDb) {
+    // Use a fresh copy from state to avoid stale data
+    const currentParticipants = [...participants];
+    const winnerIndex = currentParticipants.findIndex(p => p.id === winner.id);
+    const loserIndex = currentParticipants.findIndex(p => p.id === loser.id);
+
+    if (winnerIndex === -1 || loserIndex === -1) {
       toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado para atualização." });
       return;
     }
@@ -213,20 +222,18 @@ export default function RafflePage() {
     });
 
     const updates: any = {};
-    const newStars = (winnerInDb.stars || 0) + 1;
+    const newStars = (currentParticipants[winnerIndex].stars || 0) + 1;
     
-    const winnerIndex = participants.findIndex(p => p.id === winner.id);
-    const loserIndex = participants.findIndex(p => p.id === loser.id);
-
+    // Update using specific indices from the array structure in Firebase
     updates[`dispute/participants/${winnerIndex}/stars`] = newStars;
     updates[`dispute/participants/${loserIndex}/eliminated`] = true;
     
     await update(ref(database), updates);
     
-    const updatedParticipants = [...participants];
-    winner = { ...winner, stars: newStars };
+    const updatedParticipants = [...currentParticipants];
+    winner = { ...updatedParticipants[winnerIndex], stars: newStars };
     updatedParticipants[winnerIndex] = winner;
-    updatedParticipants[loserIndex] = { ...loser, eliminated: true };
+    updatedParticipants[loserIndex] = { ...updatedParticipants[loserIndex], eliminated: true };
 
     setParticipants(updatedParticipants);
     setRoundWinner(winner);
@@ -263,6 +270,8 @@ export default function RafflePage() {
         const newWords = selectedList.words || [];
         setAvailableWords(newWords);
         setOriginalWords(newWords);
+        // Also update in Firebase so projection is in sync if it reloads
+        set(ref(database, 'dispute/words'), newWords);
         toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
     }
   };
@@ -367,25 +376,27 @@ export default function RafflePage() {
                 <CardDescription>Ajuste o modo de sorteio e a lista de palavras para a disputa atual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <RadioGroup 
-                    defaultValue="random" 
-                    onValueChange={(value: SortMode) => setSortMode(value)}
-                    className="flex items-center gap-4"
-                    disabled={raffleState !== 'idle'}
-                >
+                 <div className="flex items-center gap-4">
                     <Label>Modo de Sorteio de Palavras:</Label>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="random" id="r-random" />
-                        <Label htmlFor="r-random">Aleatório</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="sequential" id="r-sequential" />
-                        <Label htmlFor="r-sequential">Sequencial</Label>
-                    </div>
-                </RadioGroup>
+                    <RadioGroup 
+                        defaultValue="random" 
+                        onValueChange={(value: SortMode) => setSortMode(value)}
+                        className="flex items-center gap-4"
+                        disabled={raffleState !== 'idle'}
+                    >
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="random" id="r-random" />
+                            <Label htmlFor="r-random">Aleatório</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="sequential" id="r-sequential" />
+                            <Label htmlFor="r-sequential">Sequencial</Label>
+                        </div>
+                    </RadioGroup>
+                 </div>
                 <div className="flex flex-col space-y-2">
                     <Label>Lista de Palavras em Jogo:</Label>
-                    <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0}>
+                    <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || raffleState !== 'idle'}>
                         <SelectTrigger>
                             <SelectValue placeholder="Selecione uma lista para alterar" />
                         </SelectTrigger>

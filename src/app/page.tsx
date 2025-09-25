@@ -74,11 +74,13 @@ export default function Home() {
         const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
             id,
             name: group.name,
-            participants: group.participants ? Object.values(group.participants) : [],
+            participants: group.participants ? (Array.isArray(group.participants) ? group.participants : Object.values(group.participants)) : [],
         }));
         setParticipantGroups(groups);
         if (!selectedGroupId && groups.length > 0) {
             setSelectedGroupId(groups[0].id);
+        } else if (groups.length === 0) {
+            setSelectedGroupId(null);
         }
        } else {
         setParticipantGroups([]);
@@ -87,7 +89,7 @@ export default function Home() {
     });
 
     return () => unsubscribe();
-  }, [selectedGroupId]);
+  }, []);
 
   useEffect(() => {
     if (editingParticipant) {
@@ -98,8 +100,10 @@ export default function Home() {
   }, [editingParticipant]);
 
   const updateParticipantsInDB = (groupId: string, newParticipants: Participant[]) => {
-    const participantsAsObject = newParticipants.reduce((acc, p) => {
-        acc[p.id] = p;
+    const participantsAsObject = newParticipants.reduce((acc, p, index) => {
+        // Use the existing ID or create a new one. Firebase keys cannot contain '.'
+        const key = p.id.replace(/\./g, '-');
+        acc[key] = { ...p, id: key }; // ensure id is updated
         return acc;
     }, {} as {[key: string]: Participant});
     set(ref(database, `participant-groups/${groupId}/participants`), participantsAsObject);
@@ -120,7 +124,8 @@ export default function Home() {
     removeDb(ref(database, `participant-groups/${groupId}`));
     toast({ title: 'Sucesso!', description: 'O grupo foi removido.'});
     if (selectedGroupId === groupId) {
-        setSelectedGroupId(null);
+        const remainingGroups = participantGroups.filter(g => g.id !== groupId);
+        setSelectedGroupId(remainingGroups.length > 0 ? remainingGroups[0].id : null);
     }
   }
 
@@ -145,6 +150,13 @@ export default function Home() {
         updateParticipantsInDB(selectedGroup.id, newParticipants);
     }
   };
+
+  const clearParticipants = () => {
+    if (selectedGroup) {
+        updateParticipantsInDB(selectedGroup.id, []);
+        toast({ title: 'Sucesso!', description: `Todos os participantes do grupo "${selectedGroup.name}" foram removidos.`});
+    }
+  };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedGroupId) {
@@ -161,17 +173,17 @@ export default function Home() {
         const workbook = read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = utils.sheet_to_json<any>(worksheet);
+        const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
 
         const newParticipants: Participant[] = json.map((row: any, index: number) => ({
             id: `p-${Date.now()}-${index}`,
-            name: String(Object.values(row)[0]),
+            name: String(row[0] || '').trim(),
             stars: 0,
             eliminated: false,
-        })).filter(p => p.name.trim() !== '');
+        })).filter(p => p.name.length > 0);
         
         if (selectedGroup) {
-            const updatedParticipants = [...(selectedGroup.participants || []), ...newParticipants];
+            const updatedParticipants = Array.from(new Set([...(selectedGroup.participants || []), ...newParticipants]));
             updateParticipantsInDB(selectedGroup.id, updatedParticipants);
         }
 
@@ -207,13 +219,9 @@ export default function Home() {
   const handleEditParticipant = (participant: Participant) => {
     if (!selectedGroup) return;
 
-    const updates: any = {};
-    const participantIndex = selectedGroup.participants.findIndex(p => p.id === participant.id);
-    if(participantIndex === -1) return;
-
-    updates[`/participant-groups/${selectedGroup.id}/participants/${participant.id}`] = participant;
+    const participantRef = ref(database, `/participant-groups/${selectedGroup.id}/participants/${participant.id}`);
     
-    update(ref(database), updates).then(() => {
+    update(participantRef, participant).then(() => {
         toast({ title: 'Sucesso', description: `Participante "${participant.name}" atualizado.` });
         setEditingParticipant(null);
     }).catch((error) => {
@@ -325,10 +333,33 @@ export default function Home() {
                             />
                             <Button type="submit"><UserPlus /></Button>
                         </form>
-                         <Button variant="outline" className="w-full mb-4" onClick={triggerFileUpload}>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Importar de Excel
-                        </Button>
+                        <div className="grid grid-cols-2 gap-2 mb-4">
+                             <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Importar de Excel
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" className="w-full" disabled={!selectedGroup || selectedGroup.participants.length === 0}>
+                                        <Trash2 className="mr-2 h-4 w-4" /> Apagar Participantes
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Apagar todos os participantes?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Tem certeza que deseja apagar todos os participantes do grupo "{selectedGroup?.name}"? Essa ação não pode ser desfeita.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction onClick={clearParticipants}>Apagar Todos</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+
+                        </div>
+
                         <input 
                             type="file" 
                             ref={fileInputRef} 
@@ -401,7 +432,7 @@ export default function Home() {
                                 checked={!editingParticipant.eliminated}
                                 onCheckedChange={(checked) => setEditingParticipant({...editingParticipant, eliminated: !checked, stars: 0 })}
                             />
-                            <Label htmlFor="eliminated-switch">Ativo / Não Eliminado</Label>
+                            <Label htmlFor="eliminated-switch">{editingParticipant.eliminated ? "Reativar Participante" : "Participante Ativo"}</Label>
                         </div>
                     </div>
                 )}

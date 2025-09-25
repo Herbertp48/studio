@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { List, Trash2, Play, Upload, Projector, PlusCircle, FileText, Users } from 'lucide-react';
-import type { ParticipantGroup } from '@/app/page';
+import type { ParticipantGroup, Participant } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
@@ -162,7 +162,7 @@ export default function DisputePage() {
           .filter(word => word && word.length > 0);
         
         if (selectedList) {
-            const updatedWords = [...(selectedList.words || []), ...newWords];
+            const updatedWords = Array.from(new Set([...(selectedList.words || []), ...newWords]));
             updateWordsInDB(selectedList.id, updatedWords);
         }
 
@@ -279,6 +279,7 @@ export default function DisputePage() {
         return;
     }
     
+    // Reset stars and eliminated status for the selected group's participants
     const activeParticipantsWithResetState = selectedGroup.participants.map(p => ({...p, stars: 0, eliminated: false}));
 
     set(ref(database, 'dispute'), {
