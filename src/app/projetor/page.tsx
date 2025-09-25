@@ -339,7 +339,7 @@ export default function ProjectionPage() {
                     <p className="text-3xl mb-6">Os seguintes participantes irão para a rodada de desempate:</p>
                     <div className="text-4xl font-bold space-y-2">
                         {tieWinners.map(winner => (
-                            <p key={winner.id} className="text-white bg-accent-foreground px-6 py-2 rounded-lg inline-block shadow-md max-w-full break-words">{winner.name}</p>
+                            <p key={winner.id} className="text-white bg-accent-foreground px-6 py-2 rounded-lg shadow-md max-w-full break-words">{winner.name}</p>
                         ))}
                     </div>
                 </div>
