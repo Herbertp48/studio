@@ -36,6 +36,8 @@ import {
 import { PlusCircle, Trash2, UserCog } from 'lucide-react';
 import type { UserPermissions } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 
 export type AppUser = {
   uid: string;
@@ -68,6 +70,8 @@ function UsersPageContent() {
           ...userData,
         }));
         setUsers(userList);
+      } else {
+        setUsers([]);
       }
     });
     return () => unsubscribe();
@@ -116,7 +120,10 @@ function UsersPageContent() {
   };
 
   const handleOpenEditDialog = (user: AppUser) => {
-    setEditingUser({ ...user, permissions: { ...initialPermissions, ...user.permissions }});
+    setEditingUser({ 
+      ...user, 
+      permissions: { ...initialPermissions, ...user.permissions }
+    });
     setIsEditUserDialogOpen(true);
   };
   
@@ -126,7 +133,7 @@ function UsersPageContent() {
       await set(ref(database, `users/${editingUser.uid}`), {
         email: editingUser.email,
         role: editingUser.role,
-        permissions: editingUser.permissions
+        permissions: editingUser.role === 'admin' ? initialPermissions : editingUser.permissions
       });
       toast({ title: 'Sucesso', description: 'Permissões atualizadas.' });
       setIsEditUserDialogOpen(false);
@@ -146,6 +153,14 @@ function UsersPageContent() {
       }
     }));
   }
+
+  const handleRoleChange = (isAdmin: boolean) => {
+    if (!editingUser) return;
+    setEditingUser(prev => ({
+      ...prev!,
+      role: isAdmin ? 'admin' : 'user'
+    }));
+  };
 
   const permissionLabels = {
     inicio: "Início (Gerenciar Grupos)",
@@ -203,14 +218,14 @@ function UsersPageContent() {
                     <p className="text-sm text-muted-foreground">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {user.role !== 'admin' && (
+                    {user.email !== 'admin@admin.com' && ( // Don't allow editing/deleting the temp admin
                         <>
                         <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
                             <UserCog className="mr-2 h-4 w-4" /> Permissões
                         </Button>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                               <Button variant="destructive" size="icon"><Trash2 /></Button>
+                               <Button variant="destructive" size="icon" disabled={user.role === 'admin'}><Trash2 /></Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -240,26 +255,51 @@ function UsersPageContent() {
                 <DialogHeader>
                     <DialogTitle>Editar Permissões</DialogTitle>
                     <DialogDescription>
-                        Defina as páginas que {editingUser?.email} pode acessar.
+                        Defina o nível de acesso para {editingUser?.email}.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                   {editingUser && Object.keys(initialPermissions).map(key => {
-                     const pKey = key as keyof typeof initialPermissions;
-                     return (
-                        <div key={pKey} className="flex items-center space-x-3">
-                           <Checkbox 
-                                id={`perm-${pKey}`}
-                                checked={editingUser.permissions?.[pKey]}
-                                onCheckedChange={(checked) => handlePermissionChange(pKey, !!checked)}
-                           />
-                           <Label htmlFor={`perm-${pKey}`} className="font-medium">
-                            {permissionLabels[pKey]}
-                           </Label>
+                {editingUser && (
+                <div className="py-4 space-y-6">
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <Label htmlFor="admin-switch" className="text-base">Administrador</Label>
+                            <p className="text-sm text-muted-foreground">
+                                Concede acesso total a todas as páginas e funcionalidades.
+                            </p>
                         </div>
-                     )
-                   })}
+                        <Switch
+                            id="admin-switch"
+                            checked={editingUser.role === 'admin'}
+                            onCheckedChange={handleRoleChange}
+                        />
+                    </div>
+
+                    <div className="relative">
+                        <Separator />
+                        <div className="absolute left-1/2 -translate-x-1/2 -top-2.5 bg-background px-2 text-xs uppercase text-muted-foreground">Ou</div>
+                    </div>
+
+                    <div className="space-y-4 rounded-lg border p-3 shadow-sm data-[disabled]:opacity-50" data-disabled={editingUser.role === 'admin' ? '' : undefined}>
+                         <p className="text-sm font-medium text-muted-foreground">Acesso por página:</p>
+                        {Object.keys(initialPermissions).map(key => {
+                            const pKey = key as keyof typeof initialPermissions;
+                            return (
+                                <div key={pKey} className="flex items-center space-x-3">
+                                <Checkbox 
+                                    id={`perm-${pKey}`}
+                                    checked={editingUser.permissions?.[pKey]}
+                                    onCheckedChange={(checked) => handlePermissionChange(pKey, !!checked)}
+                                    disabled={editingUser.role === 'admin'}
+                                />
+                                <Label htmlFor={`perm-${pKey}`} className="font-medium data-[disabled]:text-muted-foreground" data-disabled={editingUser.role === 'admin' ? '' : undefined}>
+                                    {permissionLabels[pKey]}
+                                </Label>
+                                </div>
+                            )
+                        })}
+                    </div>
                 </div>
+                )}
                 <DialogFooter>
                     <DialogClose asChild>
                         <Button type="button" variant="secondary">Cancelar</Button>
