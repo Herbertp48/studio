@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
-import { ParticipantGroup } from '@/components/app/participant-group';
 import { Button } from '@/components/ui/button';
-import { Upload, Play, UserPlus, Trash2 } from 'lucide-react';
+import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, remove } from 'firebase/database';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ref, set, onValue, remove as removeDb, push, update } from 'firebase/database';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -23,7 +22,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+
 
 export type Participant = {
   id: string;
@@ -32,67 +45,112 @@ export type Participant = {
   eliminated: boolean;
 };
 
+export type ParticipantGroup = {
+    id: string;
+    name: string;
+    participants: Participant[];
+}
+
 export default function Home() {
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participantGroups, setParticipantGroups] = useState<ParticipantGroup[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [newParticipantName, setNewParticipantName] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
 
+  const selectedGroup = participantGroups.find(group => group.id === selectedGroupId);
+
   useEffect(() => {
-    const participantsRef = ref(database, 'participants');
-    const unsubscribe = onValue(participantsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setParticipants(data.all || []);
-      }
+    const groupsRef = ref(database, 'participant-groups');
+    const unsubscribe = onValue(groupsRef, (snapshot) => {
+       const data = snapshot.val();
+       if (data) {
+        const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
+            id,
+            name: group.name,
+            participants: group.participants ? Object.values(group.participants) : [],
+        }));
+        setParticipantGroups(groups);
+        if (!selectedGroupId && groups.length > 0) {
+            setSelectedGroupId(groups[0].id);
+        }
+       } else {
+        setParticipantGroups([]);
+        setSelectedGroupId(null);
+       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [selectedGroupId]);
 
-  const updateParticipantsInDB = (newParticipants: Participant[]) => {
-    set(ref(database, 'participants'), {
-      all: newParticipants,
-    });
+  useEffect(() => {
+    if (editingParticipant) {
+      setIsEditDialogOpen(true);
+    } else {
+      setIsEditDialogOpen(false);
+    }
+  }, [editingParticipant]);
+
+  const updateParticipantsInDB = (groupId: string, newParticipants: Participant[]) => {
+    const participantsAsObject = newParticipants.reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+    }, {} as {[key: string]: Participant});
+    set(ref(database, `participant-groups/${groupId}/participants`), participantsAsObject);
   };
   
-  const removeAllParticipants = () => {
-    setParticipants([]);
-    remove(ref(database, 'participants'));
-    remove(ref(database, 'winners'));
-    remove(ref(database, 'wordlists'));
-    toast({
-        title: 'Sucesso!',
-        description: 'Todos os dados da aplicação foram removidos.',
-    });
-    setShowDeleteConfirm(false);
-  };
+  const handleCreateGroup = () => {
+    if (!newGroupName.trim()) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'O nome do grupo não pode estar vazio.'});
+        return;
+    }
+    const newGroupRef = push(ref(database, 'participant-groups'));
+    set(newGroupRef, { name: newGroupName.trim(), participants: [] });
+    setNewGroupName('');
+    toast({ title: 'Sucesso!', description: `O grupo "${newGroupName.trim()}" foi criado.`});
+  }
+
+  const handleDeleteGroup = (groupId: string) => {
+    removeDb(ref(database, `participant-groups/${groupId}`));
+    toast({ title: 'Sucesso!', description: 'O grupo foi removido.'});
+    if (selectedGroupId === groupId) {
+        setSelectedGroupId(null);
+    }
+  }
 
   const addParticipant = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newParticipantName.trim()) {
+    if (newParticipantName.trim() && selectedGroup) {
       const newParticipant: Participant = {
         id: `p-${Date.now()}`,
         name: newParticipantName.trim(),
         stars: 0,
         eliminated: false,
       };
-      const newParticipants = [...participants, newParticipant];
-      setParticipants(newParticipants);
-      updateParticipantsInDB(newParticipants);
+      const newParticipants = [...(selectedGroup.participants || []), newParticipant];
+      updateParticipantsInDB(selectedGroup.id, newParticipants);
       setNewParticipantName('');
     }
   };
 
-  const removeParticipant = (id: string) => {
-    const newParticipants = participants.filter(p => p.id !== id);
-    setParticipants(newParticipants);
-    updateParticipantsInDB(newParticipants);
+  const removeParticipant = (participantId: string) => {
+    if (selectedGroup) {
+        const newParticipants = selectedGroup.participants.filter(p => p.id !== participantId);
+        updateParticipantsInDB(selectedGroup.id, newParticipants);
+    }
   };
   
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedGroupId) {
+      toast({ variant: "destructive", title: 'Nenhum grupo selecionado', description: 'Selecione um grupo antes de importar participantes.' });
+      return;
+    }
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -105,10 +163,6 @@ export default function Home() {
         const worksheet = workbook.Sheets[sheetName];
         const json = utils.sheet_to_json<any>(worksheet);
 
-        if (json.length === 0) {
-            throw new Error("A planilha está vazia.");
-        }
-
         const newParticipants: Participant[] = json.map((row: any, index: number) => ({
             id: `p-${Date.now()}-${index}`,
             name: String(Object.values(row)[0]),
@@ -116,9 +170,10 @@ export default function Home() {
             eliminated: false,
         })).filter(p => p.name.trim() !== '');
         
-        const updatedParticipants = [...participants, ...newParticipants];
-        setParticipants(updatedParticipants);
-        updateParticipantsInDB(updatedParticipants);
+        if (selectedGroup) {
+            const updatedParticipants = [...(selectedGroup.participants || []), ...newParticipants];
+            updateParticipantsInDB(selectedGroup.id, updatedParticipants);
+        }
 
         toast({
           title: 'Sucesso!',
@@ -148,14 +203,27 @@ export default function Home() {
   const triggerFileUpload = () => {
     fileInputRef.current?.click();
   };
+  
+  const handleEditParticipant = (participant: Participant) => {
+    if (!selectedGroup) return;
+
+    const updates: any = {};
+    const participantIndex = selectedGroup.participants.findIndex(p => p.id === participant.id);
+    if(participantIndex === -1) return;
+
+    updates[`/participant-groups/${selectedGroup.id}/participants/${participant.id}`] = participant;
+    
+    update(ref(database), updates).then(() => {
+        toast({ title: 'Sucesso', description: `Participante "${participant.name}" atualizado.` });
+        setEditingParticipant(null);
+    }).catch((error) => {
+        toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    });
+  }
 
   const startDispute = () => {
-     // Reset all participants stars and eliminated status before starting
-    const resetedParticipants = participants.map(p => ({ ...p, stars: 0, eliminated: false }));
-    updateParticipantsInDB(resetedParticipants);
-    // Also clear words and dispute state
     set(ref(database, 'dispute'), null);
-    remove(ref(database, 'winners'));
+    removeDb(ref(database, 'winners'));
     router.push('/disputa');
   };
 
@@ -165,74 +233,186 @@ export default function Home() {
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1 space-y-6">
-            <h2 className="text-2xl font-bold">Controles</h2>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UserPlus /> Adicionar Participante</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={addParticipant} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="participant-name">Nome</Label>
-                    <Input
-                      id="participant-name"
-                      placeholder="Nome do participante"
-                      value={newParticipantName}
-                      onChange={e => setNewParticipantName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full">Adicionar</Button>
-                </form>
-              </CardContent>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                        <div className="flex items-center gap-2"><List /> Grupos de Participantes</div>
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Novo Grupo</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>Criar Novo Grupo</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                <Input 
+                                    placeholder="Nome do novo grupo"
+                                    value={newGroupName}
+                                    onChange={(e) => setNewGroupName(e.target.value)}
+                                    className="mt-4"
+                                />
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleCreateGroup} disabled={!newGroupName.trim()}>Criar</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex gap-2 mb-4">
+                        <Select onValueChange={setSelectedGroupId} value={selectedGroupId || ''}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione um grupo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {participantGroups.map(group => (
+                                    <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {selectedGroupId && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="icon"><Trash2 /></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Essa ação não pode ser desfeita. O grupo "{selectedGroup?.name}" e todos os seus participantes serão removidos.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteGroup(selectedGroupId)}>Apagar</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
+                    </div>
+                </CardContent>
             </Card>
-             <div className="space-y-4">
-               <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload}
-                  className="hidden" 
-                  accept=".xlsx, .xls"
-                />
-               <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
-                 <Upload className="mr-2 h-4 w-4" />
-                 Importar de Excel
-               </Button>
-               <Button 
-                className="w-full" 
-                disabled={participants.length < 2}
-                onClick={startDispute}
-               >
-                 <Play className="mr-2 h-4 w-4" />
-                 Iniciar Disputa
-               </Button>
-               <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-                  <AlertDialogTrigger asChild>
-                     <Button variant="destructive" className="w-full">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Apagar Todos os Dados
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Essa ação não pode ser desfeita. Todos os dados da aplicação (participantes, listas de palavras e ganhadores) serão removidos.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={removeAllParticipants}>Apagar Tudo</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
 
+            <div className="space-y-4">
+                <Button 
+                className="w-full" 
+                onClick={startDispute}
+                >
+                <Play className="mr-2 h-4 w-4" />
+                Ir para Disputa
+                </Button>
             </div>
           </div>
           <div className="md:col-span-2">
-            <ParticipantGroup title="Participantes" participants={participants} onRemove={id => removeParticipant(id)} />
+            <Card>
+                <CardHeader>
+                    <CardTitle>Participantes do grupo "{selectedGroup?.name || 'Nenhum'}"</CardTitle>
+                    <CardDescription>{selectedGroup?.participants?.length || 0} participante(s)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {selectedGroupId ? (
+                        <>
+                        <form onSubmit={addParticipant} className="flex gap-2 mb-4">
+                            <Input
+                            id="participant-name"
+                            placeholder="Nome do participante"
+                            value={newParticipantName}
+                            onChange={e => setNewParticipantName(e.target.value)}
+                            required
+                            />
+                            <Button type="submit"><UserPlus /></Button>
+                        </form>
+                         <Button variant="outline" className="w-full mb-4" onClick={triggerFileUpload}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Importar de Excel
+                        </Button>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleFileUpload}
+                            className="hidden" 
+                            accept=".xlsx, .xls"
+                        />
+
+                        <ScrollArea className="h-[45vh]">
+                            <ul className="space-y-2">
+                                {selectedGroup?.participants && selectedGroup.participants.length > 0 ? (
+                                selectedGroup.participants.map(p => (
+                                    <li
+                                    key={p.id}
+                                    className="flex items-center justify-between p-2 rounded-md bg-muted/50"
+                                    >
+                                    <span className={`font-medium ${p.eliminated ? 'line-through text-muted-foreground' : ''}`}>{p.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingParticipant(p)}>
+                                           <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                            onClick={() => removeParticipant(p.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    </li>
+                                ))
+                                ) : (
+                                <p className="text-sm text-muted-foreground text-center py-4">
+                                    Nenhum participante neste grupo.
+                                </p>
+                                )}
+                            </ul>
+                        </ScrollArea>
+                        </>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-10">
+                            {participantGroups.length > 0 ? 'Selecione um grupo para começar.' : 'Crie um novo grupo para adicionar participantes.'}
+                        </p>
+                    )}
+                </CardContent>
+            </Card>
           </div>
         </div>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={(isOpen) => !isOpen && setEditingParticipant(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Participante</DialogTitle>
+                    <DialogDescription>Altere os dados de {editingParticipant?.name}.</DialogDescription>
+                </DialogHeader>
+                {editingParticipant && (
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-name">Nome</Label>
+                            <Input 
+                                id="edit-name"
+                                value={editingParticipant.name}
+                                onChange={(e) => setEditingParticipant({...editingParticipant, name: e.target.value})}
+                            />
+                        </div>
+                         <div className="flex items-center space-x-2">
+                            <Switch 
+                                id="eliminated-switch"
+                                checked={!editingParticipant.eliminated}
+                                onCheckedChange={(checked) => setEditingParticipant({...editingParticipant, eliminated: !checked, stars: 0 })}
+                            />
+                            <Label htmlFor="eliminated-switch">Ativo / Não Eliminado</Label>
+                        </div>
+                    </div>
+                )}
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="secondary">Cancelar</Button>
+                    </DialogClose>
+                    <Button onClick={() => editingParticipant && handleEditParticipant(editingParticipant)}>Salvar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

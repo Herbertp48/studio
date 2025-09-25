@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { List, Trash2, Play, Upload, Projector, PlusCircle, FileText } from 'lucide-react';
-import type { Participant } from '@/app/page';
+import { List, Trash2, Play, Upload, Projector, PlusCircle, FileText, Users } from 'lucide-react';
+import type { ParticipantGroup } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
@@ -45,7 +45,11 @@ export type WordList = {
 
 export default function DisputePage() {
   const [wordLists, setWordLists] = useState<WordList[]>([]);
+  const [participantGroups, setParticipantGroups] = useState<ParticipantGroup[]>([]);
+  
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  
   const [newWord, setNewWord] = useState('');
   const [newListName, setNewListName] = useState('');
   const [massImportText, setMassImportText] = useState('');
@@ -59,7 +63,7 @@ export default function DisputePage() {
 
   useEffect(() => {
     const wordListsRef = ref(database, 'wordlists');
-    const unsubscribe = onValue(wordListsRef, (snapshot) => {
+    const unsubscribeWords = onValue(wordListsRef, (snapshot) => {
        const data = snapshot.val();
        if (data) {
         const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
@@ -68,17 +72,31 @@ export default function DisputePage() {
             words: list.words || [],
         }));
         setWordLists(lists);
-        if (!selectedListId && lists.length > 0) {
-            setSelectedListId(lists[0].id);
-        }
        } else {
         setWordLists([]);
-        setSelectedListId(null);
        }
     });
 
-    return () => unsubscribe();
-  }, [selectedListId]);
+    const participantGroupsRef = ref(database, 'participant-groups');
+    const unsubscribeGroups = onValue(participantGroupsRef, (snapshot) => {
+       const data = snapshot.val();
+       if (data) {
+        const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
+            id,
+            name: group.name,
+            participants: group.participants ? Object.values(group.participants) : [],
+        }));
+        setParticipantGroups(groups);
+       } else {
+        setParticipantGroups([]);
+       }
+    });
+
+    return () => {
+        unsubscribeWords();
+        unsubscribeGroups();
+    };
+  }, []);
   
   const handleCreateList = () => {
     if (!newListName.trim()) {
@@ -241,31 +259,40 @@ export default function DisputePage() {
   }
 
   const startRaffle = () => {
-    const activeParticipantsRef = ref(database, 'participants/all');
-    onValue(activeParticipantsRef, (snapshot) => {
-        const participants = snapshot.val();
-        const activeParticipants = participants?.filter((p: Participant) => !p.eliminated) || [];
-        if (!selectedList || selectedList.words.length === 0) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'A lista de palavras selecionada está vazia.' });
-            return;
-        }
-        if (activeParticipants.length < 2) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'São necessários pelo menos 2 participantes ativos.' });
-            return;
-        }
-        // Save selected list to be used in raffle
-        set(ref(database, 'dispute'), {
-            words: selectedList.words,
-        });
-        router.push('/sorteio');
-    }, { onlyOnce: true });
+    const selectedGroup = participantGroups.find(g => g.id === selectedGroupId);
+    const activeParticipants = selectedGroup?.participants?.filter(p => !p.eliminated) || [];
+    
+    if (!selectedList) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Selecione uma lista de palavras.' });
+        return;
+    }
+    if (selectedList.words.length === 0) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'A lista de palavras selecionada está vazia.' });
+        return;
+    }
+    if (!selectedGroup) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de participantes.' });
+        return;
+    }
+    if (activeParticipants.length < 2) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'São necessários pelo menos 2 participantes ativos no grupo selecionado.' });
+        return;
+    }
+    
+    const activeParticipantsWithResetState = selectedGroup.participants.map(p => ({...p, stars: 0, eliminated: false}));
+
+    set(ref(database, 'dispute'), {
+        words: selectedList.words,
+        participants: activeParticipantsWithResetState,
+    });
+    router.push('/sorteio');
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold mb-6">Gerenciar Listas de Palavras</h2>
+        <h2 className="text-2xl font-bold mb-6">Gerenciar Disputa</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <Card>
@@ -405,8 +432,26 @@ export default function DisputePage() {
               </CardContent>
             </Card>
           </div>
-          <div className="space-y-4">
-            <div className="flex flex-col gap-2 pt-8">
+          <div className="space-y-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Users/> Grupo de Participantes</CardTitle>
+                    <CardDescription>Selecione qual grupo irá participar desta disputa.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Select onValueChange={setSelectedGroupId} value={selectedGroupId || ''}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione um grupo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {participantGroups.map(group => (
+                                <SelectItem key={group.id} value={group.id}>{group.name} ({group.participants.length} participantes)</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </CardContent>
+            </Card>
+            <div className="flex flex-col gap-2">
                 <Button variant="outline" onClick={openProjection}>
                   <Projector className="mr-2" />
                   Abrir Tela de Projeção
@@ -415,10 +460,10 @@ export default function DisputePage() {
                     className="w-full" 
                     size="lg" 
                     onClick={startRaffle}
-                    disabled={!selectedListId}
+                    disabled={!selectedListId || !selectedGroupId}
                     >
                     <Play className="mr-2" />
-                    Ir para o Sorteio
+                    Iniciar Sorteio
                 </Button>
             </div>
           </div>
@@ -427,5 +472,3 @@ export default function DisputePage() {
     </div>
   );
 }
-
-    

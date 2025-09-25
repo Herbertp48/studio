@@ -4,11 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
-import type { WordList } from '@/app/disputa/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -20,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, update, push } from 'firebase/database';
+import { ref, set, onValue, update, push, get } from 'firebase/database';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 
@@ -43,8 +41,6 @@ const setDisputeState = (state: DisputeState | null) => {
 }
 
 export default function RafflePage() {
-  const [wordLists, setWordLists] = useState<WordList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   
@@ -55,57 +51,46 @@ export default function RafflePage() {
   const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
   const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('random');
+  const [originalWords, setOriginalWords] = useState<string[]>([]);
 
   const { toast } = useToast();
   const router = useRouter();
 
-  const selectedList = wordLists.find(list => list.id === selectedListId);
 
   useEffect(() => {
-    const participantsRef = ref(database, 'participants/all');
-    const unsubscribeParticipants = onValue(participantsRef, (snapshot) => {
+    const disputeRef = ref(database, 'dispute');
+    get(disputeRef).then((snapshot) => {
+        const data = snapshot.val();
+        if (data && data.participants && data.words) {
+            setParticipants(data.participants);
+            setAvailableWords(data.words);
+            setOriginalWords(data.words);
+             if (raffleState === 'round_finished' || raffleState === 'idle') {
+                checkForWinner(data.participants);
+            }
+        } else {
+            toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
+            router.push('/disputa');
+        }
+    });
+
+    const participantsListener = onValue(ref(database, 'dispute/participants'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
             setParticipants(data);
-            if (raffleState === 'round_finished' || raffleState === 'idle') {
+             if (raffleState === 'round_finished' || raffleState === 'idle') {
                 checkForWinner(data);
             }
-        } else {
-            toast({ variant: "destructive", title: "Erro", description: "Participantes não encontrados."});
-            router.push('/');
         }
     });
 
-    const wordListsRef = ref(database, 'wordlists');
-    const unsubscribeWordLists = onValue(wordListsRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
-                id,
-                name: list.name,
-                words: list.words || [],
-            }));
-            setWordLists(lists);
-        } else {
-             toast({ variant: "destructive", title: "Erro", description: "Nenhuma lista de palavras encontrada."});
-             router.push('/disputa');
-        }
-    });
-    
     setDisputeState({ type: 'RESET' });
 
     return () => {
-        unsubscribeParticipants();
-        unsubscribeWordLists();
+        participantsListener();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    if (selectedList) {
-      setAvailableWords(selectedList.words || []);
-    }
-  }, [selectedListId, wordLists, selectedList]);
   
   const checkForWinner = (currentParticipants: Participant[]) => {
     if (!currentParticipants || finalWinner) return;
@@ -118,7 +103,6 @@ export default function RafflePage() {
         setShowFinalWinnerDialog(true);
         setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
     } else if (activeParticipants.length < 2 && currentParticipants.length > 0) {
-        // This case handles a tie or if all are eliminated at once
         const winner = currentParticipants.filter(p => !p.eliminated).sort((a,b) => b.stars - a.stars)[0];
          if (winner) {
             setFinalWinner(winner);
@@ -161,11 +145,10 @@ export default function RafflePage() {
 
   const sortWord = () => {
     let currentAvailableWords = [...availableWords];
-    if (currentAvailableWords.length === 0 && selectedList) {
+    if (currentAvailableWords.length === 0) {
       toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
-      const newWords = selectedList.words || [];
-      setAvailableWords(newWords);
-      currentAvailableWords = newWords;
+      setAvailableWords(originalWords);
+      currentAvailableWords = originalWords;
     }
      if (currentAvailableWords.length === 0) {
         toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
@@ -204,7 +187,6 @@ export default function RafflePage() {
       return;
     }
     
-    // Save winner to the 'winners' list
     const newWinnerEntryRef = push(ref(database, 'winners'));
     await set(newWinnerEntryRef, {
       name: winner.name,
@@ -215,15 +197,15 @@ export default function RafflePage() {
     const updates: any = {};
     const newStars = (winnerInDb.stars || 0) + 1;
     
-    updates[`participants/all/${participants.findIndex(p => p.id === winner.id)}/stars`] = newStars;
-    updates[`participants/all/${participants.findIndex(p => p.id === loser.id)}/eliminated`] = true;
+    const winnerIndex = participants.findIndex(p => p.id === winner.id);
+    const loserIndex = participants.findIndex(p => p.id === loser.id);
+
+    updates[`dispute/participants/${winnerIndex}/stars`] = newStars;
+    updates[`dispute/participants/${loserIndex}/eliminated`] = true;
     
     await update(ref(database), updates);
     
     const updatedParticipants = [...participants];
-    const winnerIndex = updatedParticipants.findIndex(p => p.id === winner.id);
-    const loserIndex = updatedParticipants.findIndex(p => p.id === loser.id);
-    
     winner = { ...winner, stars: newStars };
     updatedParticipants[winnerIndex] = winner;
     updatedParticipants[loserIndex] = { ...loser, eliminated: true };
@@ -281,12 +263,9 @@ export default function RafflePage() {
           <div className="text-lg text-muted-foreground">
             <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2 || !selectedListId}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {!selectedListId && (
-            <p className="text-amber-600 mt-4">Selecione uma lista de palavras para começar.</p>
-          )}
           {activeParticipantsCount < 2 && participants.length > 0 && !finalWinner && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
@@ -357,26 +336,16 @@ export default function RafflePage() {
         <Card className="w-full max-w-2xl shadow-xl">
              <CardHeader>
                 <CardTitle>Configuração do Sorteio</CardTitle>
-                <CardDescription>Selecione a lista de palavras e o modo de sorteio para a disputa atual.</CardDescription>
+                <CardDescription>Ajuste o modo de sorteio para a disputa atual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Select onValueChange={setSelectedListId} value={selectedListId || ''} disabled={raffleState !== 'idle'}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma lista de palavras" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {wordLists.map(list => (
-                            <SelectItem key={list.id} value={list.id}>{list.name} ({list.words.length} palavras)</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
                  <RadioGroup 
                     defaultValue="random" 
                     onValueChange={(value: SortMode) => setSortMode(value)}
                     className="flex items-center gap-4"
                     disabled={raffleState !== 'idle'}
                 >
-                    <Label>Modo de Sorteio:</Label>
+                    <Label>Modo de Sorteio de Palavras:</Label>
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="random" id="r-random" />
                         <Label htmlFor="r-random">Aleatório</Label>
