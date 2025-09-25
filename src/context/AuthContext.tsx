@@ -91,9 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...adminPermissions
         });
         return userCredential;
-      } catch(error) {
-        // If account already exists in Auth but not in DB, try to sign in
-        return signInWithEmailAndPassword(auth, email, pass);
+      } catch(error: any) {
+        // If account already exists in Auth but not in DB, it might fail.
+        // We try to sign in as a fallback.
+        if (error.code === 'auth/email-already-in-use') {
+            return signInWithEmailAndPassword(auth, email, pass);
+        }
+        // Re-throw other errors
+        throw error;
       }
     } else {
       // Users exist, proceed with normal login
