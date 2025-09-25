@@ -6,7 +6,7 @@ import { AppHeader } from '@/components/app/header';
 import type { Participant, ParticipantGroup } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector } from 'lucide-react';
+import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import { ref, set, onValue, update, push, get } from 'firebase/database';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 export type WordList = {
     id: string;
@@ -29,7 +30,7 @@ export type WordList = {
     words: string[];
 }
 
-type RaffleState = 'idle' | 'participants_sorted' | 'word_sorted' | 'round_finished' | 'shuffling';
+type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'round_finished' | 'shuffling';
 type SortMode = 'random' | 'sequential';
 type DisputeState = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
@@ -58,6 +59,7 @@ export default function RafflePage() {
   const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
   const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('random');
+  const [manualReveal, setManualReveal] = useState(false);
   const [originalWords, setOriginalWords] = useState<string[]>([]);
 
   const { toast } = useToast();
@@ -193,8 +195,19 @@ export default function RafflePage() {
     
     setCurrentWord(sortedWord);
     setAvailableWords(prev => prev.filter((_, i) => i !== prev.indexOf(sortedWord)));
+    
+    if (manualReveal) {
+        setRaffleState('word_preview');
+    } else {
+        setRaffleState('word_sorted');
+        setDisputeState({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
+    }
+  };
+
+  const revealWord = () => {
+    if (!currentWord || !currentDuel) return;
     setRaffleState('word_sorted');
-    setDisputeState({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
+    setDisputeState({ type: 'SHOW_WORD', word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB });
   };
   
   const handleWinner = async (winnerId: string) => {
@@ -331,6 +344,18 @@ export default function RafflePage() {
         </div>
       )
     }
+
+    if (raffleState === 'word_preview' && currentWord) {
+       return (
+         <div className="text-center flex flex-col items-center gap-6">
+            <p className="text-lg text-muted-foreground">Palavra sorteada (apenas para você):</p>
+            <p className="text-5xl font-bold tracking-widest uppercase text-primary">{currentWord}</p>
+            <Button size="lg" onClick={revealWord} className="mt-4 bg-amber-500 hover:bg-amber-600">
+                <Eye className="mr-2"/>Revelar no Projetor
+            </Button>
+        </div>
+       )
+    }
     
     if (raffleState === 'word_sorted' && currentDuel && currentWord) {
       return (
@@ -369,15 +394,15 @@ export default function RafflePage() {
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center">
+      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center">
         <Card className="w-full max-w-2xl shadow-xl">
              <CardHeader>
                 <CardTitle>Configuração do Sorteio</CardTitle>
-                <CardDescription>Ajuste o modo de sorteio e a lista de palavras para a disputa atual.</CardDescription>
+                <CardDescription>Ajuste as opções para a disputa atual.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                 <div className="flex items-center gap-4">
-                    <Label>Modo de Sorteio de Palavras:</Label>
+                 <div className="flex items-center justify-between">
+                    <Label className="flex-shrink-0 mr-4">Modo de Sorteio de Palavras:</Label>
                     <RadioGroup 
                         defaultValue="random" 
                         onValueChange={(value: SortMode) => setSortMode(value)}
@@ -394,8 +419,17 @@ export default function RafflePage() {
                         </div>
                     </RadioGroup>
                  </div>
+                 <div className="flex items-center justify-between">
+                    <Label htmlFor="manual-reveal-switch">Revelação Manual:</Label>
+                    <Switch
+                        id="manual-reveal-switch"
+                        checked={manualReveal}
+                        onCheckedChange={setManualReveal}
+                        disabled={raffleState !== 'idle'}
+                    />
+                </div>
                 <div className="flex flex-col space-y-2">
-                    <Label>Lista de Palavras em Jogo:</Label>
+                    <Label>Alterar Lista de Palavras em Jogo:</Label>
                     <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || raffleState !== 'idle'}>
                         <SelectTrigger>
                             <SelectValue placeholder="Selecione uma lista para alterar" />
