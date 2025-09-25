@@ -70,17 +70,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
  const login = async (email: string, pass: string) => {
     try {
-      // First, try to sign in. This is the most common case.
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
-      // If sign-in fails because the user is not found, check if it's the first user.
       if (error.code === 'auth/user-not-found') {
         const usersRef = ref(database, 'users');
         const snapshot = await get(usersRef);
 
-        // If no users exist in the database, this is the first registration.
         if (!snapshot.exists()) {
-          // Create the user as admin.
           const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
           const firstUser = userCredential.user;
           const adminPermissions: UserPermissions = {
@@ -99,8 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return userCredential;
         }
       }
-      // For any other error (wrong password, etc.), or if it's not the first user,
-      // re-throw the error to be handled by the login page.
       throw error;
     }
   };
