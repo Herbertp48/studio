@@ -278,9 +278,9 @@ function DisputePageContent() {
         return;
     }
     
-    // Reset stars and eliminated status for the dispute
-    const participantsForDispute = Object.entries(selectedGroup.participants).reduce((acc, [key, p]) => {
-      acc[key] = { ...p, stars: 0, eliminated: false };
+    // Filter only active participants and reset their stars for the new dispute
+    const participantsForDispute = activeParticipants.reduce((acc, p) => {
+      acc[p.id] = { ...p, stars: 0, eliminated: false };
       return acc;
     }, {} as { [key: string]: Participant });
   
