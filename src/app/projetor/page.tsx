@@ -53,18 +53,16 @@ export default function ProjectionPage() {
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
 
     useEffect(() => {
-        // Preload sounds only on the client side
-        if (typeof window !== 'undefined') {
-            const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
-            soundFiles.forEach(file => {
-                if (!sounds.current[file]) {
-                    const audio = new Audio(`/som/${file}`);
-                    audio.load();
-                    sounds.current[file] = audio;
-                }
-            });
-        }
-    }, []);
+        // Preload sounds only on the client side, once the component has mounted.
+        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
+        soundFiles.forEach(file => {
+            if (!sounds.current[file]) {
+                const audio = new Audio(`/som/${file}`);
+                audio.load();
+                sounds.current[file] = audio;
+            }
+        });
+    }, []); // Empty dependency array ensures this runs only once on mount.
 
     const playSound = (soundFile: string, loop = false) => {
         stopSound();
