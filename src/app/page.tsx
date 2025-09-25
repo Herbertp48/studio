@@ -36,6 +36,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/context/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 
 export type Participant = {
@@ -51,7 +53,7 @@ export type ParticipantGroup = {
     participants: Participant[];
 }
 
-export default function Home() {
+function HomePageContent() {
   const [participantGroups, setParticipantGroups] = useState<ParticipantGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [newParticipantName, setNewParticipantName] = useState('');
@@ -89,7 +91,7 @@ export default function Home() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [selectedGroupId]);
 
   useEffect(() => {
     if (editingParticipant) {
@@ -101,9 +103,8 @@ export default function Home() {
 
   const updateParticipantsInDB = (groupId: string, newParticipants: Participant[]) => {
     const participantsAsObject = newParticipants.reduce((acc, p, index) => {
-        // Use the existing ID or create a new one. Firebase keys cannot contain '.'
         const key = p.id.replace(/\./g, '-');
-        acc[key] = { ...p, id: key }; // ensure id is updated
+        acc[key] = { ...p, id: key };
         return acc;
     }, {} as {[key: string]: Participant});
     set(ref(database, `participant-groups/${groupId}/participants`), participantsAsObject);
@@ -132,28 +133,31 @@ export default function Home() {
   const addParticipant = (e: React.FormEvent) => {
     e.preventDefault();
     if (newParticipantName.trim() && selectedGroup) {
+      const participantId = `p-${Date.now()}`;
       const newParticipant: Participant = {
-        id: `p-${Date.now()}`,
+        id: participantId,
         name: newParticipantName.trim(),
         stars: 0,
         eliminated: false,
       };
-      const newParticipants = [...(selectedGroup.participants || []), newParticipant];
-      updateParticipantsInDB(selectedGroup.id, newParticipants);
+
+      const groupParticipantsRef = ref(database, `participant-groups/${selectedGroup.id}/participants`);
+      const newParticipantRef = push(groupParticipantsRef);
+      set(newParticipantRef, {...newParticipant, id: newParticipantRef.key });
+
       setNewParticipantName('');
     }
   };
 
   const removeParticipant = (participantId: string) => {
     if (selectedGroup) {
-        const newParticipants = selectedGroup.participants.filter(p => p.id !== participantId);
-        updateParticipantsInDB(selectedGroup.id, newParticipants);
+        removeDb(ref(database, `participant-groups/${selectedGroup.id}/participants/${participantId}`));
     }
   };
 
   const clearParticipants = () => {
     if (selectedGroup) {
-        updateParticipantsInDB(selectedGroup.id, []);
+        removeDb(ref(database, `participant-groups/${selectedGroup.id}/participants`));
         toast({ title: 'Sucesso!', description: `Todos os participantes do grupo "${selectedGroup.name}" foram removidos.`});
     }
   };
@@ -175,16 +179,20 @@ export default function Home() {
         const worksheet = workbook.Sheets[sheetName];
         const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
 
-        const newParticipants: Participant[] = json.map((row: any, index: number) => ({
-            id: `p-${Date.now()}-${index}`,
+        const newParticipants: Omit<Participant, 'id'>[] = json.map((row: any) => ({
             name: String(row[0] || '').trim(),
             stars: 0,
             eliminated: false,
         })).filter(p => p.name.length > 0);
         
         if (selectedGroup) {
-            const updatedParticipants = Array.from(new Set([...(selectedGroup.participants || []), ...newParticipants]));
-            updateParticipantsInDB(selectedGroup.id, updatedParticipants);
+            const groupParticipantsRef = ref(database, `participant-groups/${selectedGroup.id}/participants`);
+            const updates: {[key: string]: any} = {};
+            newParticipants.forEach(p => {
+                const newParticipantRef = push(groupParticipantsRef);
+                updates[newParticipantRef.key!] = {...p, id: newParticipantRef.key};
+            })
+            update(ref(database), updates);
         }
 
         toast({
@@ -218,9 +226,7 @@ export default function Home() {
   
   const handleEditParticipant = (participant: Participant) => {
     if (!selectedGroup) return;
-
-    const participantRef = ref(database, `/participant-groups/${selectedGroup.id}/participants/${participant.id}`);
-    
+    const participantRef = ref(database, `participant-groups/${selectedGroup.id}/participants/${participant.id}`);
     update(participantRef, participant).then(() => {
         toast({ title: 'Sucesso', description: `Participante "${participant.name}" atualizado.` });
         setEditingParticipant(null);
@@ -295,7 +301,7 @@ export default function Home() {
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteGroup(selectedGroupId)}>Apagar</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDeleteGroup(selectedGroupId!)}>Apagar</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -447,4 +453,13 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+
+export default function Home() {
+    return (
+        <ProtectedRoute page="inicio">
+            <HomePageContent />
+        </ProtectedRoute>
+    )
 }

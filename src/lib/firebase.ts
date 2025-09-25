@@ -1,5 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   projectId: 'studio-8627034361-8b608',
@@ -12,5 +13,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const database = getDatabase(app);
+const auth = getAuth(app);
 
-export { app, database };
+export { app, database, auth };

@@ -35,7 +35,7 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
-
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 export type WordList = {
     id: string;
@@ -43,7 +43,7 @@ export type WordList = {
     words: string[];
 }
 
-export default function DisputePage() {
+function DisputePageContent() {
   const [wordLists, setWordLists] = useState<WordList[]>([]);
   const [participantGroups, setParticipantGroups] = useState<ParticipantGroup[]>([]);
   
@@ -233,11 +233,9 @@ export default function DisputePage() {
             const existingList = existingLists.find(l => l.name === listName);
 
             if (existingList) {
-                // Merge words, avoiding duplicates
                 const updatedWords = Array.from(new Set([...(existingList.words || []), ...uniqueWords]));
                 updateWordsInDB(existingList.id, updatedWords);
             } else {
-                // Create new list
                 const newListRef = push(wordListsRef);
                 set(newListRef, { name: listName, words: uniqueWords });
             }
@@ -279,12 +277,11 @@ export default function DisputePage() {
         return;
     }
     
-    // Reset stars and eliminated status for the selected group's participants
-    const activeParticipantsWithResetState = selectedGroup.participants.map(p => ({...p, stars: 0, eliminated: false}));
+    const participantsForDispute = selectedGroup.participants.map(p => ({...p, stars: 0, eliminated: false}));
 
     set(ref(database, 'dispute'), {
         words: selectedList.words,
-        participants: activeParticipantsWithResetState,
+        participants: participantsForDispute,
     });
     router.push('/sorteio');
   };
@@ -472,4 +469,12 @@ export default function DisputePage() {
       </main>
     </div>
   );
+}
+
+export default function DisputePage() {
+    return (
+        <ProtectedRoute page="disputa">
+            <DisputePageContent />
+        </ProtectedRoute>
+    )
 }

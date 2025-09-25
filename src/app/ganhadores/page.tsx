@@ -21,6 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 type Winner = {
   name: string;
@@ -39,7 +40,7 @@ const setDisputeState = (state: any) => {
 }
 
 
-export default function WinnersPage() {
+function WinnersPageContent() {
   const [winners, setWinners] = useState<AggregatedWinner[]>([]);
   const { toast } = useToast();
 
@@ -169,4 +170,12 @@ export default function WinnersPage() {
       </main>
     </div>
   );
+}
+
+export default function WinnersPage() {
+    return (
+        <ProtectedRoute page="ganhadores">
+            <WinnersPageContent />
+        </ProtectedRoute>
+    )
 }

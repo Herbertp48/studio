@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
-import type { Participant, ParticipantGroup } from '@/app/page';
+import type { Participant } from '@/app/page';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye } from 'lucide-react';
@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
 export type WordList = {
     id: string;
@@ -47,7 +48,7 @@ const setDisputeState = (state: DisputeState | null) => {
     set(ref(database, 'dispute/state'), state);
 }
 
-export default function RafflePage() {
+function RafflePageContent() {
   const [availableWords, setAvailableWords] = useState<string[]>([]);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [wordLists, setWordLists] = useState<WordList[]>([]);
@@ -68,30 +69,28 @@ export default function RafflePage() {
 
   useEffect(() => {
     const disputeRef = ref(database, 'dispute');
-    get(disputeRef).then((snapshot) => {
+    let initialLoad = true;
+
+    const unsubscribe = onValue(disputeRef, (snapshot) => {
         const data = snapshot.val();
         if (data && data.participants && data.words) {
-            const participantsArray = Array.isArray(data.participants) ? data.participants : Object.values(data.participants);
+            const participantsArray = Array.isArray(data.participants) 
+                ? data.participants 
+                : Object.values(data.participants);
             setParticipants(participantsArray);
-            setAvailableWords(data.words);
-            setOriginalWords(data.words);
-             if (raffleState === 'round_finished' || raffleState === 'idle') {
+            
+            if (initialLoad) {
+                setAvailableWords(data.words);
+                setOriginalWords(data.words);
+                initialLoad = false;
+            }
+
+            if (raffleState === 'round_finished' || raffleState === 'idle') {
                 checkForWinner(participantsArray);
             }
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
             router.push('/disputa');
-        }
-    });
-
-    const participantsListener = onValue(ref(database, 'dispute/participants'), (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const participantsArray = Array.isArray(data) ? data : Object.values(data);
-            setParticipants(participantsArray);
-             if (raffleState === 'round_finished' || raffleState === 'idle') {
-                checkForWinner(participantsArray);
-            }
         }
     });
     
@@ -113,7 +112,7 @@ export default function RafflePage() {
     setDisputeState({ type: 'RESET' });
 
     return () => {
-        participantsListener();
+        unsubscribe();
         unsubscribeWords();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,7 +133,7 @@ export default function RafflePage() {
          if (winner) {
             setFinalWinner(winner);
             setShowFinalWinnerDialog(true);
-            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+            setDisputeState({ type: 'FINAL_WINner', finalWinner: winner });
          }
     }
   }
@@ -211,57 +210,42 @@ export default function RafflePage() {
   };
   
   const handleWinner = async (winnerId: string) => {
-    if (!currentDuel || !currentWord || !participants) return;
+    if (!currentDuel || !currentWord) return;
 
-    const winnerIsA = currentDuel.participantA.id === winnerId;
-    let winner = winnerIsA ? currentDuel.participantA : currentDuel.participantB;
-    const loser = winnerIsA ? currentDuel.participantB : currentDuel.participantA;
+    let winner = participants.find(p => p.id === winnerId);
+    const loser = participants.find(p => p.id === (currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id));
 
-    // Use a fresh copy from state to avoid stale data
-    const currentParticipants = [...participants];
-    const winnerIndex = currentParticipants.findIndex(p => p.id === winner.id);
-    const loserIndex = currentParticipants.findIndex(p => p.id === loser.id);
-
-    if (winnerIndex === -1 || loserIndex === -1) {
-      toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado para atualização." });
+    if (!winner || !loser) {
+      toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
       return;
     }
-    
+
     const newWinnerEntryRef = push(ref(database, 'winners'));
     await set(newWinnerEntryRef, {
       name: winner.name,
       word: currentWord,
-      stars: 1
+      stars: 1 
     });
 
     const updates: any = {};
-    const newStars = (currentParticipants[winnerIndex].stars || 0) + 1;
-    
-    // Update using specific indices from the array structure in Firebase
-    updates[`dispute/participants/${winnerIndex}/stars`] = newStars;
-    updates[`dispute/participants/${loserIndex}/eliminated`] = true;
-    
+    const newStars = (winner.stars || 0) + 1;
+
+    const winnerUpdate = { ...winner, stars: newStars };
+    const loserUpdate = { ...loser, eliminated: true };
+
+    updates[`dispute/participants/${winner.id}`] = winnerUpdate;
+    updates[`dispute/participants/${loser.id}`] = loserUpdate;
+
     await update(ref(database), updates);
-    
-    const updatedParticipants = [...currentParticipants];
-    winner = { ...updatedParticipants[winnerIndex], stars: newStars };
-    updatedParticipants[winnerIndex] = winner;
-    updatedParticipants[loserIndex] = { ...updatedParticipants[loserIndex], eliminated: true };
 
-    setParticipants(updatedParticipants);
-    setRoundWinner(winner);
-
-    setDisputeState({ type: 'ROUND_WINNER', winner, loser, word: currentWord });
+    setRoundWinner(winnerUpdate);
+    setDisputeState({ type: 'ROUND_WINNER', winner: winnerUpdate, loser: loserUpdate, word: currentWord });
     toast({
       title: "Disputa Encerrada!",
       description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
     });
     
     setRaffleState('round_finished');
-    
-    setTimeout(() => {
-        checkForWinner(updatedParticipants);
-    }, 500);
   };
   
   const nextRound = () => {
@@ -283,7 +267,6 @@ export default function RafflePage() {
         const newWords = selectedList.words || [];
         setAvailableWords(newWords);
         setOriginalWords(newWords);
-        // Also update in Firebase so projection is in sync if it reloads
         set(ref(database, 'dispute/words'), newWords);
         toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
     }
@@ -480,4 +463,12 @@ export default function RafflePage() {
       </main>
     </div>
   );
+}
+
+export default function RafflePage() {
+    return (
+        <ProtectedRoute page="sorteio">
+            <RafflePageContent />
+        </ProtectedRoute>
+    )
 }

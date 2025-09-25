@@ -1,18 +1,28 @@
-import { SpellCheck, Home, List, Dices, Trophy } from 'lucide-react';
+import { SpellCheck, Home, List, Dices, Trophy, LogOut, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 export function AppHeader() {
   const pathname = usePathname();
+  const { user, userPermissions, logout } = useAuth();
 
   const navItems = [
-    { href: '/', label: 'Início', icon: Home },
-    { href: '/disputa', label: 'Disputa', icon: List },
-    { href: '/sorteio', label: 'Sorteio', icon: Dices },
-    { href: '/ganhadores', label: 'Ganhadores', icon: Trophy },
+    { href: '/', label: 'Início', icon: Home, requiredPermission: 'inicio' },
+    { href: '/disputa', label: 'Disputa', icon: List, requiredPermission: 'disputa' },
+    { href: '/sorteio', label: 'Sorteio', icon: Dices, requiredPermission: 'sorteio' },
+    { href: '/ganhadores', label: 'Ganhadores', icon: Trophy, requiredPermission: 'ganhadores' },
+    { href: '/usuarios', label: 'Usuários', icon: Users, requiredPermission: 'admin' },
   ];
+
+  const availableNavItems = navItems.filter(item => {
+    if (!user) return false;
+    if (userPermissions?.role === 'admin') return true;
+    if (item.requiredPermission === 'admin') return false;
+    return userPermissions?.permissions?.[item.requiredPermission as keyof typeof userPermissions.permissions];
+  })
 
   return (
     <header className="border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
@@ -25,7 +35,7 @@ export function AppHeader() {
             </h1>
           </div>
           <nav className="flex items-center gap-2">
-            {navItems.map((item) => (
+            {user && availableNavItems.map((item) => (
               <Button
                 key={item.href}
                 variant="ghost"
@@ -41,6 +51,12 @@ export function AppHeader() {
                 </Link>
               </Button>
             ))}
+             {user && (
+              <Button variant="ghost" onClick={logout} className="text-muted-foreground">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair
+              </Button>
+            )}
           </nav>
         </div>
       </div>
