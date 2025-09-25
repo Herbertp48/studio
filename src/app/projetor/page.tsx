@@ -50,9 +50,9 @@ export default function ProjectionPage() {
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
     
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
-    const currentSoundRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
+        // This effect runs only once on the client, after hydration
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
@@ -61,28 +61,30 @@ export default function ProjectionPage() {
                 sounds.current[file] = audio;
             }
         });
+    }, []); // Empty dependency array ensures this runs only once on the client
 
-        const playSound = (soundFile: string, loop = false) => {
-            if (currentSoundRef.current) {
-                currentSoundRef.current.pause();
-                currentSoundRef.current.currentTime = 0;
-            }
-            const sound = sounds.current[soundFile];
-            if (sound) {
-                currentSoundRef.current = sound;
-                currentSoundRef.current.loop = loop;
-                currentSoundRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
-            }
-        };
+    const playSound = (soundFile: string, loop = false) => {
+        // Stop any currently playing sound
+        Object.values(sounds.current).forEach(sound => {
+            sound.pause();
+            sound.currentTime = 0;
+        });
 
-        const stopSound = () => {
-            if (currentSoundRef.current) {
-                currentSoundRef.current.pause();
-                currentSoundRef.current.currentTime = 0;
-                currentSoundRef.current = null;
-            }
-        };
+        const soundToPlay = sounds.current[soundFile];
+        if (soundToPlay) {
+            soundToPlay.loop = loop;
+            soundToPlay.play().catch(e => console.error("Erro ao tocar áudio:", e));
+        }
+    };
 
+    const stopSound = () => {
+        Object.values(sounds.current).forEach(sound => {
+            sound.pause();
+            sound.currentTime = 0;
+        });
+    };
+    
+    useEffect(() => {
         const stopShuffling = () => {
             if (shufflingInterval.current) {
                 clearInterval(shufflingInterval.current);
@@ -215,6 +217,7 @@ export default function ProjectionPage() {
             stopShuffling();
             stopSound();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
