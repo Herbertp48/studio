@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { database } from '@/lib/firebase';
+import { app, database } from '@/lib/firebase';
 import { ref, onValue, set, remove as removeDb, push } from 'firebase/database';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import {
   Dialog,
@@ -38,6 +38,7 @@ import type { UserPermissions } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 
 export type AppUser = {
   uid: string;
@@ -83,7 +84,11 @@ function UsersPageContent() {
       return;
     }
     try {
-      const userCredential = await createUserWithEmailAndPassword(firebaseAuth, newUserEmail, newUserPassword);
+      // Create a secondary auth instance to create users without logging them in
+      const secondaryApp = initializeApp(app.options, `secondary-${Date.now()}`);
+      const secondaryAuth = getAuth(secondaryApp);
+
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUserEmail, newUserPassword);
       const user = userCredential.user;
       
       const newUserPermissions: UserPermissions = {
@@ -101,9 +106,19 @@ function UsersPageContent() {
       setNewUserEmail('');
       setNewUserPassword('');
     } catch (error: any) {
-        let description = error.message;
-        if (error.code === 'auth/configuration-not-found') {
-            description = "O método de login por E-mail/Senha não está ativado no Firebase. Por favor, ative-o no Firebase Console em Authentication -> Sign-in method.";
+        let description = "Ocorreu um erro desconhecido.";
+        switch (error.code) {
+            case 'auth/configuration-not-found':
+                description = "O método de login por E-mail/Senha não está ativado no Firebase. Por favor, ative-o no Firebase Console em Authentication -> Sign-in method.";
+                break;
+            case 'auth/email-already-in-use':
+                description = "Este endereço de e-mail já está em uso por outra conta.";
+                break;
+            case 'auth/weak-password':
+                description = "A senha é muito fraca. Por favor, use uma senha mais forte.";
+                break;
+            default:
+                description = error.message;
         }
         toast({ variant: 'destructive', title: 'Erro ao criar usuário', description });
     }
@@ -218,7 +233,7 @@ function UsersPageContent() {
                     <p className="text-sm text-muted-foreground">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {user.email !== 'admin@admin.com' && ( // Don't allow editing/deleting the temp admin
+                    {user.email !== firebaseAuth.currentUser?.email && (
                         <>
                         <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
                             <UserCog className="mr-2 h-4 w-4" /> Permissões
