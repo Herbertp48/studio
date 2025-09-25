@@ -48,15 +48,28 @@ export default function ProjectionPage() {
 
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
+    
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
+
+    useEffect(() => {
+        // Preload all sounds
+        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
+        soundFiles.forEach(file => {
+            const audio = new Audio(`/som/${file}`);
+            audio.load();
+            sounds.current[file] = audio;
+        });
+    }, []);
 
     const playSound = (soundFile: string, loop = false) => {
-        if (audioRef.current) {
-            audioRef.current.pause();
+        stopSound();
+        const sound = sounds.current[soundFile];
+        if (sound) {
+            audioRef.current = sound;
+            audioRef.current.loop = loop;
+            audioRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
         }
-        audioRef.current = new Audio(`/som/${soundFile}`);
-        audioRef.current.loop = loop;
-        audioRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
     };
     
     const stopSound = () => {
@@ -82,8 +95,8 @@ export default function ProjectionPage() {
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeState = snapshot.val();
             
+            // On initial load or reset, just reset to initial visual state.
             if (!action) {
-                // On initial load or reset, just reset to initial visual state.
                 const s = getInitialState();
                 setParticipantA(s.participantA);
                 setParticipantB(s.participantB);
