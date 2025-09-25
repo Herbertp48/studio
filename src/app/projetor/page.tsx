@@ -52,6 +52,7 @@ export default function ProjectionPage() {
     useEffect(() => {
         setIsMounted(true);
 
+        // Pré-carregamento dos sons em um local seguro
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
