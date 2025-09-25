@@ -58,7 +58,9 @@ function RafflePageContent() {
   const [raffleState, setRaffleState] = useState<RaffleState>('idle');
   const [roundWinner, setRoundWinner] = useState<Participant | null>(null);
   const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
-  const [finalWinner, setFinalWinner] = useState<Participant | null>(null);
+  const [finalWinners, setFinalWinners] = useState<Participant[]>([]);
+  const [isTie, setIsTie] = useState(false);
+
   const [sortMode, setSortMode] = useState<SortMode>('random');
   const [manualReveal, setManualReveal] = useState(false);
   const [originalWords, setOriginalWords] = useState<string[]>([]);
@@ -69,28 +71,31 @@ function RafflePageContent() {
   const participantsList = Object.values(participants);
 
   const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-    if (!currentParticipants || finalWinner) return;
+    if (!currentParticipants || finalWinners.length > 0) return;
     
     const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
     
-    if (activeParticipants.length === 1) {
-        const winner = activeParticipants[0];
-        setFinalWinner(winner);
+    if (activeParticipants.length < 2 && Object.keys(currentParticipants).length > 0) {
+        const allParticipants = Object.values(currentParticipants);
+        const maxStars = Math.max(...allParticipants.map(p => p.stars));
+
+        if (maxStars === 0 && allParticipants.length > 1) {
+            // No rounds played yet or no stars awarded, so it's not the end
+            return;
+        }
+
+        const winners = allParticipants.filter(p => p.stars === maxStars);
+        
+        setFinalWinners(winners);
+        setIsTie(winners.length > 1);
         setShowFinalWinnerDialog(true);
-        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
-    } else if (activeParticipants.length < 2 && Object.keys(currentParticipants).length > 0) {
-        const winner = Object.values(currentParticipants).filter(p => !p.eliminated).sort((a,b) => b.stars - a.stars)[0];
-         if (winner) {
-            setFinalWinner(winner);
-            setShowFinalWinnerDialog(true);
-            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
-         }
+        // For projection, we can send the first winner if not a tie, or handle tie display there
+        setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners.length === 1 ? winners[0] : null });
     }
   }
 
   useEffect(() => {
     const disputeRef = ref(database, 'dispute');
-    let initialLoad = true;
 
     const unsubscribe = onValue(disputeRef, (snapshot) => {
         const data = snapshot.val();
@@ -98,20 +103,18 @@ function RafflePageContent() {
             const currentParticipants = data.participants || {};
             setParticipants(currentParticipants);
             
-            if (initialLoad) {
-                setAvailableWords(data.words);
-                setOriginalWords(data.words);
-                initialLoad = false;
+            // Set words only on initial load
+            if (originalWords.length === 0 && data.words.length > 0) {
+              setAvailableWords(data.words);
+              setOriginalWords(data.words);
             }
             
-            // Check for winner only when data changes and we are in a state where it makes sense
-            const currentState = raffleState; // read current state
-            if (currentState === 'round_finished' || currentState === 'idle') {
-                checkForWinner(currentParticipants);
-            }
+            checkForWinner(currentParticipants);
         } else {
-            toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
-            router.push('/disputa');
+            if(router) {
+              toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
+              router.push('/disputa');
+            }
         }
     });
     
@@ -150,7 +153,7 @@ function RafflePageContent() {
 
     if (activeParticipants.length < 2) {
       checkForWinner(participants);
-      if(!finalWinner) {
+      if(finalWinners.length === 0) {
         toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter pelo menos 2 participantes ativos." });
       }
       return;
@@ -237,8 +240,6 @@ function RafflePageContent() {
     
     await update(ref(database), updates);
 
-    // After updating DB, the onValue listener will fire and update local state
-    // We can show intermediate state optimistically
     const winnerUpdate = { ...winner, stars: newStars };
 
     setRoundWinner(winnerUpdate);
@@ -304,10 +305,10 @@ function RafflePageContent() {
           <div className="text-lg text-muted-foreground">
             <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2}>
+          <Button size="lg" onClick={sortParticipants} disabled={finalWinners.length > 0 || activeParticipantsCount < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {activeParticipantsCount < 2 && Object.keys(participants).length > 0 && !finalWinner && (
+          {activeParticipantsCount < 2 && Object.keys(participants).length > 0 && finalWinners.length === 0 && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
         </div>
@@ -374,7 +375,7 @@ function RafflePageContent() {
                 <Star /> Ganhou 1 estrela!
             </p>
             <p className="text-muted-foreground">{activeParticipantsCount} participantes restantes</p>
-            <Button size="lg" onClick={nextRound} disabled={finalWinner != null}><RefreshCw className="mr-2" />Próxima Rodada</Button>
+            <Button size="lg" onClick={nextRound} disabled={finalWinners.length > 0}><RefreshCw className="mr-2" />Próxima Rodada</Button>
         </div>
       )
     }
@@ -455,11 +456,29 @@ function RafflePageContent() {
                 <AlertDialogDescription className="text-center text-lg" asChild>
                     <div className="flex flex-col items-center justify-center gap-4 py-6">
                         <Crown className="w-20 h-20 text-yellow-400" />
-                        <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
-                        <p className="text-4xl font-bold text-foreground">{finalWinner?.name}</p>
-                         <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
-                            <Star className="w-6 h-6" /> {`x${finalWinner?.stars || 0}`}
-                        </p>
+                        {isTie ? (
+                            <>
+                                <p className="text-2xl font-bold mt-2">A disputa terminou em empate entre:</p>
+                                <div className="text-2xl font-bold text-foreground">
+                                    {finalWinners.map(winner => (
+                                        <div key={winner.id} className="flex items-center gap-2 justify-center">
+                                            <span>{winner.name}</span>
+                                            <span className="flex items-center gap-1 text-yellow-500 font-bold">
+                                                <Star className="w-5 h-5" /> {`x${winner.stars}`}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
+                        ) : (
+                             <>
+                                <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
+                                <p className="text-4xl font-bold text-foreground">{finalWinners[0]?.name}</p>
+                                <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
+                                    <Star className="w-6 h-6" /> {`x${finalWinners[0]?.stars || 0}`}
+                                </p>
+                            </>
+                        )}
                     </div>
                 </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -480,5 +499,3 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
-
-    
