@@ -37,22 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
-        // Bypass Firebase DB check for temp admin
-        if (user.uid === 'temp-admin-user') {
-          setUserPermissions({
-            role: 'admin',
-            permissions: { inicio: true, disputa: true, sorteio: true, ganhadores: true },
-          });
-          setLoading(false);
-          return;
-        }
-
         const userPermsRef = ref(database, `users/${user.uid}`);
         onValue(userPermsRef, (snapshot) => {
             const perms = snapshot.val();
             if (perms) {
                 setUserPermissions(perms);
             } else {
+                // This might happen for a brief moment if the DB entry isn't created yet.
                 setUserPermissions(null);
             }
             setLoading(false);
@@ -64,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserPermissions(null);
         setLoading(false);
-        if (pathname !== '/login') {
+        // Only redirect if not on a public page and not the temp admin logging out
+        if (pathname !== '/login' && user?.uid !== 'temp-admin-user') {
             router.replace('/login');
         }
       }
@@ -72,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
         unsubscribe();
-        if(user && user.uid !== 'temp-admin-user') {
+        if(user) {
             off(ref(database, `users/${user.uid}`));
         }
     };
@@ -86,9 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uid: 'temp-admin-user',
         email: 'admin@admin.com',
       } as User;
-
+      
       setUser(tempUser);
-      // As permissões já são setadas no onAuthStateChanged
+      setUserPermissions({
+        role: 'admin',
+        permissions: { inicio: true, disputa: true, sorteio: true, ganhadores: true },
+      });
       setLoading(false);
       router.push('/');
       return; 
@@ -97,10 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
+      // If user does not exist, check if we should create the first admin user
       if (error.code === 'auth/user-not-found') {
         const usersRef = ref(database, 'users');
         const snapshot = await get(usersRef);
 
+        // If no users exist in DB, create this new user as admin
         if (!snapshot.exists()) {
           const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
           const firstUser = userCredential.user;
@@ -120,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return userCredential;
         }
       }
+      // For all other errors, or if user-not-found but DB is not empty, re-throw the error.
       throw error;
     }
   };
