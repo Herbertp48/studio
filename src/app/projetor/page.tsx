@@ -49,11 +49,10 @@ export default function ProjectionPage() {
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
     
-    const audioRef = useRef<HTMLAudioElement | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
+    const currentSoundRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
-        // Preload sounds only on the client side, once the component has mounted.
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
@@ -62,42 +61,41 @@ export default function ProjectionPage() {
                 sounds.current[file] = audio;
             }
         });
-    }, []); // Empty dependency array ensures this runs only once on mount.
 
-    const playSound = (soundFile: string, loop = false) => {
-        stopSound();
-        const sound = sounds.current[soundFile];
-        if (sound) {
-            audioRef.current = sound;
-            audioRef.current.loop = loop;
-            audioRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
+        const playSound = (soundFile: string, loop = false) => {
+            if (currentSoundRef.current) {
+                currentSoundRef.current.pause();
+                currentSoundRef.current.currentTime = 0;
+            }
+            const sound = sounds.current[soundFile];
+            if (sound) {
+                currentSoundRef.current = sound;
+                currentSoundRef.current.loop = loop;
+                currentSoundRef.current.play().catch(e => console.error("Erro ao tocar áudio:", e));
+            }
+        };
+
+        const stopSound = () => {
+            if (currentSoundRef.current) {
+                currentSoundRef.current.pause();
+                currentSoundRef.current.currentTime = 0;
+                currentSoundRef.current = null;
+            }
+        };
+
+        const stopShuffling = () => {
+            if (shufflingInterval.current) {
+                clearInterval(shufflingInterval.current);
+                shufflingInterval.current = null;
+            }
+            setIsShuffling(false);
         }
-    };
-    
-    const stopSound = () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-            audioRef.current = null;
-        }
-    };
 
-
-    const stopShuffling = () => {
-        if (shufflingInterval.current) {
-            clearInterval(shufflingInterval.current);
-            shufflingInterval.current = null;
-        }
-        setIsShuffling(false);
-    }
-
-    useEffect(() => {
         const disputeStateRef = ref(database, 'dispute/state');
 
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeState = snapshot.val();
             
-            // On initial load or reset, just reset to initial visual state.
             if (!action) {
                 const s = getInitialState();
                 setParticipantA(s.participantA);
@@ -217,7 +215,6 @@ export default function ProjectionPage() {
             stopShuffling();
             stopSound();
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
