@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import type { Participant } from '@/app/page';
@@ -65,6 +65,7 @@ function RafflePageContent() {
   const [sortMode, setSortMode] = useState<SortMode>('random');
   const [manualReveal, setManualReveal] = useState(false);
   const [originalWords, setOriginalWords] = useState<string[]>([]);
+  const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -77,17 +78,22 @@ function RafflePageContent() {
     const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
     
     if (activeParticipants.length < 2) {
+        if (shufflingIntervalRef.current) {
+            clearInterval(shufflingIntervalRef.current);
+            shufflingIntervalRef.current = null;
+        }
+        
         const allParticipants = Object.values(currentParticipants);
         const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
         
-        if (maxStars === 0) {
+        if (maxStars === 0 && activeParticipants.length === 0) {
              setFinalWinners([]);
              setIsTie(false);
              setShowFinalWinnerDialog(true);
             return;
         }
         
-        const winners = allParticipants.filter(p => p.stars === maxStars);
+        const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
         
         if (winners.length > 0) {
             setFinalWinners(winners);
@@ -99,10 +105,18 @@ function RafflePageContent() {
                  setDisputeState({ type: 'TIE_ANNOUNCEMENT', tieWinners: winners });
             }
         } else {
-            // No winners with stars, show the final dialog without a winner.
-            setFinalWinners([]);
-            setIsTie(false);
-            setShowFinalWinnerDialog(true);
+            // No winners with stars, could be the single remaining participant
+            const winner = activeParticipants.length === 1 ? activeParticipants[0] : null;
+            if (winner) {
+              setFinalWinners([winner]);
+              setIsTie(false);
+              setShowFinalWinnerDialog(true);
+              setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
+            } else {
+              setFinalWinners([]);
+              setIsTie(false);
+              setShowFinalWinnerDialog(true);
+            }
         }
     }
   }
@@ -121,7 +135,6 @@ function RafflePageContent() {
               setAvailableWords(data.words);
               setOriginalWords(data.words);
             }
-            // Check for winner only when the state is idle to avoid interruptions
             if (raffleState === 'idle') {
                 checkForWinner(currentParticipants);
             }
@@ -153,13 +166,16 @@ function RafflePageContent() {
     return () => {
         unsubscribe();
         unsubscribeWords();
+        if (shufflingIntervalRef.current) {
+            clearInterval(shufflingIntervalRef.current);
+        }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   
   const sortParticipants = () => {
-    if (!participants) return;
+    if (!participants || raffleState === 'shuffling') return;
     
     setRoundWinner(null);
     setCurrentWord(null);
@@ -174,15 +190,25 @@ function RafflePageContent() {
     }
 
     setRaffleState('shuffling');
-    const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
-    setDisputeState({ 
-        type: 'SHUFFLING_PARTICIPANTS', 
-        activeParticipants,
-        participantA: shuffled[0],
-        participantB: shuffled[1]
-    });
-    
+
+    shufflingIntervalRef.current = setInterval(() => {
+        const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
+        setDisputeState({ 
+            type: 'SHUFFLING_PARTICIPANTS', 
+            activeParticipants,
+            participantA: shuffled[0],
+            participantB: shuffled[1]
+        });
+    }, 150);
+
     setTimeout(() => {
+        if (shufflingIntervalRef.current) {
+            clearInterval(shufflingIntervalRef.current);
+            shufflingIntervalRef.current = null;
+        }
+
+        // Get a final shuffle to set the definitive participants
+        const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
         const participantA = shuffled[0];
         const participantB = shuffled[1];
 
@@ -261,8 +287,7 @@ function RafflePageContent() {
 
     const winnerUpdate = { ...winner, stars: newStars, eliminated: false };
     const loserUpdate = { ...loser, eliminated: true };
-
-    // Update local state to reflect changes before Firebase listener, for UI responsiveness.
+    
     setParticipants(prev => ({
         ...prev,
         [winner.id]: winnerUpdate,
@@ -292,12 +317,15 @@ function RafflePageContent() {
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
     
-    // Explicitly check for winner after setting state to idle
-    const currentParticipants = participants;
-    const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
-    if (activeParticipants.length < 2) {
-      checkForWinner(currentParticipants);
-    }
+    // Use a slight delay to allow state to propagate before checking for winner
+    setTimeout(() => {
+      const dbRef = ref(database, 'dispute/participants');
+      get(dbRef).then(snapshot => {
+        if (snapshot.exists()) {
+          checkForWinner(snapshot.val());
+        }
+      });
+    }, 100);
   }
   
   const openProjection = () => {
@@ -316,24 +344,23 @@ function RafflePageContent() {
   };
 
     const startTieBreaker = async () => {
+        setShowFinalWinnerDialog(false);
+        setFinalWinners([]);
+        setIsTie(false);
+    
         const updates: { [key: string]: any } = {};
         const finalistIds = finalWinners.map(winner => winner.id);
-
+    
         participantsList.forEach(p => {
              if (finalistIds.includes(p.id)) {
-                // Reactivate finalists for the tie-breaker
                 updates[`/dispute/participants/${p.id}/eliminated`] = false;
-            } else {
-                // Ensure everyone else is eliminated
+            } else if (!p.eliminated) {
                 updates[`/dispute/participants/${p.id}/eliminated`] = true;
             }
         });
 
         await update(ref(database), updates);
-        
-        setShowFinalWinnerDialog(false);
-        setFinalWinners([]);
-        setIsTie(false);
+
         nextRound();
         toast({ title: "Desempate!", description: "A rodada de desempate começou." });
     }
@@ -362,7 +389,7 @@ function RafflePageContent() {
           <div className="text-lg text-muted-foreground">
             <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2}>
+          <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2 || raffleState === 'shuffling'}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
           {activeParticipantsCount < 2 && !showFinalWinnerDialog && (

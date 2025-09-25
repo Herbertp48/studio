@@ -24,7 +24,7 @@ type DisputeAction = {
 }
 
 type DisplayState = {
-    view: 'main' | 'round_winner' | 'final_winner' | 'shuffling' | 'winners_table' | 'tie_announcement';
+    view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement';
     participantA: Participant | null;
     participantB: Participant | null;
     word: string | null;
@@ -47,7 +47,6 @@ export default function ProjectionPage() {
     const [isMounted, setIsMounted] = useState(false);
     const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
-    const shufflingInterval = useRef<NodeJS.Timeout | null>(null);
     const [animationKey, setAnimationKey] = useState(0);
 
     // Efeito para garantir que o código só rode no cliente.
@@ -102,19 +101,11 @@ export default function ProjectionPage() {
             }
         };
 
-        const stopShufflingAnimation = () => {
-            if (shufflingInterval.current) {
-                clearInterval(shufflingInterval.current);
-                shufflingInterval.current = null;
-            }
-        };
-
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeAction | null = snapshot.val();
             if (!action) {
                 stopAllSounds();
-                stopShufflingAnimation();
                 setDisplayState(initialDisplayState);
                 return;
             }
@@ -122,45 +113,24 @@ export default function ProjectionPage() {
             switch (action.type) {
                 case 'RESET':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     setDisplayState(initialDisplayState);
                     break;
                 
                 case 'SHUFFLING_PARTICIPANTS':
-                    stopShufflingAnimation();
-                    playSound('tambor.mp3', true);
-                    
-                    const activeParticipants = action.activeParticipants || [];
-                    if (activeParticipants.length > 1) {
-                        // Set initial state for shuffling view
-                        setDisplayState(prevState => ({
-                            ...prevState,
-                            view: 'main',
-                            participantA: activeParticipants[0],
-                            participantB: activeParticipants[1],
-                        }));
-
-                        shufflingInterval.current = setInterval(() => {
-                            const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
-                             setDisplayState(prevState => ({
-                                ...prevState,
-                                view: 'main',
-                                participantA: shuffled[0],
-                                participantB: shuffled[1],
-                            }));
-                        }, 150);
-                    } else {
-                         setDisplayState({
-                            ...initialDisplayState,
-                            view: 'main',
-                            participantA: { id: 'shuffleA', name: '...', stars: 0, eliminated: false },
-                            participantB: { id: 'shuffleB', name: '...', stars: 0, eliminated: false },
-                        });
+                    if (displayState.view !== 'main') {
+                        playSound('tambor.mp3', true);
                     }
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'main',
+                        participantA: action.participantA || null,
+                        participantB: action.participantB || null,
+                        showWord: false,
+                        word: null
+                    }));
                     break;
 
                 case 'UPDATE_PARTICIPANTS':
-                    stopShufflingAnimation();
                     stopAllSounds();
                     playSound('sinos.mp3');
                     setDisplayState({
@@ -186,7 +156,6 @@ export default function ProjectionPage() {
 
                 case 'ROUND_WINNER':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
                     if (action.winner && action.loser && action.word) {
@@ -200,7 +169,6 @@ export default function ProjectionPage() {
 
                 case 'FINAL_WINNER':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
                     setDisplayState({
@@ -212,7 +180,6 @@ export default function ProjectionPage() {
                 
                 case 'TIE_ANNOUNCEMENT':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     setAnimationKey(prev => prev + 1);
                     setDisplayState({
                         ...initialDisplayState,
@@ -223,7 +190,6 @@ export default function ProjectionPage() {
 
                 case 'SHOW_WINNERS':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     setDisplayState({
                         ...initialDisplayState,
                         view: 'winners_table',
@@ -235,9 +201,9 @@ export default function ProjectionPage() {
 
         return () => {
             unsubscribe();
-            stopShufflingAnimation();
             stopAllSounds();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMounted]);
 
     if (!isMounted) {
