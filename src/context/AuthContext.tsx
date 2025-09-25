@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (perms) {
                 setUserPermissions(perms);
             } else {
+                // This can happen if a user exists in Auth but not in DB
                 setUserPermissions(null);
             }
             setLoading(false);
@@ -66,16 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             off(ref(database, `users/${user.uid}`));
         }
     };
-  }, [router, pathname, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
  const login = async (email: string, pass: string) => {
     try {
+      // The most common path is a normal login. We try this first.
       return await signInWithEmailAndPassword(auth, email, pass);
     } catch (error: any) {
+      // If the user is not found, it might be the very first user trying to register.
       if (error.code === 'auth/user-not-found') {
         const usersRef = ref(database, 'users');
         const snapshot = await get(usersRef);
 
+        // If the 'users' table in the database is empty, create this first user as admin.
         if (!snapshot.exists()) {
           const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
           const firstUser = userCredential.user;
@@ -88,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               ganhadores: true,
             },
           };
+          // Save the admin user's permissions to the database.
           await set(ref(database, `users/${firstUser.uid}`), {
             email: firstUser.email,
             ...adminPermissions
@@ -95,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return userCredential;
         }
       }
+      // If the error is not 'auth/user-not-found' or if the DB is not empty,
+      // we re-throw the original error to be caught by the login page UI.
       throw error;
     }
   };
