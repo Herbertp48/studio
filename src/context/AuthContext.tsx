@@ -68,35 +68,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [router, pathname, user]);
 
-  const login = async (email: string, pass: string) => {
-    try {
-        return await signInWithEmailAndPassword(auth, email, pass);
-    } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
-            const usersRef = ref(database, 'users');
-            const snapshot = await get(usersRef);
-            if (!snapshot.exists()) {
-                // No users in DB, this is the first user, create them as admin.
-                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-                const firstUser = userCredential.user;
-                const adminPermissions: UserPermissions = {
-                    role: 'admin',
-                    permissions: {
-                        inicio: true,
-                        disputa: true,
-                        sorteio: true,
-                        ganhadores: true,
-                    },
-                };
-                await set(ref(database, `users/${firstUser.uid}`), {
-                    email: firstUser.email,
-                    ...adminPermissions
-                });
-                return userCredential;
-            }
-        }
-        // For other errors, or if it's not the first user, re-throw.
-        throw error;
+ const login = async (email: string, pass: string) => {
+    const usersRef = ref(database, 'users');
+    const snapshot = await get(usersRef);
+
+    if (!snapshot.exists()) {
+      // No users in DB, this is the first user, create them as admin.
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        const firstUser = userCredential.user;
+        const adminPermissions: UserPermissions = {
+            role: 'admin',
+            permissions: {
+                inicio: true,
+                disputa: true,
+                sorteio: true,
+                ganhadores: true,
+            },
+        };
+        await set(ref(database, `users/${firstUser.uid}`), {
+            email: firstUser.email,
+            ...adminPermissions
+        });
+        return userCredential;
+      } catch(error) {
+        // If account already exists in Auth but not in DB, try to sign in
+        return signInWithEmailAndPassword(auth, email, pass);
+      }
+    } else {
+      // Users exist, proceed with normal login
+      return signInWithEmailAndPassword(auth, email, pass);
     }
   };
 
