@@ -48,6 +48,7 @@ export default function ProjectionPage() {
     const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const [animationKey, setAnimationKey] = useState(0);
+    const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Efeito para garantir que o código só rode no cliente.
     useEffect(() => {
@@ -101,11 +102,32 @@ export default function ProjectionPage() {
             }
         };
 
+         const stopShufflingAnimation = () => {
+            if (shufflingIntervalRef.current) {
+                clearInterval(shufflingIntervalRef.current);
+                shufflingIntervalRef.current = null;
+            }
+        };
+
+        const startShufflingAnimation = (participants: Participant[]) => {
+            stopShufflingAnimation();
+            playSound('tambor.mp3', true);
+            shufflingIntervalRef.current = setInterval(() => {
+                const shuffled = [...participants].sort(() => 0.5 - Math.random());
+                 setDisplayState(prevState => ({
+                    ...prevState,
+                    participantA: shuffled[0] || null,
+                    participantB: shuffled[1] || null,
+                 }));
+            }, 150);
+        };
+
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeAction | null = snapshot.val();
             if (!action) {
                 stopAllSounds();
+                stopShufflingAnimation();
                 setDisplayState(initialDisplayState);
                 return;
             }
@@ -113,24 +135,24 @@ export default function ProjectionPage() {
             switch (action.type) {
                 case 'RESET':
                     stopAllSounds();
+                    stopShufflingAnimation();
                     setDisplayState(initialDisplayState);
                     break;
                 
-                case 'SHUFFLING_PARTICIPANTS':
-                    if (displayState.view !== 'main') {
-                        playSound('tambor.mp3', true);
+                 case 'SHUFFLING_PARTICIPANTS':
+                    if (!shufflingIntervalRef.current) {
+                        startShufflingAnimation(action.activeParticipants || []);
                     }
                     setDisplayState(prevState => ({
                         ...prevState,
                         view: 'main',
-                        participantA: action.participantA || null,
-                        participantB: action.participantB || null,
                         showWord: false,
                         word: null
                     }));
                     break;
 
                 case 'UPDATE_PARTICIPANTS':
+                    stopShufflingAnimation();
                     stopAllSounds();
                     playSound('sinos.mp3');
                     setDisplayState({
@@ -155,6 +177,7 @@ export default function ProjectionPage() {
                      break;
 
                 case 'ROUND_WINNER':
+                    stopShufflingAnimation();
                     stopAllSounds();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
@@ -168,6 +191,7 @@ export default function ProjectionPage() {
                     break;
 
                 case 'FINAL_WINNER':
+                    stopShufflingAnimation();
                     stopAllSounds();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
@@ -179,7 +203,8 @@ export default function ProjectionPage() {
                     break;
                 
                 case 'TIE_ANNOUNCEMENT':
-                    stopAllSounds();
+                    stopShufflingAnimation();
+                    playSound('sinos.mp3');
                     setAnimationKey(prev => prev + 1);
                     setDisplayState({
                         ...initialDisplayState,
@@ -189,6 +214,7 @@ export default function ProjectionPage() {
                     break;
 
                 case 'SHOW_WINNERS':
+                    stopShufflingAnimation();
                     stopAllSounds();
                     setDisplayState({
                         ...initialDisplayState,
@@ -202,6 +228,7 @@ export default function ProjectionPage() {
         return () => {
             unsubscribe();
             stopAllSounds();
+            stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMounted]);
