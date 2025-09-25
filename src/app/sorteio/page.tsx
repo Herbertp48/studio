@@ -34,7 +34,7 @@ export type WordList = {
 type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'round_finished' | 'shuffling';
 type SortMode = 'random' | 'sequential';
 type DisputeState = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
@@ -42,6 +42,7 @@ type DisputeState = {
     loser?: Participant | null;
     finalWinner?: Participant | null;
     activeParticipants?: Participant[];
+    tieWinners?: Participant[];
 }
 
 const setDisputeState = (state: DisputeState | null) => {
@@ -80,6 +81,11 @@ function RafflePageContent() {
         const maxStars = Math.max(...allParticipants.map(p => p.stars));
 
         if (maxStars === 0 && activeParticipants.length === 1) {
+            // This case happens if there's only one person left but they never won a round.
+            // We can consider this a non-winner scenario or declare them winner. For now, no winner.
+             setFinalWinners([]);
+             setIsTie(false);
+             setShowFinalWinnerDialog(true);
             return;
         }
         
@@ -89,8 +95,13 @@ function RafflePageContent() {
             setFinalWinners(winners);
             setIsTie(winners.length > 1);
             setShowFinalWinnerDialog(true);
-            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners.length === 1 ? winners[0] : null });
+            if (winners.length === 1) {
+                setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners[0] });
+            } else {
+                 setDisputeState({ type: 'TIE_ANNOUNCEMENT', tieWinners: winners });
+            }
         } else {
+            // No winners with stars, show the final dialog without a winner.
             setFinalWinners([]);
             setIsTie(false);
             setShowFinalWinnerDialog(true);
@@ -112,8 +123,9 @@ function RafflePageContent() {
               setAvailableWords(data.words);
               setOriginalWords(data.words);
             }
-             // Check for winner here to react to DB updates
-            checkForWinner(currentParticipants);
+            if (raffleState === 'idle') {
+                checkForWinner(currentParticipants);
+            }
         } else {
             if(router) {
               toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
@@ -144,7 +156,7 @@ function RafflePageContent() {
         unsubscribeWords();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [raffleState, router]);
 
   
   const sortParticipants = () => {
@@ -158,6 +170,7 @@ function RafflePageContent() {
 
     if (activeParticipants.length < 2) {
       toast({ variant: "destructive", title: "Fim da Disputa", description: "Não há participantes ativos suficientes para uma nova rodada." });
+      checkForWinner(participants);
       return;
     }
 
@@ -265,7 +278,6 @@ function RafflePageContent() {
     setRoundWinner(null);
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
-    // checkForWinner will be called by the onValue listener after state updates
   }
   
   const openProjection = () => {
@@ -285,7 +297,6 @@ function RafflePageContent() {
 
     const startTieBreaker = async () => {
         const updates: { [key: string]: any } = {};
-        
         const finalistIds = finalWinners.map(winner => winner.id);
 
         participantsList.forEach(p => {
@@ -293,7 +304,7 @@ function RafflePageContent() {
                 // Reactivate finalists for the tie-breaker
                 updates[`/dispute/participants/${p.id}/eliminated`] = false;
             } else {
-                // Eliminate everyone else
+                // Ensure everyone else is eliminated
                 updates[`/dispute/participants/${p.id}/eliminated`] = true;
             }
         });

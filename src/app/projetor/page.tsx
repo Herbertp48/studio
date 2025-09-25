@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
-import { Crown, Star, Trophy } from 'lucide-react';
+import { Crown, Star, Trophy, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
@@ -11,7 +11,7 @@ import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
@@ -20,10 +20,11 @@ type DisputeAction = {
     finalWinner?: Participant | null;
     activeParticipants?: Participant[];
     winners?: AggregatedWinner[];
+    tieWinners?: Participant[];
 }
 
 type DisplayState = {
-    view: 'main' | 'round_winner' | 'final_winner' | 'shuffling' | 'winners_table';
+    view: 'main' | 'round_winner' | 'final_winner' | 'shuffling' | 'winners_table' | 'tie_announcement';
     participantA: Participant | null;
     participantB: Participant | null;
     word: string | null;
@@ -31,6 +32,7 @@ type DisplayState = {
     roundWinner?: { winner: Participant, loser: Participant, word: string };
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
+    tieWinners?: Participant[];
 };
 
 const initialDisplayState: DisplayState = {
@@ -197,6 +199,17 @@ export default function ProjectionPage() {
                         finalWinner: action.finalWinner
                     });
                     break;
+                
+                case 'TIE_ANNOUNCEMENT':
+                    stopAllSounds();
+                    stopShufflingAnimation();
+                    setAnimationKey(prev => prev + 1);
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'tie_announcement',
+                        tieWinners: action.tieWinners
+                    });
+                    break;
 
                 case 'SHOW_WINNERS':
                     stopAllSounds();
@@ -307,6 +320,30 @@ export default function ProjectionPage() {
         )
     }
 
+    const TieAnnouncement = () => {
+        if (!displayState.tieWinners) return null;
+        const { tieWinners } = displayState;
+
+        return (
+             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-blue-950/90 p-8 z-20">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </div>
+                 <div className="bg-stone-50 text-blue-900 border-8 border-blue-400 rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <ShieldAlert className="w-32 h-32 mx-auto text-blue-500 mb-6" />
+                    <h2 className="text-7xl font-bold font-melison mb-4">Temos um Empate!</h2>
+                    <p className="text-3xl mb-6">Os seguintes participantes irão para a rodada de desempate:</p>
+                    <div className="text-4xl font-bold space-y-2">
+                        {tieWinners.map(winner => (
+                            <p key={winner.id}>{winner.name}</p>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const WinnersTable = () => {
         if (!displayState.winners) return null;
 
@@ -350,6 +387,7 @@ export default function ProjectionPage() {
             <MainContent />
             {displayState.view === 'round_winner' && <RoundWinnerMessage />}
             {displayState.view === 'final_winner' && <FinalWinnerMessage />}
+            {displayState.view === 'tie_announcement' && <TieAnnouncement />}
             {displayState.view === 'winners_table' && <WinnersTable />}
         </div>
     );
