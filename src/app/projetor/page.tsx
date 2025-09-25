@@ -326,20 +326,20 @@ export default function ProjectionPage() {
     const TieAnnouncement = () => {
         if (!displayState.tieWinners) return null;
         const { tieWinners } = displayState;
-
+    
         return (
-             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-blue-950/90 p-8 z-20">
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                 <div className="absolute top-8 flex items-center gap-4 text-accent">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                     <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
                 </div>
-                 <div className="bg-stone-50 text-blue-900 border-8 border-blue-400 rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
-                    <ShieldAlert className="w-32 h-32 mx-auto text-blue-500 mb-6" />
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <ShieldAlert className="w-32 h-32 mx-auto text-accent mb-6" />
                     <h2 className="text-7xl font-bold font-melison mb-4">Temos um Empate!</h2>
                     <p className="text-3xl mb-6">Os seguintes participantes irão para a rodada de desempate:</p>
                     <div className="text-4xl font-bold space-y-2">
                         {tieWinners.map(winner => (
-                            <p key={winner.id}>{winner.name}</p>
+                            <p key={winner.id} className="text-white bg-accent-foreground px-6 py-2 rounded-lg inline-block shadow-md max-w-full break-words">{winner.name}</p>
                         ))}
                     </div>
                 </div>
