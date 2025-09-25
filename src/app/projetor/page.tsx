@@ -93,7 +93,12 @@ export default function ProjectionPage() {
             const soundToPlay = sounds.current[soundFile];
             if (soundToPlay) {
                 soundToPlay.loop = loop;
-                soundToPlay.play().catch(e => console.error("Erro ao tocar áudio:", e));
+                soundToPlay.play().catch(e => {
+                  // Ignore AbortError which is common when sounds are interrupted quickly
+                  if (e.name !== 'AbortError') {
+                    console.error("Erro ao tocar áudio:", e)
+                  }
+                });
             }
         };
 
@@ -124,15 +129,17 @@ export default function ProjectionPage() {
                 case 'SHUFFLING_PARTICIPANTS':
                     stopShufflingAnimation();
                     playSound('tambor.mp3', true);
-                    setDisplayState({
-                        ...initialDisplayState,
-                        view: 'main',
-                        participantA: { id: 'shuffleA', name: '...', stars: 0, eliminated: false },
-                        participantB: { id: 'shuffleB', name: '...', stars: 0, eliminated: false },
-                    });
                     
                     const activeParticipants = action.activeParticipants || [];
                     if (activeParticipants.length > 1) {
+                        // Set initial state for shuffling view
+                        setDisplayState(prevState => ({
+                            ...prevState,
+                            view: 'main',
+                            participantA: activeParticipants[0],
+                            participantB: activeParticipants[1],
+                        }));
+
                         shufflingInterval.current = setInterval(() => {
                             const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
                              setDisplayState(prevState => ({
@@ -142,6 +149,13 @@ export default function ProjectionPage() {
                                 participantB: shuffled[1],
                             }));
                         }, 150);
+                    } else {
+                         setDisplayState({
+                            ...initialDisplayState,
+                            view: 'main',
+                            participantA: { id: 'shuffleA', name: '...', stars: 0, eliminated: false },
+                            participantB: { id: 'shuffleB', name: '...', stars: 0, eliminated: false },
+                        });
                     }
                     break;
 
@@ -378,13 +392,25 @@ export default function ProjectionPage() {
         )
     }
 
+    const renderContent = () => {
+        switch (displayState.view) {
+            case 'round_winner':
+                return <RoundWinnerMessage />;
+            case 'final_winner':
+                return <FinalWinnerMessage />;
+            case 'tie_announcement':
+                return <TieAnnouncement />;
+            case 'winners_table':
+                return <WinnersTable />;
+            case 'main':
+            default:
+                return <MainContent />;
+        }
+    }
+
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
-            <MainContent />
-            {displayState.view === 'round_winner' && <RoundWinnerMessage />}
-            {displayState.view === 'final_winner' && <FinalWinnerMessage />}
-            {displayState.view === 'tie_announcement' && <TieAnnouncement />}
-            {displayState.view === 'winners_table' && <WinnersTable />}
+            {renderContent()}
         </div>
     );
 }
