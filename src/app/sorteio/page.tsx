@@ -71,33 +71,26 @@ function RafflePageContent() {
   const participantsList = Object.values(participants);
 
   const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-    if (!currentParticipants) return;
+    if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
     
     const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
     
-    // Only check for a winner if there's less than 2 active players and the game has started
-    if (activeParticipants.length < 2 && Object.keys(currentParticipants).length > 0) {
+    if (activeParticipants.length < 2) {
         const allParticipants = Object.values(currentParticipants);
-        
-        // Find the maximum number of stars any participant has
         const maxStars = Math.max(...allParticipants.map(p => p.stars));
 
-        // If maxStars is 0, it means no rounds have been won yet. Don't declare a winner.
-        if (maxStars === 0 && allParticipants.length > 1) {
+        if (maxStars === 0 && activeParticipants.length === 1) {
             return;
         }
-
-        // Find all participants who have the maximum number of stars
+        
         const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
         
-        // If there's at least one winner, show the final dialog
         if (winners.length > 0) {
             setFinalWinners(winners);
             setIsTie(winners.length > 1);
             setShowFinalWinnerDialog(true);
             setDisputeState({ type: 'FINAL_WINNER', finalWinner: winners.length === 1 ? winners[0] : null });
         } else {
-             // Case where all players are eliminated but no one has stars.
             setFinalWinners([]);
             setIsTie(false);
             setShowFinalWinnerDialog(true);
@@ -119,6 +112,8 @@ function RafflePageContent() {
               setAvailableWords(data.words);
               setOriginalWords(data.words);
             }
+             // Check for winner here to react to DB updates
+            checkForWinner(currentParticipants);
         } else {
             if(router) {
               toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
@@ -151,10 +146,6 @@ function RafflePageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-      checkForWinner(participants);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participants]);
   
   const sortParticipants = () => {
     if (!participants) return;
@@ -274,7 +265,7 @@ function RafflePageContent() {
     setRoundWinner(null);
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
-    checkForWinner(participants);
+    // checkForWinner will be called by the onValue listener after state updates
   }
   
   const openProjection = () => {
@@ -295,13 +286,20 @@ function RafflePageContent() {
     const startTieBreaker = async () => {
         const updates: { [key: string]: any } = {};
         
+        const finalistIds = finalWinners.map(winner => winner.id);
+
         participantsList.forEach(p => {
-            const isFinalist = finalWinners.some(winner => winner.id === p.id);
-            if (!isFinalist) {
-                 updates[`/dispute/participants/${p.id}/eliminated`] = true;
+            if (finalistIds.includes(p.id)) {
+                // Reactivate finalists for the tie-breaker
+                updates[`/dispute/participants/${p.id}/eliminated`] = false;
+            } else {
+                // Eliminate everyone else
+                updates[`/dispute/participants/${p.id}/eliminated`] = true;
             }
         });
 
+        // This update will trigger the onValue listener, which will re-run checkForWinner
+        // and because there are now active participants, the winner dialog will not show.
         await update(ref(database), updates);
         
         setShowFinalWinnerDialog(false);
@@ -335,10 +333,10 @@ function RafflePageContent() {
           <div className="text-lg text-muted-foreground">
             <p>{activeParticipantsCount} participantes ativos</p>
           </div>
-          <Button size="lg" onClick={sortParticipants} disabled={finalWinners.length > 0 || activeParticipantsCount < 2}>
+          <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {activeParticipantsCount < 2 && Object.keys(participants).length > 0 && finalWinners.length === 0 && (
+          {activeParticipantsCount < 2 && !showFinalWinnerDialog && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
         </div>
