@@ -50,7 +50,7 @@ const setDisputeState = (state: DisputeState | null) => {
 
 function RafflePageContent() {
   const [availableWords, setAvailableWords] = useState<string[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
   const [wordLists, setWordLists] = useState<WordList[]>([]);
   
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
@@ -66,6 +66,7 @@ function RafflePageContent() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const participantsList = Object.values(participants);
 
   useEffect(() => {
     const disputeRef = ref(database, 'dispute');
@@ -74,19 +75,18 @@ function RafflePageContent() {
     const unsubscribe = onValue(disputeRef, (snapshot) => {
         const data = snapshot.val();
         if (data && data.participants && data.words) {
-            const participantsArray = Array.isArray(data.participants) 
-                ? data.participants 
-                : Object.values(data.participants);
-            setParticipants(participantsArray);
+            setParticipants(data.participants || {});
             
             if (initialLoad) {
                 setAvailableWords(data.words);
                 setOriginalWords(data.words);
                 initialLoad = false;
             }
-
+            
+            // This check now happens inside the effect, after state is updated.
+            const currentParticipants = Object.values(data.participants || {});
             if (raffleState === 'round_finished' || raffleState === 'idle') {
-                checkForWinner(participantsArray);
+                checkForWinner(currentParticipants);
             }
         } else {
             toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
@@ -116,7 +116,7 @@ function RafflePageContent() {
         unsubscribeWords();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [raffleState]); // Re-run effect when raffleState changes
   
   const checkForWinner = (currentParticipants: Participant[]) => {
     if (!currentParticipants || finalWinner) return;
@@ -133,22 +133,22 @@ function RafflePageContent() {
          if (winner) {
             setFinalWinner(winner);
             setShowFinalWinnerDialog(true);
-            setDisputeState({ type: 'FINAL_WINner', finalWinner: winner });
+            setDisputeState({ type: 'FINAL_WINNER', finalWinner: winner });
          }
     }
   }
 
   const sortParticipants = () => {
-    if (!participants) return;
+    if (!participantsList) return;
     
     setRoundWinner(null);
     setCurrentWord(null);
     setDisputeState({ type: 'RESET' });
 
-    let activeParticipants = participants.filter(p => !p.eliminated);
+    let activeParticipants = participantsList.filter(p => !p.eliminated);
 
     if (activeParticipants.length < 2) {
-      checkForWinner(participants);
+      checkForWinner(participantsList);
       if(!finalWinner) {
         toast({ variant: "destructive", title: "Sorteio Inválido", description: "É preciso ter pelo menos 2 participantes ativos." });
       }
@@ -212,8 +212,9 @@ function RafflePageContent() {
   const handleWinner = async (winnerId: string) => {
     if (!currentDuel || !currentWord) return;
 
-    const winner = participants.find(p => p.id === winnerId);
-    const loser = participants.find(p => p.id === (currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id));
+    const winner = participants[winnerId];
+    const loserId = currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id;
+    const loser = participants[loserId];
 
     if (!winner || !loser) {
         toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
@@ -230,18 +231,20 @@ function RafflePageContent() {
     const updates: { [key: string]: any } = {};
     const newStars = (winner.stars || 0) + 1;
 
-    // Build paths to update specific fields, not the whole object
-    updates[`dispute/participants/${winner.id}/stars`] = newStars;
-    updates[`dispute/participants/${loser.id}/eliminated`] = true;
-
-    // Perform a single update operation
+    updates[`/dispute/participants/${winner.id}/stars`] = newStars;
+    updates[`/dispute/participants/${loser.id}/eliminated`] = true;
+    
     await update(ref(database), updates);
 
     const winnerUpdate = { ...winner, stars: newStars };
-    const loserUpdate = { ...loser, eliminated: true };
 
     setRoundWinner(winnerUpdate);
-    setDisputeState({ type: 'ROUND_WINNER', winner: winnerUpdate, loser: loserUpdate, word: currentWord });
+    setDisputeState({ 
+        type: 'ROUND_WINNER', 
+        winner: winnerUpdate, 
+        loser: { ...loser, eliminated: true }, 
+        word: currentWord 
+    });
     toast({
         title: "Disputa Encerrada!",
         description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
@@ -254,9 +257,9 @@ function RafflePageContent() {
     setCurrentDuel(null);
     setCurrentWord(null);
     setRoundWinner(null);
-    setRaffleState('idle');
     setDisputeState({ type: 'RESET' });
-    if(participants) checkForWinner(participants);
+    // Setting state to idle will trigger the useEffect to check for a winner
+    setRaffleState('idle'); 
   }
   
   const openProjection = () => {
@@ -275,11 +278,11 @@ function RafflePageContent() {
   };
 
   const renderState = () => {
-    if (!participants) {
+    if (!participantsList) {
       return <p className="text-center text-muted-foreground">Carregando...</p>;
     }
     
-    const activeParticipantsCount = participants.filter(p => !p.eliminated).length;
+    const activeParticipantsCount = participantsList.filter(p => !p.eliminated).length;
 
     if (raffleState === 'shuffling') {
       return (
@@ -301,7 +304,7 @@ function RafflePageContent() {
           <Button size="lg" onClick={sortParticipants} disabled={finalWinner != null || activeParticipantsCount < 2}>
             <Dices className="mr-2"/>Sortear Participantes
           </Button>
-          {activeParticipantsCount < 2 && participants.length > 0 && !finalWinner && (
+          {activeParticipantsCount < 2 && participantsList.length > 0 && !finalWinner && (
              <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
           )}
         </div>

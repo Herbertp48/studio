@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { List, Trash2, Play, Upload, Projector, PlusCircle, FileText, Users } from 'lucide-react';
-import type { ParticipantGroup, Participant } from '@/app/page';
+import type { Participant, ParticipantGroup } from '@/app/page';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
@@ -84,7 +84,7 @@ function DisputePageContent() {
         const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
             id,
             name: group.name,
-            participants: group.participants ? Object.values(group.participants) : [],
+            participants: group.participants || {},
         }));
         setParticipantGroups(groups);
        } else {
@@ -258,7 +258,12 @@ function DisputePageContent() {
 
   const startRaffle = () => {
     const selectedGroup = participantGroups.find(g => g.id === selectedGroupId);
-    const activeParticipants = selectedGroup?.participants?.filter(p => !p.eliminated) || [];
+    if (!selectedGroup) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de participantes.' });
+      return;
+    }
+  
+    const activeParticipants = Object.values(selectedGroup.participants || {}).filter(p => !p.eliminated);
     
     if (!selectedList) {
         toast({ variant: 'destructive', title: 'Erro', description: 'Selecione uma lista de palavras.' });
@@ -268,20 +273,20 @@ function DisputePageContent() {
         toast({ variant: 'destructive', title: 'Erro', description: 'A lista de palavras selecionada está vazia.' });
         return;
     }
-    if (!selectedGroup) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de participantes.' });
-        return;
-    }
     if (activeParticipants.length < 2) {
         toast({ variant: 'destructive', title: 'Erro', description: 'São necessários pelo menos 2 participantes ativos no grupo selecionado.' });
         return;
     }
     
-    const participantsForDispute = selectedGroup.participants.map(p => ({...p, stars: 0, eliminated: false}));
-
+    // Reset stars and eliminated status for the dispute
+    const participantsForDispute = Object.entries(selectedGroup.participants).reduce((acc, [key, p]) => {
+      acc[key] = { ...p, stars: 0, eliminated: false };
+      return acc;
+    }, {} as { [key: string]: Participant });
+  
     set(ref(database, 'dispute'), {
-        words: selectedList.words,
-        participants: participantsForDispute,
+      words: selectedList.words,
+      participants: participantsForDispute,
     });
     router.push('/sorteio');
   };
@@ -443,7 +448,7 @@ function DisputePageContent() {
                         </SelectTrigger>
                         <SelectContent>
                             {participantGroups.map(group => (
-                                <SelectItem key={group.id} value={group.id}>{group.name} ({group.participants.length} participantes)</SelectItem>
+                                <SelectItem key={group.id} value={group.id}>{group.name} ({Object.keys(group.participants || {}).length} participantes)</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

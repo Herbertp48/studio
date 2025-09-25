@@ -50,7 +50,7 @@ export type Participant = {
 export type ParticipantGroup = {
     id: string;
     name: string;
-    participants: Participant[];
+    participants: { [key: string]: Participant };
 }
 
 function HomePageContent() {
@@ -67,6 +67,7 @@ function HomePageContent() {
   const router = useRouter();
 
   const selectedGroup = participantGroups.find(group => group.id === selectedGroupId);
+  const selectedGroupParticipants = selectedGroup ? Object.values(selectedGroup.participants || {}) : [];
 
   useEffect(() => {
     const groupsRef = ref(database, 'participant-groups');
@@ -76,7 +77,7 @@ function HomePageContent() {
         const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
             id,
             name: group.name,
-            participants: group.participants ? (Array.isArray(group.participants) ? group.participants : Object.values(group.participants)) : [],
+            participants: group.participants || {},
         }));
         setParticipantGroups(groups);
         if (!selectedGroupId && groups.length > 0) {
@@ -91,7 +92,7 @@ function HomePageContent() {
     });
 
     return () => unsubscribe();
-  }, [selectedGroupId]);
+  }, []);
 
   useEffect(() => {
     if (editingParticipant) {
@@ -100,15 +101,6 @@ function HomePageContent() {
       setIsEditDialogOpen(false);
     }
   }, [editingParticipant]);
-
-  const updateParticipantsInDB = (groupId: string, newParticipants: Participant[]) => {
-    const participantsAsObject = newParticipants.reduce((acc, p, index) => {
-        const key = p.id.replace(/\./g, '-');
-        acc[key] = { ...p, id: key };
-        return acc;
-    }, {} as {[key: string]: Participant});
-    set(ref(database, `participant-groups/${groupId}/participants`), participantsAsObject);
-  };
   
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) {
@@ -116,7 +108,7 @@ function HomePageContent() {
         return;
     }
     const newGroupRef = push(ref(database, 'participant-groups'));
-    set(newGroupRef, { name: newGroupName.trim(), participants: [] });
+    set(newGroupRef, { name: newGroupName.trim(), participants: {} });
     setNewGroupName('');
     toast({ title: 'Sucesso!', description: `O grupo "${newGroupName.trim()}" foi criado.`});
   }
@@ -133,18 +125,17 @@ function HomePageContent() {
   const addParticipant = (e: React.FormEvent) => {
     e.preventDefault();
     if (newParticipantName.trim() && selectedGroup) {
-      const participantId = `p-${Date.now()}`;
+      const groupParticipantsRef = ref(database, `participant-groups/${selectedGroup.id}/participants`);
+      const newParticipantRef = push(groupParticipantsRef);
+      
       const newParticipant: Participant = {
-        id: participantId,
+        id: newParticipantRef.key!,
         name: newParticipantName.trim(),
         stars: 0,
         eliminated: false,
       };
 
-      const groupParticipantsRef = ref(database, `participant-groups/${selectedGroup.id}/participants`);
-      const newParticipantRef = push(groupParticipantsRef);
-      set(newParticipantRef, {...newParticipant, id: newParticipantRef.key });
-
+      set(newParticipantRef, newParticipant);
       setNewParticipantName('');
     }
   };
@@ -179,18 +170,20 @@ function HomePageContent() {
         const worksheet = workbook.Sheets[sheetName];
         const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
 
-        const newParticipants: Omit<Participant, 'id'>[] = json.map((row: any) => ({
+        const participantsToImport: Omit<Participant, 'id'>[] = json.map((row: any) => ({
             name: String(row[0] || '').trim(),
             stars: 0,
             eliminated: false,
         })).filter(p => p.name.length > 0);
         
         if (selectedGroup) {
-            const groupParticipantsRef = ref(database, `participant-groups/${selectedGroup.id}/participants`);
             const updates: {[key: string]: any} = {};
-            newParticipants.forEach(p => {
-                const newParticipantRef = push(groupParticipantsRef);
-                updates[newParticipantRef.key!] = {...p, id: newParticipantRef.key};
+            participantsToImport.forEach(p => {
+                const newParticipantRef = push(ref(database, `participant-groups/${selectedGroup.id}/participants`));
+                updates[`participant-groups/${selectedGroup.id}/participants/${newParticipantRef.key!}`] = {
+                  ...p, 
+                  id: newParticipantRef.key
+                };
             })
             update(ref(database), updates);
         }
@@ -324,7 +317,7 @@ function HomePageContent() {
             <Card>
                 <CardHeader>
                     <CardTitle>Participantes do grupo "{selectedGroup?.name || 'Nenhum'}"</CardTitle>
-                    <CardDescription>{selectedGroup?.participants?.length || 0} participante(s)</CardDescription>
+                    <CardDescription>{selectedGroupParticipants.length || 0} participante(s)</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {selectedGroupId ? (
@@ -346,7 +339,7 @@ function HomePageContent() {
                             </Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="destructive" className="w-full" disabled={!selectedGroup || selectedGroup.participants.length === 0}>
+                                    <Button variant="destructive" className="w-full" disabled={!selectedGroup || selectedGroupParticipants.length === 0}>
                                         <Trash2 className="mr-2 h-4 w-4" /> Apagar Participantes
                                     </Button>
                                 </AlertDialogTrigger>
@@ -376,8 +369,8 @@ function HomePageContent() {
 
                         <ScrollArea className="h-[45vh]">
                             <ul className="space-y-2">
-                                {selectedGroup?.participants && selectedGroup.participants.length > 0 ? (
-                                selectedGroup.participants.map(p => (
+                                {selectedGroupParticipants.length > 0 ? (
+                                selectedGroupParticipants.map(p => (
                                     <li
                                     key={p.id}
                                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
