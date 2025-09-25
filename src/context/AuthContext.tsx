@@ -69,40 +69,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router, pathname, user]);
 
  const login = async (email: string, pass: string) => {
-    const usersRef = ref(database, 'users');
-    const snapshot = await get(usersRef);
+    try {
+      // First, try to sign in. This is the most common case.
+      return await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+      // If sign-in fails because the user is not found, check if it's the first user.
+      if (error.code === 'auth/user-not-found') {
+        const usersRef = ref(database, 'users');
+        const snapshot = await get(usersRef);
 
-    if (!snapshot.exists()) {
-      // No users in DB, this is the first user, create them as admin.
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-        const firstUser = userCredential.user;
-        const adminPermissions: UserPermissions = {
+        // If no users exist in the database, this is the first registration.
+        if (!snapshot.exists()) {
+          // Create the user as admin.
+          const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+          const firstUser = userCredential.user;
+          const adminPermissions: UserPermissions = {
             role: 'admin',
             permissions: {
-                inicio: true,
-                disputa: true,
-                sorteio: true,
-                ganhadores: true,
+              inicio: true,
+              disputa: true,
+              sorteio: true,
+              ganhadores: true,
             },
-        };
-        await set(ref(database, `users/${firstUser.uid}`), {
+          };
+          await set(ref(database, `users/${firstUser.uid}`), {
             email: firstUser.email,
             ...adminPermissions
-        });
-        return userCredential;
-      } catch(error: any) {
-        // If account already exists in Auth but not in DB, it might fail.
-        // We try to sign in as a fallback.
-        if (error.code === 'auth/email-already-in-use') {
-            return signInWithEmailAndPassword(auth, email, pass);
+          });
+          return userCredential;
         }
-        // Re-throw other errors
-        throw error;
       }
-    } else {
-      // Users exist, proceed with normal login
-      return signInWithEmailAndPassword(auth, email, pass);
+      // For any other error (wrong password, etc.), or if it's not the first user,
+      // re-throw the error to be handled by the login page.
+      throw error;
     }
   };
 
