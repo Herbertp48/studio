@@ -66,7 +66,7 @@ export default function ProjectionPage() {
         
         return () => {
              Object.values(sounds.current).forEach(sound => {
-                if (sound) {
+                if (sound && !sound.paused) {
                     sound.pause();
                     sound.currentTime = 0;
                 }
@@ -78,28 +78,23 @@ export default function ProjectionPage() {
     useEffect(() => {
         if (!isMounted) return;
 
-        const playSound = (soundFile: string, loop = false) => {
+        const stopAllSounds = () => {
             Object.values(sounds.current).forEach(sound => {
-                if(sound) {
+                if (sound && !sound.paused) {
                     sound.pause();
                     sound.currentTime = 0;
                 }
             });
+        };
+
+        const playSound = (soundFile: string, loop = false) => {
+            stopAllSounds();
             
             const soundToPlay = sounds.current[soundFile];
             if (soundToPlay) {
                 soundToPlay.loop = loop;
                 soundToPlay.play().catch(e => console.error("Erro ao tocar áudio:", e));
             }
-        };
-
-        const stopAllSounds = () => {
-            Object.values(sounds.current).forEach(sound => {
-                if (sound) {
-                    sound.pause();
-                    sound.currentTime = 0;
-                }
-            });
         };
 
         const stopShufflingAnimation = () => {
@@ -131,7 +126,7 @@ export default function ProjectionPage() {
                     playSound('tambor.mp3', true);
                     setDisplayState({
                         ...initialDisplayState,
-                        view: 'shuffling',
+                        view: 'main',
                         participantA: { id: 'shuffleA', name: '...', stars: 0, eliminated: false },
                         participantB: { id: 'shuffleB', name: '...', stars: 0, eliminated: false },
                     });
@@ -142,6 +137,7 @@ export default function ProjectionPage() {
                             const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
                              setDisplayState(prevState => ({
                                 ...prevState,
+                                view: 'main',
                                 participantA: shuffled[0],
                                 participantB: shuffled[1],
                             }));
