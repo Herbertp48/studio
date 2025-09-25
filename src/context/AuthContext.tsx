@@ -1,9 +1,9 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, Auth } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, Auth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, database } from '@/lib/firebase';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, get, set } from 'firebase/database';
 import { useRouter, usePathname } from 'next/navigation';
 
 export interface UserPermissions {
@@ -43,20 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (perms) {
                 setUserPermissions(perms);
             } else {
-                // If user exists in Auth but not in DB (e.g. deleted from users page), treat as logged out
                 setUserPermissions(null);
             }
             setLoading(false);
         });
 
-        // Redirect from login page if already logged in
         if (pathname === '/login') {
             router.replace('/');
         }
       } else {
         setUserPermissions(null);
         setLoading(false);
-        // Redirect to login if not on the login page
         if (pathname !== '/login') {
             router.replace('/login');
         }
@@ -71,8 +68,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [router, pathname, user]);
 
-  const login = (email: string, pass: string) => {
-    return signInWithEmailAndPassword(auth, email, pass);
+  const login = async (email: string, pass: string) => {
+    try {
+        return await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+        if (error.code === 'auth/user-not-found') {
+            const usersRef = ref(database, 'users');
+            const snapshot = await get(usersRef);
+            if (!snapshot.exists()) {
+                // No users in DB, this is the first user, create them as admin.
+                const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+                const firstUser = userCredential.user;
+                const adminPermissions: UserPermissions = {
+                    role: 'admin',
+                    permissions: {
+                        inicio: true,
+                        disputa: true,
+                        sorteio: true,
+                        ganhadores: true,
+                    },
+                };
+                await set(ref(database, `users/${firstUser.uid}`), {
+                    email: firstUser.email,
+                    ...adminPermissions
+                });
+                return userCredential;
+            }
+        }
+        // For other errors, or if it's not the first user, re-throw.
+        throw error;
+    }
   };
 
   const logout = () => {
