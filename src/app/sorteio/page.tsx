@@ -212,37 +212,39 @@ function RafflePageContent() {
   const handleWinner = async (winnerId: string) => {
     if (!currentDuel || !currentWord) return;
 
-    let winner = participants.find(p => p.id === winnerId);
+    const winner = participants.find(p => p.id === winnerId);
     const loser = participants.find(p => p.id === (currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id));
 
     if (!winner || !loser) {
-      toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
-      return;
+        toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
+        return;
     }
 
     const newWinnerEntryRef = push(ref(database, 'winners'));
     await set(newWinnerEntryRef, {
-      name: winner.name,
-      word: currentWord,
-      stars: 1 
+        name: winner.name,
+        word: currentWord,
+        stars: 1 
     });
 
-    const updates: any = {};
+    const updates: { [key: string]: any } = {};
     const newStars = (winner.stars || 0) + 1;
+
+    // Build paths to update specific fields, not the whole object
+    updates[`dispute/participants/${winner.id}/stars`] = newStars;
+    updates[`dispute/participants/${loser.id}/eliminated`] = true;
+
+    // Perform a single update operation
+    await update(ref(database), updates);
 
     const winnerUpdate = { ...winner, stars: newStars };
     const loserUpdate = { ...loser, eliminated: true };
 
-    updates[`dispute/participants/${winner.id}`] = winnerUpdate;
-    updates[`dispute/participants/${loser.id}`] = loserUpdate;
-
-    await update(ref(database), updates);
-
     setRoundWinner(winnerUpdate);
     setDisputeState({ type: 'ROUND_WINNER', winner: winnerUpdate, loser: loserUpdate, word: currentWord });
     toast({
-      title: "Disputa Encerrada!",
-      description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
+        title: "Disputa Encerrada!",
+        description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
     });
     
     setRaffleState('round_finished');
