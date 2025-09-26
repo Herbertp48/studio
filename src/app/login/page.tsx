@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Bug } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgotPassword'>('login');
@@ -207,7 +207,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
        <Card className="w-full max-w-sm">
          <div className="flex justify-center items-center gap-2 pt-6">
-                <Bug className="h-8 w-8 text-primary" />
+                <Image src="/images/bee.png" alt="Spelling Bee" width={32} height={32} />
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">
                 Spelling Bee
             </h1>

@@ -1,4 +1,4 @@
-import { Bug, Home, List, Dices, Trophy, LogOut, Users, User, Menu } from 'lucide-react';
+import { Home, List, Dices, Trophy, LogOut, Users, User, Menu } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { useState } from 'react';
+import Image from 'next/image';
 
 export function AppHeader() {
   const pathname = usePathname();
@@ -54,7 +55,7 @@ export function AppHeader() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
             <Link href="/" className='flex items-center gap-2'>
-              <Bug className="h-6 w-6 text-primary" />
+              <Image src="/images/bee.png" alt="Spelling Bee" width={24} height={24} />
               <h1 className="text-xl font-bold tracking-tight text-foreground">
                 Spelling Bee
               </h1>
