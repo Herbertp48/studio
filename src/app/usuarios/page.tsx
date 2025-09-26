@@ -64,7 +64,7 @@ function UsersPageContent() {
   const [newUserPassword, setNewUserPassword] = useState('');
   
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
-  const [currentUserName, setCurrentUserName] = useState(currentUserPermissions?.name || '');
+  const [currentUserName, setCurrentUserName] = useState('');
 
   const { toast } = useToast();
 
@@ -311,7 +311,7 @@ function UsersPageContent() {
             <form onSubmit={handleCurrentUserProfileUpdate} className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="current-username">Nome</Label>
-                    <Input id="current-username" value={currentUserName} onChange={(e) => setCurrentUserName(e.target.value)} />
+                    <Input id="current-username" value={currentUserName || ''} onChange={(e) => setCurrentUserName(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                     <Label>E-mail</Label>
@@ -362,7 +362,7 @@ function UsersPageContent() {
                         <Label htmlFor='edit-username'>Nome</Label>
                         <Input 
                             id='edit-username'
-                            value={editingUser.name}
+                            value={editingUser.name || ''}
                             onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
                         />
                     </div>

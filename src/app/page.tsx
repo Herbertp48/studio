@@ -650,7 +650,7 @@ function HomePageContent() {
                             <Label htmlFor="edit-name">Nome</Label>
                             <Input 
                                 id="edit-name"
-                                value={editingParticipant.name}
+                                value={editingParticipant.name || ''}
                                 onChange={(e) => setEditingParticipant({...editingParticipant, name: e.target.value})}
                             />
                         </div>
@@ -685,5 +685,3 @@ export default function Home() {
         </ProtectedRoute>
     )
 }
-
-    
