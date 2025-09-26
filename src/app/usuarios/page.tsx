@@ -322,7 +322,7 @@ function UsersPageContent() {
                     <div className="space-y-4 rounded-lg border p-3 shadow-sm data-[disabled]:opacity-50" data-disabled={editingUser.role === 'admin' ? '' : undefined}>
                          <p className="text-sm font-medium text-muted-foreground">Acesso por página:</p>
                         {Object.keys(initialPermissions).map(key => {
-                            const pKey = key as keyof keyof UserPermissions['permissions'];
+                            const pKey = key as keyof UserPermissions['permissions'];
                             return (
                                 <div key={pKey} className="flex items-center space-x-3">
                                 <Checkbox 
