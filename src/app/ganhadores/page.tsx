@@ -95,9 +95,9 @@ function WinnersPageContent() {
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
           <CardHeader className="bg-accent p-4">
-            <div className="flex items-center justify-between">
-                <CardTitle className="text-accent-foreground font-melison text-4xl flex items-center gap-3">
-                    <Trophy className="w-10 h-10" /> Classificação dos Ganhadores Spelling Bee
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                <CardTitle className="text-accent-foreground font-melison text-2xl sm:text-3xl lg:text-4xl flex items-center gap-3">
+                    <Trophy className="w-8 h-8 sm:w-10 sm:h-10" /> Classificação dos Ganhadores Spelling Bee
                 </CardTitle>
                 <div className="flex gap-2">
                      <AlertDialog>

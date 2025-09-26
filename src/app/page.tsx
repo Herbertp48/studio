@@ -243,10 +243,10 @@ function HomePageContent() {
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2"><List /> Grupos de Participantes</div>
+                        <div className="flex items-center gap-2"><List /> Grupos</div>
                         <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Novo Grupo</Button>
+                            <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Novo</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
@@ -332,7 +332,7 @@ function HomePageContent() {
                             />
                             <Button type="submit"><UserPlus /></Button>
                         </form>
-                        <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                              <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
                                 <Upload className="mr-2 h-4 w-4" />
                                 Importar de Excel

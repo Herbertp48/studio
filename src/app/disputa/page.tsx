@@ -278,9 +278,8 @@ function DisputePageContent() {
         return;
     }
     
-    // Filter only active participants and reset their stars for the new dispute
     const participantsForDispute = activeParticipants.reduce((acc, p) => {
-      acc[p.id] = { ...p, stars: 0, eliminated: false };
+      acc[p.id] = { ...p, stars: 0 };
       return acc;
     }, {} as { [key: string]: Participant });
   
@@ -371,7 +370,7 @@ function DisputePageContent() {
                   />
                   <Button onClick={addWord}>Adicionar</Button>
                 </div>
-                 <div className="grid grid-cols-2 gap-4 mb-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                    <input 
                       type="file" 
                       ref={fileInputRef} 
