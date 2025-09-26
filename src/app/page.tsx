@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
-import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit, Move } from 'lucide-react';
+import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit, Move, Search } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
@@ -63,6 +63,7 @@ function HomePageContent() {
   const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false);
   const [migrationTargetGroup, setMigrationTargetGroup] = useState('');
   const [newMigrationGroupName, setNewMigrationGroupName] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -73,6 +74,10 @@ function HomePageContent() {
 
   const selectedGroup = participantGroups.find(group => group.id === selectedGroupId);
   const selectedGroupParticipants = selectedGroup ? Object.values(selectedGroup.participants || {}) : [];
+  
+  const filteredParticipants = selectedGroupParticipants.filter(p =>
+    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   
   const activeParticipantsCount = selectedGroupParticipants.filter(p => !p.eliminated).length;
   const inactiveParticipantsCount = selectedGroupParticipants.length - activeParticipantsCount;
@@ -101,7 +106,7 @@ function HomePageContent() {
     });
 
     return () => unsubscribe();
-  }, [selectedGroupId]);
+  }, []);
 
   useEffect(() => {
     if (editingParticipant) {
@@ -349,7 +354,7 @@ function HomePageContent() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setParticipantsToMigrate(selectedGroupParticipants.map(p => p.id));
+      setParticipantsToMigrate(filteredParticipants.map(p => p.id));
     } else {
       setParticipantsToMigrate([]);
     }
@@ -471,6 +476,17 @@ function HomePageContent() {
                             />
                             <Button type="submit"><UserPlus /></Button>
                         </form>
+
+                        <div className="relative mb-4">
+                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Buscar participante..."
+                            className="pl-8"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2 mb-4">
                              <Dialog open={isMigrationDialogOpen} onOpenChange={setIsMigrationDialogOpen}>
                                 <DialogTrigger asChild>
@@ -554,18 +570,18 @@ function HomePageContent() {
                         <div className="flex items-center gap-2 mb-4 border-b pb-2">
                           <Checkbox
                             id="select-all"
-                            checked={selectedGroupParticipants.length > 0 && participantsToMigrate.length === selectedGroupParticipants.length}
+                            checked={filteredParticipants.length > 0 && participantsToMigrate.length === filteredParticipants.length}
                             onCheckedChange={(checked) => handleSelectAll(!!checked)}
-                            disabled={selectedGroupParticipants.length === 0}
+                            disabled={filteredParticipants.length === 0}
                           />
-                          <Label htmlFor="select-all" className="font-semibold">Selecionar Todos</Label>
+                          <Label htmlFor="select-all" className="font-semibold">Selecionar Todos Visíveis</Label>
                         </div>
 
 
                         <ScrollArea className="h-[40vh]">
                             <ul className="space-y-2">
-                                {selectedGroupParticipants.length > 0 ? (
-                                selectedGroupParticipants.map(p => (
+                                {filteredParticipants.length > 0 ? (
+                                filteredParticipants.map(p => (
                                     <li
                                     key={p.id}
                                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
@@ -606,7 +622,7 @@ function HomePageContent() {
                                 ))
                                 ) : (
                                 <p className="text-sm text-muted-foreground text-center py-4">
-                                    Nenhum participante neste grupo.
+                                    Nenhum participante encontrado.
                                 </p>
                                 )}
                             </ul>
@@ -669,3 +685,5 @@ export default function Home() {
         </ProtectedRoute>
     )
 }
+
+    
