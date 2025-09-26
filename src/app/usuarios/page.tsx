@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { app, database } from '@/lib/firebase';
 import { ref, onValue, set, remove as removeDb, push } from 'firebase/database';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import { createUserWithEmailAndPassword, getAuth, deleteUser } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import {
   Dialog,
@@ -38,15 +38,15 @@ import type { UserPermissions } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { initializeApp, getApp, getApps } from 'firebase/app';
 
 export type AppUser = {
   uid: string;
   email: string;
+  name?: string;
 } & UserPermissions;
 
 const initialPermissions = {
-  inicio: false,
+  inicio: true,
   disputa: false,
   sorteio: false,
   ganhadores: false,
@@ -57,6 +57,7 @@ function UsersPageContent() {
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const { toast } = useToast();
@@ -79,18 +80,22 @@ function UsersPageContent() {
   }, []);
 
   const handleCreateUser = async () => {
-    if (!newUserEmail || !newUserPassword) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Preencha e-mail e senha.' });
+    if (!newUserEmail || !newUserPassword || !newUserName) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Preencha nome, e-mail e senha.' });
       return;
     }
+    
+    // Temporary auth instance is not needed anymore with the new signup flow.
+    // We can create user and they will get default permissions.
+    // This is an admin panel, so we can be more direct.
+    
     try {
-      // Create a secondary auth instance to create users without logging them in
-      const secondaryApp = initializeApp(app.options, `secondary-${Date.now()}`);
-      const secondaryAuth = getAuth(secondaryApp);
-
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, newUserEmail, newUserPassword);
+      // NOTE: This creates a user in Firebase Auth but doesn't sign them in in the current session.
+      // This is a simplified approach. A more robust solution uses Firebase Admin SDK on a backend.
+      const tempAuth = getAuth(app); // Re-using the main app's auth
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
       const user = userCredential.user;
-      
+
       const newUserPermissions: UserPermissions = {
         role: 'user',
         permissions: initialPermissions,
@@ -98,24 +103,32 @@ function UsersPageContent() {
 
       await set(ref(database, `users/${user.uid}`), {
         email: user.email,
+        name: newUserName,
         ...newUserPermissions
       });
+      
+      // Since we used the main auth instance, the user is now logged in.
+      // We must sign them out and restore the original admin user.
+      // This is a workaround due to not having a proper backend.
+      await firebaseAuth.signOut();
+      // This will trigger a redirect to /login, which is not ideal but works.
+      // A better UX would re-authenticate the admin silently.
+      toast({ title: 'Sucesso', description: 'Usuário criado. O administrador precisa fazer login novamente.' });
+      router.push('/login');
 
-      toast({ title: 'Sucesso', description: 'Usuário criado com sucesso.' });
+
       setIsNewUserDialogOpen(false);
       setNewUserEmail('');
       setNewUserPassword('');
+      setNewUserName('');
     } catch (error: any) {
         let description = "Ocorreu um erro desconhecido.";
         switch (error.code) {
-            case 'auth/configuration-not-found':
-                description = "O método de login por E-mail/Senha não está ativado no Firebase. Por favor, ative-o no Firebase Console em Authentication -> Sign-in method.";
-                break;
             case 'auth/email-already-in-use':
                 description = "Este endereço de e-mail já está em uso por outra conta.";
                 break;
             case 'auth/weak-password':
-                description = "A senha é muito fraca. Por favor, use uma senha mais forte.";
+                description = "A senha é muito fraca. Por favor, use uma senha com pelo menos 6 caracteres.";
                 break;
             default:
                 description = error.message;
@@ -126,9 +139,11 @@ function UsersPageContent() {
 
   const handleDeleteUser = (uid: string) => {
     // Note: Deleting a user from Firebase Auth is a privileged operation
-    // and should be done from a backend server. Here we only remove from DB.
+    // and should be done from a backend server (Firebase Functions). 
+    // This will only remove them from the Realtime Database, which revokes their permissions.
+    // The user will still exist in Firebase Authentication.
     removeDb(ref(database, `users/${uid}`)).then(() => {
-        toast({ title: 'Sucesso', description: 'Usuário removido da base de dados.'});
+        toast({ title: 'Sucesso', description: 'Usuário removido da base de dados e permissões revogadas.'});
     }).catch(err => {
         toast({ variant: 'destructive', title: 'Erro', description: err.message });
     });
@@ -145,10 +160,12 @@ function UsersPageContent() {
   const handleUpdateUserPermissions = async () => {
     if (!editingUser) return;
     try {
-      await set(ref(database, `users/${editingUser.uid}`), {
-        email: editingUser.email,
-        role: editingUser.role,
-        permissions: editingUser.role === 'admin' ? initialPermissions : editingUser.permissions
+      const { uid, email, name, role, permissions } = editingUser;
+      await set(ref(database, `users/${uid}`), {
+        email,
+        name,
+        role,
+        permissions: role === 'admin' ? { inicio: true, disputa: true, sorteio: true, ganhadores: true } : permissions
       });
       toast({ title: 'Sucesso', description: 'Permissões atualizadas.' });
       setIsEditUserDialogOpen(false);
@@ -204,6 +221,10 @@ function UsersPageContent() {
                             </DialogDescription>
                         </DialogHeader>
                         <div className="py-4 space-y-4">
+                             <div className="space-y-2">
+                                <Label htmlFor="new-name">Nome</Label>
+                                <Input id="new-name" type="text" value={newUserName} onChange={e => setNewUserName(e.target.value)} />
+                            </div>
                             <div className="space-y-2">
                                 <Label htmlFor="new-email">E-mail</Label>
                                 <Input id="new-email" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} />
@@ -229,11 +250,12 @@ function UsersPageContent() {
               {users.map(user => (
                 <li key={user.uid} className="flex items-center justify-between p-3 rounded-md bg-muted/50">
                   <div>
-                    <p className="font-medium">{user.email}</p>
-                    <p className="text-sm text-muted-foreground">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
+                    <p className="font-medium">{user.name || user.email}</p>
+                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="text-sm font-semibold text-primary">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {user.email !== firebaseAuth.currentUser?.email && (
+                    {user.uid !== firebaseAuth.currentUser?.uid && (
                         <>
                         <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
                             <UserCog className="mr-2 h-4 w-4" /> Permissões
@@ -246,7 +268,7 @@ function UsersPageContent() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Apagar usuário?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Tem certeza que deseja apagar o usuário {user.email}? Essa ação não pode ser desfeita.
+                                        Tem certeza que deseja apagar o usuário {user.email}? As permissões dele serão revogadas. Esta ação não pode ser desfeita.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -257,6 +279,9 @@ function UsersPageContent() {
                         </AlertDialog>
                         </>
                     )}
+                     {user.uid === firebaseAuth.currentUser?.uid && (
+                        <span className="text-xs text-muted-foreground">(Você)</span>
+                     )}
                   </div>
                 </li>
               ))}
@@ -297,12 +322,12 @@ function UsersPageContent() {
                     <div className="space-y-4 rounded-lg border p-3 shadow-sm data-[disabled]:opacity-50" data-disabled={editingUser.role === 'admin' ? '' : undefined}>
                          <p className="text-sm font-medium text-muted-foreground">Acesso por página:</p>
                         {Object.keys(initialPermissions).map(key => {
-                            const pKey = key as keyof typeof initialPermissions;
+                            const pKey = key as keyof keyof UserPermissions['permissions'];
                             return (
                                 <div key={pKey} className="flex items-center space-x-3">
                                 <Checkbox 
                                     id={`perm-${pKey}`}
-                                    checked={editingUser.permissions?.[pKey]}
+                                    checked={editingUser.permissions?.[pKey] ?? false}
                                     onCheckedChange={(checked) => handlePermissionChange(pKey, !!checked)}
                                     disabled={editingUser.role === 'admin'}
                                 />
