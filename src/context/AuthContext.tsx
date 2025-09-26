@@ -29,10 +29,9 @@ interface AuthContextType {
   userPermissions: UserPermissions | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<any>;
-  signup: (email: string, pass: string, name: string) => Promise<any>;
+  signup: (email: string, pass: string, name: string, isAdminCreation?: boolean) => Promise<any>;
   logout: () => Promise<any>;
   sendPasswordReset: (email: string) => Promise<any>;
-  reauthenticateAndCreateUser: (email: string, pass: string, name: string) => Promise<any>;
   updateUserData: (uid: string, data: Partial<UserPermissions>) => Promise<void>;
 }
 
@@ -46,17 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (user) {
-        const userPermsRef = ref(database, `users/${user.uid}`);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const userPermsRef = ref(database, `users/${currentUser.uid}`);
         onValue(userPermsRef, (snapshot) => {
             const perms = snapshot.val();
-            if (perms) {
-                setUserPermissions(perms);
-            } else {
-                setUserPermissions(null); 
-            }
+            setUserPermissions(perms);
             setLoading(false);
         });
 
@@ -84,48 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, pass: string) => {
     return signInWithEmailAndPassword(auth, email, pass);
   };
-
-  const reauthenticateAndCreateUser = async (email: string, pass: string, name: string) => {
-     if (!auth.currentUser) throw new Error("Usuário principal não autenticado.");
-
-    // Manter o usuário atual
-    const mainUser = auth.currentUser;
-
-    try {
-        // Criar o novo usuário. O Firebase NÃO faz login automático neste fluxo se já houver um usuário logado.
-        const newUserCredential = await createUserWithEmailAndPassword(auth, email, pass);
-        const newUser = newUserCredential.user;
-
-        // Definir permissões
-        const newUserPermissions = {
-            name,
-            role: 'user',
-            permissions: initialPermissions,
-        };
-
-        // Salvar dados do novo usuário no banco de dados
-        await set(ref(database, `users/${newUser.uid}`), {
-            email: newUser.email,
-            ...newUserPermissions
-        });
-
-        // Garantir que o admin continue logado. Isso pode ser visto como uma re-autenticação forçada,
-        // mas na prática, como nada mudou para o admin, ele permanece logado sem interrupções.
-        // O `auth.currentUser` deve permanecer o mesmo `mainUser`.
-        if (auth.currentUser?.uid !== mainUser.uid) {
-           // Isso seria um cenário inesperado, mas como salvaguarda:
-           await signOut(auth);
-           // Idealmente, forçar o login do admin de novo, mas isso complica a UI.
-           // Por enquanto, vamos lançar um erro para indicar que algo deu errado.
-           throw new Error("A sessão do administrador foi perdida durante a criação do usuário.");
-        }
-
-    } catch (error) {
-        throw error;
-    }
-  }
-
-  const signup = async (email: string, pass: string, name: string) => {
+  
+  const signup = async (email: string, pass: string, name: string, isAdminCreation = false) => {
     const usersRef = ref(database, 'users');
     const snapshot = await get(usersRef);
     const isFirstUser = !snapshot.exists();
@@ -135,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let permissions: UserPermissions;
 
-    if (isFirstUser) {
+    if (isFirstUser && !isAdminCreation) {
         permissions = {
             name,
             role: 'admin',
@@ -154,7 +109,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...permissions
     });
     
-    await signOut(auth);
+    // Only sign out if it's a public sign-up page. Admin creating a user should not be signed out.
+    if (!isAdminCreation) {
+        await signOut(auth);
+    }
 
     return userCredential;
   }
@@ -180,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signup,
     logout,
     sendPasswordReset,
-    reauthenticateAndCreateUser,
     updateUserData,
   };
 

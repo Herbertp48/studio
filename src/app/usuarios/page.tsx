@@ -54,7 +54,7 @@ const initialPermissions = {
 };
 
 function UsersPageContent() {
-  const { user: currentUser, userPermissions: currentUserPermissions, reauthenticateAndCreateUser, sendPasswordReset, updateUserData } = useAuth();
+  const { user: currentUser, userPermissions: currentUserPermissions, signup, sendPasswordReset, updateUserData } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
@@ -98,7 +98,8 @@ function UsersPageContent() {
     }
     
     try {
-      await reauthenticateAndCreateUser(newUserEmail, newUserPassword, newUserName);
+      // Use the signup function but flag it as an admin creation
+      await signup(newUserEmail, newUserPassword, newUserName, true);
       
       toast({ title: 'Sucesso', description: 'Usuário criado com sucesso.' });
       setIsNewUserDialogOpen(false);
@@ -265,11 +266,11 @@ function UsersPageContent() {
                 <p className="text-sm font-semibold text-primary">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
               </div>
               <div className="flex items-center gap-2">
+                 <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
+                    <UserCog className="mr-2 h-4 w-4" /> Editar
+                </Button>
                 {user.uid !== firebaseAuth.currentUser?.uid && (
                     <>
-                    <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
-                        <UserCog className="mr-2 h-4 w-4" /> Editar
-                    </Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button variant="destructive" size="icon" disabled={user.role === 'admin'}><Trash2 /></Button>
