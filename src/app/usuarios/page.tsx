@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { app, database } from '@/lib/firebase';
-import { ref, onValue, set, remove as removeDb, push } from 'firebase/database';
-import { createUserWithEmailAndPassword, getAuth, deleteUser } from 'firebase/auth';
+import { ref, onValue, set, remove as removeDb } from 'firebase/database';
+import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import {
   Dialog,
@@ -55,7 +55,7 @@ const initialPermissions = {
 };
 
 function UsersPageContent() {
-  const { user: currentUser, userPermissions: currentUserPermissions, sendPasswordReset } = useAuth();
+  const { user: currentUser, userPermissions: currentUserPermissions, sendPasswordReset, reauthenticateAndCreateUser } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
@@ -91,23 +91,7 @@ function UsersPageContent() {
     }
     
     try {
-      const tempAuth = getAuth(app);
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
-      const user = userCredential.user;
-
-      const newUserPermissions: UserPermissions = {
-        role: 'user',
-        permissions: initialPermissions,
-      };
-
-      await set(ref(database, `users/${user.uid}`), {
-        email: user.email,
-        name: newUserName,
-        ...newUserPermissions
-      });
-      
-      // We don't need to sign out as createUserWithEmailAndPassword in a temp instance
-      // doesn't affect the main auth state.
+      await reauthenticateAndCreateUser(newUserEmail, newUserPassword, newUserName);
       
       toast({ title: 'Sucesso', description: 'Usuário criado com sucesso.' });
       setIsNewUserDialogOpen(false);
@@ -122,6 +106,9 @@ function UsersPageContent() {
                 break;
             case 'auth/weak-password':
                 description = "A senha é muito fraca. Por favor, use uma senha com pelo menos 6 caracteres.";
+                break;
+            case 'auth/requires-recent-login':
+                description = 'Esta operação requer um login recente. Por favor, faça login novamente e tente de novo.';
                 break;
             default:
                 description = error.message;
