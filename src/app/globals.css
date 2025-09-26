@@ -2,21 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-    font-family: 'Melison';
-    src: url('/fonts/Melison.woff2') format('woff2');
-}
-@font-face {
-    font-family: 'Melison';
-    src: url('/fonts/Melison-Bold.woff2') format('woff2');
-    font-weight: bold;
-    font-style: normal;
-}
-@font-face {
-    font-family: 'Subjectivity';
-    src: url('/fonts/Subjectivity-Bold.woff2') format('twoff2');
-    font-weight: bold;
-    font-style: normal;
+@layer base {
+    @font-face {
+        font-family: 'Melison';
+        src: url('/fonts/Melison.woff2') format('woff2');
+    }
+    @font-face {
+        font-family: 'Melison';
+        src: url('/fonts/Melison-Bold.woff2') format('woff2');
+        font-weight: bold;
+        font-style: normal;
+    }
+    @font-face {
+        font-family: 'Subjectivity';
+        src: url('/fonts/Subjectivity-Bold.woff2') format('woff2');
+        font-weight: bold;
+        font-style: normal;
+    }
 }
 
 
