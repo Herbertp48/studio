@@ -62,8 +62,11 @@ export function AppHeader() {
             </Link>
             {user && (
               <div className='hidden md:flex items-center gap-2 text-sm text-muted-foreground border-l pl-4'>
-                <User className='h-4 w-4'/>
-                <span>{user.email}</span>
+                <User className='h-5 w-5'/>
+                <div>
+                    <span className="font-semibold text-foreground">{userPermissions?.name}</span>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                </div>
               </div>
             )}
           </div>
@@ -79,21 +82,26 @@ export function AppHeader() {
                     <SheetHeader>
                         <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
                     </SheetHeader>
-                    <div className="flex flex-col gap-4 py-8">
-                        {user && availableNavItems.map((item) => (
-                           <NavLink key={item.href} item={item} isMobile={true}/>
-                        ))}
+                    <div className="flex flex-col gap-4 py-8 h-full">
+                        <div className="flex flex-col gap-2 flex-grow">
+                            {user && availableNavItems.map((item) => (
+                            <NavLink key={item.href} item={item} isMobile={true}/>
+                            ))}
+                        </div>
                          {user && (
-                            <>
-                             <div className='flex items-center gap-2 text-sm text-muted-foreground border-t pt-4 mt-4'>
-                                <User className='h-4 w-4'/>
-                                <span>{user.email}</span>
+                            <div className="flex flex-col gap-4 border-t pt-4">
+                                <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+                                    <User className='h-5 w-5 flex-shrink-0'/>
+                                    <div>
+                                        <p className="font-semibold text-foreground">{userPermissions?.name}</p>
+                                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" onClick={logout} className="text-muted-foreground justify-start text-lg w-full">
+                                    <LogOut className="mr-2 h-5 w-5" />
+                                    Sair
+                                </Button>
                             </div>
-                            <Button variant="ghost" onClick={logout} className="text-muted-foreground justify-start text-lg w-full">
-                                <LogOut className="mr-2 h-5 w-5" />
-                                Sair
-                            </Button>
-                            </>
                         )}
                     </div>
                 </SheetContent>
