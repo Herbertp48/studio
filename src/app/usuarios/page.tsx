@@ -33,11 +33,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, UserCog } from 'lucide-react';
+import { PlusCircle, Trash2, UserCog, Send } from 'lucide-react';
 import type { UserPermissions } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/context/AuthContext';
+
 
 export type AppUser = {
   uid: string;
@@ -53,6 +55,7 @@ const initialPermissions = {
 };
 
 function UsersPageContent() {
+  const { user: currentUser, userPermissions: currentUserPermissions, sendPasswordReset } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
@@ -63,6 +66,8 @@ function UsersPageContent() {
   const { toast } = useToast();
 
   useEffect(() => {
+    if (currentUserPermissions?.role !== 'admin') return;
+
     const usersRef = ref(database, 'users');
     const unsubscribe = onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
@@ -77,7 +82,7 @@ function UsersPageContent() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUserPermissions]);
 
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserPassword || !newUserName) {
@@ -85,14 +90,8 @@ function UsersPageContent() {
       return;
     }
     
-    // Temporary auth instance is not needed anymore with the new signup flow.
-    // We can create user and they will get default permissions.
-    // This is an admin panel, so we can be more direct.
-    
     try {
-      // NOTE: This creates a user in Firebase Auth but doesn't sign them in in the current session.
-      // This is a simplified approach. A more robust solution uses Firebase Admin SDK on a backend.
-      const tempAuth = getAuth(app); // Re-using the main app's auth
+      const tempAuth = getAuth(app);
       const userCredential = await createUserWithEmailAndPassword(tempAuth, newUserEmail, newUserPassword);
       const user = userCredential.user;
 
@@ -107,16 +106,10 @@ function UsersPageContent() {
         ...newUserPermissions
       });
       
-      // Since we used the main auth instance, the user is now logged in.
-      // We must sign them out and restore the original admin user.
-      // This is a workaround due to not having a proper backend.
-      await firebaseAuth.signOut();
-      // This will trigger a redirect to /login, which is not ideal but works.
-      // A better UX would re-authenticate the admin silently.
-      toast({ title: 'Sucesso', description: 'Usuário criado. O administrador precisa fazer login novamente.' });
-      router.push('/login');
-
-
+      // We don't need to sign out as createUserWithEmailAndPassword in a temp instance
+      // doesn't affect the main auth state.
+      
+      toast({ title: 'Sucesso', description: 'Usuário criado com sucesso.' });
       setIsNewUserDialogOpen(false);
       setNewUserEmail('');
       setNewUserPassword('');
@@ -138,10 +131,6 @@ function UsersPageContent() {
   };
 
   const handleDeleteUser = (uid: string) => {
-    // Note: Deleting a user from Firebase Auth is a privileged operation
-    // and should be done from a backend server (Firebase Functions). 
-    // This will only remove them from the Realtime Database, which revokes their permissions.
-    // The user will still exist in Firebase Authentication.
     removeDb(ref(database, `users/${uid}`)).then(() => {
         toast({ title: 'Sucesso', description: 'Usuário removido da base de dados e permissões revogadas.'});
     }).catch(err => {
@@ -194,6 +183,17 @@ function UsersPageContent() {
     }));
   };
 
+  const handleSendPasswordEmail = async () => {
+    if (!currentUser?.email) return;
+    try {
+      await sendPasswordReset(currentUser.email);
+      toast({ title: 'E-mail enviado', description: 'Verifique sua caixa de entrada para redefinir sua senha.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível enviar o e-mail de redefinição.' });
+    }
+  };
+
+
   const permissionLabels = {
     inicio: "Início (Gerenciar Grupos)",
     disputa: "Disputa (Gerenciar Palavras)",
@@ -201,93 +201,131 @@ function UsersPageContent() {
     ganhadores: "Ganhadores (Ver/Exportar)"
   }
 
+  const renderAdminView = () => (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+            <CardTitle>Gerenciamento de Usuários</CardTitle>
+              <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button><PlusCircle className="mr-2" /> Novo Usuário</Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Criar Novo Usuário</DialogTitle>
+                        <DialogDescription>
+                            Defina o e-mail e senha para o novo acesso. As permissões podem ser editadas depois.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="new-name">Nome</Label>
+                            <Input id="new-name" type="text" value={newUserName} onChange={e => setNewUserName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-email">E-mail</Label>
+                            <Input id="new-email" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-password">Senha</Label>
+                            <Input id="new-password" type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                          <DialogClose asChild>
+                            <Button type="button" variant="secondary">Cancelar</Button>
+                        </DialogClose>
+                        <Button onClick={handleCreateUser}>Criar Usuário</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
+        <CardDescription>{users.length} usuário(s) cadastrado(s).</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-2">
+          {users.map(user => (
+            <li key={user.uid} className="flex items-center justify-between p-3 rounded-md bg-muted/50">
+              <div>
+                <p className="font-medium">{user.name || user.email}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+                <p className="text-sm font-semibold text-primary">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {user.uid !== firebaseAuth.currentUser?.uid && (
+                    <>
+                    <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
+                        <UserCog className="mr-2 h-4 w-4" /> Permissões
+                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon" disabled={user.role === 'admin'}><Trash2 /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Apagar usuário?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Tem certeza que deseja apagar o usuário {user.email}? As permissões dele serão revogadas. Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteUser(user.uid)}>Apagar</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    </>
+                )}
+                  {user.uid === firebaseAuth.currentUser?.uid && (
+                    <span className="text-xs text-muted-foreground">(Você)</span>
+                  )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+
+  const renderUserView = () => (
+    <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+            <CardTitle>Meu Perfil</CardTitle>
+            <CardDescription>Visualize suas informações e gerencie sua conta.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="space-y-1">
+                <Label>Nome</Label>
+                <p className="text-lg font-medium">{currentUserPermissions?.name || 'Não informado'}</p>
+            </div>
+            <div className="space-y-1">
+                <Label>E-mail</Label>
+                <p className="text-lg font-medium">{currentUser?.email}</p>
+            </div>
+            <div className="space-y-1">
+                <Label>Nível de Acesso</Label>
+                <p className="text-lg font-medium capitalize">{currentUserPermissions?.role}</p>
+            </div>
+            <Separator className="my-6" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-4">
+                <div>
+                    <h4 className="font-semibold">Alterar Senha</h4>
+                    <p className="text-sm text-muted-foreground">
+                        Um link para redefinição de senha será enviado para seu e-mail.
+                    </p>
+                </div>
+                <Button onClick={handleSendPasswordEmail}><Send className="mr-2 h-4 w-4"/> Enviar Link</Button>
+            </div>
+        </CardContent>
+    </Card>
+  );
+
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-                <CardTitle>Gerenciamento de Usuários</CardTitle>
-                 <Dialog open={isNewUserDialogOpen} onOpenChange={setIsNewUserDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button><PlusCircle className="mr-2" /> Novo Usuário</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Criar Novo Usuário</DialogTitle>
-                            <DialogDescription>
-                                Defina o e-mail e senha para o novo acesso. As permissões podem ser editadas depois.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4 space-y-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="new-name">Nome</Label>
-                                <Input id="new-name" type="text" value={newUserName} onChange={e => setNewUserName(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-email">E-mail</Label>
-                                <Input id="new-email" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="new-password">Senha</Label>
-                                <Input id="new-password" type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                             <DialogClose asChild>
-                                <Button type="button" variant="secondary">Cancelar</Button>
-                            </DialogClose>
-                            <Button onClick={handleCreateUser}>Criar Usuário</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-            <CardDescription>{users.length} usuário(s) cadastrado(s).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {users.map(user => (
-                <li key={user.uid} className="flex items-center justify-between p-3 rounded-md bg-muted/50">
-                  <div>
-                    <p className="font-medium">{user.name || user.email}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-sm font-semibold text-primary">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {user.uid !== firebaseAuth.currentUser?.uid && (
-                        <>
-                        <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
-                            <UserCog className="mr-2 h-4 w-4" /> Permissões
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                               <Button variant="destructive" size="icon" disabled={user.role === 'admin'}><Trash2 /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Apagar usuário?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Tem certeza que deseja apagar o usuário {user.email}? As permissões dele serão revogadas. Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteUser(user.uid)}>Apagar</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                        </>
-                    )}
-                     {user.uid === firebaseAuth.currentUser?.uid && (
-                        <span className="text-xs text-muted-foreground">(Você)</span>
-                     )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+        {currentUserPermissions?.role === 'admin' ? renderAdminView() : renderUserView()}
 
         {/* Edit Dialog */}
         <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
@@ -320,7 +358,7 @@ function UsersPageContent() {
                     </div>
 
                     <div className="space-y-4 rounded-lg border p-3 shadow-sm data-[disabled]:opacity-50" data-disabled={editingUser.role === 'admin' ? '' : undefined}>
-                         <p className="text-sm font-medium text-muted-foreground">Acesso por página:</p>
+                          <p className="text-sm font-medium text-muted-foreground">Acesso por página:</p>
                         {Object.keys(initialPermissions).map(key => {
                             const pKey = key as keyof UserPermissions['permissions'];
                             return (
@@ -355,7 +393,7 @@ function UsersPageContent() {
 
 export default function UsersPage() {
     return (
-        <ProtectedRoute page="admin">
+        <ProtectedRoute page="inicio">
             <UsersPageContent/>
         </ProtectedRoute>
     )
