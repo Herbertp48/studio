@@ -4,11 +4,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppHeader } from '@/components/app/header';
 import { Button } from '@/components/ui/button';
-import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit } from 'lucide-react';
+import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit, Move } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, remove as removeDb, push, update } from 'firebase/database';
+import { ref, set, onValue, remove as removeDb, push, update, get } from 'firebase/database';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +38,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/context/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 export type Participant = {
@@ -58,6 +59,10 @@ function HomePageContent() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [newParticipantName, setNewParticipantName] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
+  const [participantsToMigrate, setParticipantsToMigrate] = useState<string[]>([]);
+  const [isMigrationDialogOpen, setIsMigrationDialogOpen] = useState(false);
+  const [migrationTargetGroup, setMigrationTargetGroup] = useState('');
+  const [newMigrationGroupName, setNewMigrationGroupName] = useState('');
 
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -105,6 +110,11 @@ function HomePageContent() {
       setIsEditDialogOpen(false);
     }
   }, [editingParticipant]);
+
+   useEffect(() => {
+    // Reset participant selection when group changes
+    setParticipantsToMigrate([]);
+  }, [selectedGroupId]);
   
   const handleCreateGroup = () => {
     if (!newGroupName.trim()) {
@@ -245,6 +255,59 @@ function HomePageContent() {
     update(participantRef, updatedParticipant);
   };
 
+  const handleMigrateParticipants = async () => {
+    if (!selectedGroup || participantsToMigrate.length === 0) return;
+    
+    let targetId = migrationTargetGroup;
+
+    try {
+        // Se um novo nome de grupo for fornecido, crie-o primeiro
+        if (newMigrationGroupName.trim()) {
+            const existingGroup = participantGroups.find(g => g.name.toLowerCase() === newMigrationGroupName.trim().toLowerCase());
+            if (existingGroup) {
+                 toast({ variant: 'destructive', title: 'Erro', description: 'Um grupo com este nome já existe.'});
+                 return;
+            }
+            const newGroupRef = push(ref(database, 'participant-groups'));
+            await set(newGroupRef, { name: newMigrationGroupName.trim(), participants: {} });
+            targetId = newGroupRef.key!;
+        }
+
+        if (!targetId) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de destino ou crie um novo.'});
+            return;
+        }
+        
+        if (targetId === selectedGroupId) {
+             toast({ variant: 'destructive', title: 'Ação Inválida', description: 'Não é possível migrar participantes para o mesmo grupo.'});
+            return;
+        }
+
+        const sourcePath = `participant-groups/${selectedGroup.id}/participants`;
+        const destPath = `participant-groups/${targetId}/participants`;
+        
+        const updates: { [key: string]: any } = {};
+        const participantsToMove = selectedGroupParticipants.filter(p => participantsToMigrate.includes(p.id));
+
+        participantsToMove.forEach(p => {
+            updates[`${sourcePath}/${p.id}`] = null; // Remove from source
+            updates[`${destPath}/${p.id}`] = p; // Add to destination
+        });
+
+        await update(ref(database), updates);
+        
+        toast({ title: 'Sucesso!', description: `${participantsToMigrate.length} participante(s) migrado(s).`});
+        setParticipantsToMigrate([]);
+        setIsMigrationDialogOpen(false);
+        setNewMigrationGroupName('');
+        setMigrationTargetGroup('');
+
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erro na Migração', description: 'Ocorreu um erro ao mover os participantes.' });
+    }
+};
+
   const startDispute = () => {
     set(ref(database, 'dispute'), null);
     removeDb(ref(database, 'winners'));
@@ -354,15 +417,72 @@ function HomePageContent() {
                             />
                             <Button type="submit"><UserPlus /></Button>
                         </form>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
                              <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
                                 <Upload className="mr-2 h-4 w-4" />
-                                Importar de Excel
+                                Importar Excel
                             </Button>
+                             <Dialog open={isMigrationDialogOpen} onOpenChange={setIsMigrationDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="w-full" disabled={participantsToMigrate.length === 0}>
+                                        <Move className="mr-2 h-4 w-4" /> Migrar ({participantsToMigrate.length})
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>Migrar Participantes</DialogTitle>
+                                        <DialogDescription>
+                                            Mova {participantsToMigrate.length} participante(s) para outro grupo.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                        <div className="space-y-2">
+                                            <Label>Selecione um grupo existente</Label>
+                                            <Select
+                                                onValueChange={setMigrationTargetGroup}
+                                                value={migrationTargetGroup}
+                                                disabled={!!newMigrationGroupName.trim()}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Escolha o grupo de destino" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {participantGroups
+                                                        .filter(g => g.id !== selectedGroupId)
+                                                        .map(group => (
+                                                            <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="relative">
+                                            <div className="absolute inset-0 flex items-center">
+                                                <span className="w-full border-t" />
+                                            </div>
+                                            <div className="relative flex justify-center text-xs uppercase">
+                                                <span className="bg-background px-2 text-muted-foreground">Ou</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Crie um novo grupo de destino</Label>
+                                            <Input 
+                                                placeholder="Nome do novo grupo"
+                                                value={newMigrationGroupName}
+                                                onChange={(e) => setNewMigrationGroupName(e.target.value)}
+                                                disabled={!!migrationTargetGroup}
+                                            />
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <DialogClose asChild><Button variant="secondary">Cancelar</Button></DialogClose>
+                                        <Button onClick={handleMigrateParticipants} disabled={!migrationTargetGroup && !newMigrationGroupName.trim()}>Migrar</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                             </Dialog>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <Button variant="destructive" className="w-full" disabled={!selectedGroup || selectedGroupParticipants.length === 0}>
-                                        <Trash2 className="mr-2 h-4 w-4" /> Apagar Participantes
+                                        <Trash2 className="mr-2 h-4 w-4" /> Apagar Todos
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
@@ -398,6 +518,17 @@ function HomePageContent() {
                                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
                                     >
                                     <div className="flex items-center gap-3">
+                                         <Checkbox
+                                            id={`select-${p.id}`}
+                                            checked={participantsToMigrate.includes(p.id)}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                    setParticipantsToMigrate([...participantsToMigrate, p.id]);
+                                                } else {
+                                                    setParticipantsToMigrate(participantsToMigrate.filter(id => id !== p.id));
+                                                }
+                                            }}
+                                        />
                                         <Switch
                                           id={`status-${p.id}`}
                                           checked={!p.eliminated}
