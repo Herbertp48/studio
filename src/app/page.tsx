@@ -167,50 +167,78 @@ function HomePageContent() {
     }
   };
   
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedGroupId) {
-      toast({ variant: "destructive", title: 'Nenhum grupo selecionado', description: 'Selecione um grupo antes de importar participantes.' });
-      return;
-    }
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
+  
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = utils.sheet_to_json<any>(worksheet, { header: 1 });
-
-        const participantsToImport: Omit<Participant, 'id'>[] = json.map((row: any) => ({
-            name: String(row[0] || '').trim(),
-            stars: 0,
-            eliminated: false,
-        })).filter(p => p.name.length > 0);
+        const json = utils.sheet_to_json<any>(worksheet, { header: ["name", "group"] });
+  
+        const participantsByGroup: { [key: string]: string[] } = {};
+  
+        json.slice(1).forEach((row: any) => {
+          const participantName = String(row.name || '').trim();
+          const groupName = String(row.group || '').trim();
+          if (participantName && groupName) {
+            if (!participantsByGroup[groupName]) {
+              participantsByGroup[groupName] = [];
+            }
+            participantsByGroup[groupName].push(participantName);
+          }
+        });
         
-        if (selectedGroup) {
-            const updates: {[key: string]: any} = {};
-            participantsToImport.forEach(p => {
-                const newParticipantRef = push(ref(database, `participant-groups/${selectedGroup.id}/participants`));
-                updates[`participant-groups/${selectedGroup.id}/participants/${newParticipantRef.key!}`] = {
-                  ...p, 
-                  id: newParticipantRef.key
-                };
-            })
-            update(ref(database), updates);
+        const groupsRef = ref(database, 'participant-groups');
+        const snapshot = await get(groupsRef);
+        const existingGroupsData: { [id: string]: { name: string } } = snapshot.val() || {};
+        const existingGroups = Object.entries(existingGroupsData).map(([id, data]) => ({ id, name: data.name }));
+        
+        const updates: { [key: string]: any } = {};
+  
+        for (const groupName in participantsByGroup) {
+          let groupId: string | null = null;
+          const existingGroup = existingGroups.find(g => g.name.toLowerCase() === groupName.toLowerCase());
+          
+          if (existingGroup) {
+            groupId = existingGroup.id;
+          } else {
+            const newGroupRef = push(groupsRef);
+            groupId = newGroupRef.key;
+            if (groupId) {
+              updates[`participant-groups/${groupId}/name`] = groupName;
+            }
+          }
+          
+          if (groupId) {
+            participantsByGroup[groupName].forEach(participantName => {
+              const newParticipantRef = push(child(groupsRef, `${groupId}/participants`));
+              const newParticipant: Participant = {
+                id: newParticipantRef.key!,
+                name: participantName,
+                stars: 0,
+                eliminated: false,
+              };
+              updates[`participant-groups/${groupId}/participants/${newParticipant.id}`] = newParticipant;
+            });
+          }
         }
-
+  
+        await update(ref(database), updates);
+  
         toast({
           title: 'Sucesso!',
-          description: 'Participantes importados com sucesso.',
+          description: 'Participantes e grupos importados com sucesso.',
         });
-
+  
       } catch (error) {
-        let errorMessage = 'Não foi possível ler o arquivo. Verifique o formato e tente novamente.';
-        if(error instanceof Error) {
-            errorMessage = error.message;
+        let errorMessage = 'Não foi possível ler o arquivo. Verifique se a Coluna A contém o nome do participante e a Coluna B o nome do grupo.';
+        if (error instanceof Error) {
+          errorMessage = error.message;
         }
         console.error("Erro ao importar arquivo:", error);
         toast({
@@ -219,7 +247,7 @@ function HomePageContent() {
           description: errorMessage,
         });
       } finally {
-        if(fileInputRef.current) {
+        if (fileInputRef.current) {
           fileInputRef.current.value = '';
         }
       }
@@ -395,6 +423,19 @@ function HomePageContent() {
                     </div>
                 </CardContent>
             </Card>
+            
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload}
+                className="hidden" 
+                accept=".xlsx, .xls"
+            />
+            <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
+                <Upload className="mr-2 h-4 w-4" />
+                Importar Participantes e Grupos (Excel)
+            </Button>
+
 
             <div className="space-y-4">
                 <Button 
@@ -430,11 +471,7 @@ function HomePageContent() {
                             />
                             <Button type="submit"><UserPlus /></Button>
                         </form>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mb-4">
-                             <Button variant="outline" className="w-full" onClick={triggerFileUpload}>
-                                <Upload className="mr-2 h-4 w-4" />
-                                Importar Excel
-                            </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-2 mb-4">
                              <Dialog open={isMigrationDialogOpen} onOpenChange={setIsMigrationDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button variant="outline" className="w-full" disabled={participantsToMigrate.length === 0}>
@@ -514,14 +551,6 @@ function HomePageContent() {
 
                         </div>
 
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            onChange={handleFileUpload}
-                            className="hidden" 
-                            accept=".xlsx, .xls"
-                        />
-                        
                         <div className="flex items-center gap-2 mb-4 border-b pb-2">
                           <Checkbox
                             id="select-all"
