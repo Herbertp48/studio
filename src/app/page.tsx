@@ -68,6 +68,10 @@ function HomePageContent() {
 
   const selectedGroup = participantGroups.find(group => group.id === selectedGroupId);
   const selectedGroupParticipants = selectedGroup ? Object.values(selectedGroup.participants || {}) : [];
+  
+  const activeParticipantsCount = selectedGroupParticipants.filter(p => !p.eliminated).length;
+  const inactiveParticipantsCount = selectedGroupParticipants.length - activeParticipantsCount;
+
 
   useEffect(() => {
     const groupsRef = ref(database, 'participant-groups');
@@ -330,7 +334,12 @@ function HomePageContent() {
             <Card>
                 <CardHeader>
                     <CardTitle>Participantes do grupo "{selectedGroup?.name || 'Nenhum'}"</CardTitle>
-                    <CardDescription>{selectedGroupParticipants.length || 0} participante(s)</CardDescription>
+                    <CardDescription>
+                        {selectedGroupParticipants.length || 0} participante(s)
+                        {selectedGroupParticipants.length > 0 && (
+                            ` (${activeParticipantsCount} ativos, ${inactiveParticipantsCount} inativos)`
+                        )}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
                     {selectedGroupId ? (
