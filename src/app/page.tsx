@@ -319,6 +319,14 @@ function HomePageContent() {
     router.push('/disputa');
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setParticipantsToMigrate(selectedGroupParticipants.map(p => p.id));
+    } else {
+      setParticipantsToMigrate([]);
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground">
       <AppHeader />
@@ -513,8 +521,19 @@ function HomePageContent() {
                             className="hidden" 
                             accept=".xlsx, .xls"
                         />
+                        
+                        <div className="flex items-center gap-2 mb-4 border-b pb-2">
+                          <Checkbox
+                            id="select-all"
+                            checked={selectedGroupParticipants.length > 0 && participantsToMigrate.length === selectedGroupParticipants.length}
+                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                            disabled={selectedGroupParticipants.length === 0}
+                          />
+                          <Label htmlFor="select-all" className="font-semibold">Selecionar Todos</Label>
+                        </div>
 
-                        <ScrollArea className="h-[45vh]">
+
+                        <ScrollArea className="h-[40vh]">
                             <ul className="space-y-2">
                                 {selectedGroupParticipants.length > 0 ? (
                                 selectedGroupParticipants.map(p => (
