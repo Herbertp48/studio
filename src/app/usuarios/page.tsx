@@ -10,7 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { app, database } from '@/lib/firebase';
 import { ref, onValue, set, remove as removeDb } from 'firebase/database';
-import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
 import { auth as firebaseAuth } from '@/lib/firebase';
 import {
   Dialog,
@@ -55,34 +54,42 @@ const initialPermissions = {
 };
 
 function UsersPageContent() {
-  const { user: currentUser, userPermissions: currentUserPermissions, sendPasswordReset, reauthenticateAndCreateUser } = useAuth();
+  const { user: currentUser, userPermissions: currentUserPermissions, reauthenticateAndCreateUser, sendPasswordReset, updateUserData } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
+  
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [currentUserName, setCurrentUserName] = useState(currentUserPermissions?.name || '');
+
   const { toast } = useToast();
 
   useEffect(() => {
-    if (currentUserPermissions?.role !== 'admin') return;
-
-    const usersRef = ref(database, 'users');
-    const unsubscribe = onValue(usersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const userList = Object.entries(data).map(([uid, userData]: [string, any]) => ({
-          uid,
-          ...userData,
-        }));
-        setUsers(userList);
-      } else {
-        setUsers([]);
-      }
-    });
-    return () => unsubscribe();
+    if (currentUserPermissions?.role === 'admin') {
+        const usersRef = ref(database, 'users');
+        const unsubscribe = onValue(usersRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const userList = Object.entries(data).map(([uid, userData]: [string, any]) => ({
+            uid,
+            ...userData,
+            }));
+            setUsers(userList);
+        } else {
+            setUsers([]);
+        }
+        });
+        return () => unsubscribe();
+    }
   }, [currentUserPermissions]);
+
+  useEffect(() => {
+    setCurrentUserName(currentUserPermissions?.name || '');
+  }, [currentUserPermissions?.name])
 
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserPassword || !newUserName) {
@@ -133,17 +140,21 @@ function UsersPageContent() {
     setIsEditUserDialogOpen(true);
   };
   
-  const handleUpdateUserPermissions = async () => {
+  const handleUpdateUser = async () => {
     if (!editingUser) return;
     try {
-      const { uid, email, name, role, permissions } = editingUser;
-      await set(ref(database, `users/${uid}`), {
-        email,
+      const { uid, name, role, permissions } = editingUser;
+      
+      // We don't update email here as it's a sensitive operation
+      const userDataToUpdate = {
         name,
         role,
         permissions: role === 'admin' ? { inicio: true, disputa: true, sorteio: true, ganhadores: true } : permissions
-      });
-      toast({ title: 'Sucesso', description: 'Permissões atualizadas.' });
+      }
+
+      await updateUserData(uid, userDataToUpdate);
+      
+      toast({ title: 'Sucesso', description: 'Dados do usuário atualizados.' });
       setIsEditUserDialogOpen(false);
       setEditingUser(null);
     } catch (error: any) {
@@ -179,6 +190,21 @@ function UsersPageContent() {
       toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível enviar o e-mail de redefinição.' });
     }
   };
+
+  const handleCurrentUserProfileUpdate = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!currentUser) return;
+      if (currentUserName === currentUserPermissions?.name) {
+          toast({ variant: 'destructive', title: 'Nenhuma alteração', description: 'Você não alterou seu nome.' });
+          return;
+      }
+      try {
+          await updateUserData(currentUser.uid, { name: currentUserName });
+          toast({ title: 'Sucesso!', description: 'Seu nome foi atualizado.' });
+      } catch (error: any) {
+          toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível atualizar seu nome.' });
+      }
+  }
 
 
   const permissionLabels = {
@@ -242,7 +268,7 @@ function UsersPageContent() {
                 {user.uid !== firebaseAuth.currentUser?.uid && (
                     <>
                     <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
-                        <UserCog className="mr-2 h-4 w-4" /> Permissões
+                        <UserCog className="mr-2 h-4 w-4" /> Editar
                     </Button>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -278,22 +304,28 @@ function UsersPageContent() {
     <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
             <CardTitle>Meu Perfil</CardTitle>
-            <CardDescription>Visualize suas informações e gerencie sua conta.</CardDescription>
+            <CardDescription>Visualize e edite suas informações e gerencie sua conta.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-            <div className="space-y-1">
-                <Label>Nome</Label>
-                <p className="text-lg font-medium">{currentUserPermissions?.name || 'Não informado'}</p>
-            </div>
-            <div className="space-y-1">
-                <Label>E-mail</Label>
-                <p className="text-lg font-medium">{currentUser?.email}</p>
-            </div>
-            <div className="space-y-1">
-                <Label>Nível de Acesso</Label>
-                <p className="text-lg font-medium capitalize">{currentUserPermissions?.role}</p>
-            </div>
-            <Separator className="my-6" />
+        <CardContent className="space-y-6">
+            <form onSubmit={handleCurrentUserProfileUpdate} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="current-username">Nome</Label>
+                    <Input id="current-username" value={currentUserName} onChange={(e) => setCurrentUserName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label>E-mail</Label>
+                    <Input value={currentUser?.email || ''} disabled />
+                    <p className="text-xs text-muted-foreground">O e-mail não pode ser alterado.</p>
+                </div>
+                 <div className="space-y-2">
+                    <Label>Nível de Acesso</Label>
+                    <Input value={currentUserPermissions?.role === 'admin' ? 'Administrador' : 'Usuário'} disabled />
+                </div>
+                <Button type="submit">Salvar Alterações</Button>
+            </form>
+            
+            <Separator />
+
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-lg border p-4">
                 <div>
                     <h4 className="font-semibold">Alterar Senha</h4>
@@ -318,18 +350,26 @@ function UsersPageContent() {
         <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Editar Permissões</DialogTitle>
+                    <DialogTitle>Editar Usuário</DialogTitle>
                     <DialogDescription>
-                        Defina o nível de acesso para {editingUser?.email}.
+                        Altere os dados e o nível de acesso para {editingUser?.email}.
                     </DialogDescription>
                 </DialogHeader>
                 {editingUser && (
                 <div className="py-4 space-y-6">
+                    <div className='space-y-2'>
+                        <Label htmlFor='edit-username'>Nome</Label>
+                        <Input 
+                            id='edit-username'
+                            value={editingUser.name}
+                            onChange={(e) => setEditingUser({...editingUser, name: e.target.value})}
+                        />
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">
                             <Label htmlFor="admin-switch" className="text-base">Administrador</Label>
                             <p className="text-sm text-muted-foreground">
-                                Concede acesso total a todas as páginas e funcionalidades.
+                                Concede acesso total a todas as funcionalidades.
                             </p>
                         </div>
                         <Switch
@@ -369,7 +409,7 @@ function UsersPageContent() {
                     <DialogClose asChild>
                         <Button type="button" variant="secondary">Cancelar</Button>
                     </DialogClose>
-                    <Button onClick={handleUpdateUserPermissions}>Salvar Alterações</Button>
+                    <Button onClick={handleUpdateUser}>Salvar Alterações</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
