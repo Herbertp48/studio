@@ -92,7 +92,7 @@ function HomePageContent() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [selectedGroupId]);
 
   useEffect(() => {
     if (editingParticipant) {
