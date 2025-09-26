@@ -8,7 +8,7 @@ import { Upload, Play, UserPlus, Trash2, List, PlusCircle, Edit, Move } from 'lu
 import { read, utils } from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, remove as removeDb, push, update, get } from 'firebase/database';
+import { ref, set, onValue, remove as removeDb, push, update, get, child } from 'firebase/database';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -261,7 +261,6 @@ function HomePageContent() {
     let targetId = migrationTargetGroup;
 
     try {
-        // Se um novo nome de grupo for fornecido, crie-o primeiro
         if (newMigrationGroupName.trim()) {
             const existingGroup = participantGroups.find(g => g.name.toLowerCase() === newMigrationGroupName.trim().toLowerCase());
             if (existingGroup) {
@@ -283,15 +282,21 @@ function HomePageContent() {
             return;
         }
 
-        const sourcePath = `participant-groups/${selectedGroup.id}/participants`;
-        const destPath = `participant-groups/${targetId}/participants`;
-        
-        const updates: { [key: string]: any } = {};
-        const participantsToMove = selectedGroupParticipants.filter(p => participantsToMigrate.includes(p.id));
+        // Fetch the current participants from the source group to ensure data consistency
+        const sourceGroupRef = child(ref(database), `participant-groups/${selectedGroup.id}/participants`);
+        const snapshot = await get(sourceGroupRef);
+        const sourceParticipants = snapshot.val() || {};
 
-        participantsToMove.forEach(p => {
-            updates[`${sourcePath}/${p.id}`] = null; // Remove from source
-            updates[`${destPath}/${p.id}`] = p; // Add to destination
+        const updates: { [key: string]: any } = {};
+        
+        participantsToMigrate.forEach(participantId => {
+            const participantData = sourceParticipants[participantId];
+            if (participantData) {
+                // Remove from source
+                updates[`participant-groups/${selectedGroup.id}/participants/${participantId}`] = null;
+                // Add to destination
+                updates[`participant-groups/${targetId}/participants/${participantId}`] = participantData;
+            }
         });
 
         await update(ref(database), updates);
