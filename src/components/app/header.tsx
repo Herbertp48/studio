@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../ui/sheet';
 import { useState } from 'react';
 
 export function AppHeader() {
@@ -75,6 +75,9 @@ export function AppHeader() {
                     </Button>
                 </SheetTrigger>
                 <SheetContent>
+                    <SheetHeader>
+                        <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+                    </SheetHeader>
                     <div className="flex flex-col gap-4 py-8">
                         {user && availableNavItems.map((item) => (
                            <NavLink key={item.href} item={item} isMobile={true}/>
