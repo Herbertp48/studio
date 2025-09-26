@@ -228,6 +228,19 @@ function HomePageContent() {
     });
   }
 
+  const handleToggleParticipantStatus = (participant: Participant, isChecked: boolean) => {
+    if (!selectedGroup) return;
+
+    const updatedParticipant = {
+      ...participant,
+      eliminated: !isChecked,
+      stars: !isChecked ? participant.stars : 0, // Reset stars if re-activating
+    };
+
+    const participantRef = ref(database, `participant-groups/${selectedGroup.id}/participants/${participant.id}`);
+    update(participantRef, updatedParticipant);
+  };
+
   const startDispute = () => {
     set(ref(database, 'dispute'), null);
     removeDb(ref(database, 'winners'));
@@ -375,7 +388,14 @@ function HomePageContent() {
                                     key={p.id}
                                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
                                     >
-                                    <span className={`font-medium ${p.eliminated ? 'line-through text-muted-foreground' : ''}`}>{p.name}</span>
+                                    <div className="flex items-center gap-3">
+                                        <Switch
+                                          id={`status-${p.id}`}
+                                          checked={!p.eliminated}
+                                          onCheckedChange={(isChecked) => handleToggleParticipantStatus(p, isChecked)}
+                                        />
+                                        <span className={`font-medium ${p.eliminated ? 'line-through text-muted-foreground' : ''}`}>{p.name}</span>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingParticipant(p)}>
                                            <Edit className="h-4 w-4" />
