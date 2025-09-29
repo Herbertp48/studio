@@ -3,26 +3,23 @@
 @tailwind utilities;
 
 @layer base {
-    @font-face {
-        font-family: 'Melison';
-        src: url('/fonts/Melison.woff2') format('woff2');
-    }
-    @font-face {
-        font-family: 'Melison';
-        src: url('/fonts/Melison-Bold.woff2') format('woff2');
-        font-weight: bold;
-        font-style: normal;
-    }
-    @font-face {
-        font-family: 'Subjectivity';
-        src: url('/fonts/Subjectivity-Bold.woff2') format('woff2');
-        font-weight: bold;
-        font-style: normal;
-    }
-}
+  @font-face {
+    font-family: 'Melison';
+    src: url('/fonts/Melison.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Melison';
+    src: url('/fonts/Melison-Bold.woff2') format('woff2');
+    font-weight: bold;
+    font-style: normal;
+  }
+  @font-face {
+    font-family: 'Subjectivity';
+    src: url('/fonts/Subjectivity-Bold.woff2') format('woff2');
+    font-weight: bold;
+    font-style: normal;
+  }
 
-
-@layer base {
   :root {
     --background: 208 100% 97%;
     --foreground: 224 71.4% 4.1%;
@@ -72,7 +69,7 @@
   }
   body {
     @apply bg-background text-foreground;
-     font-family: 'Subjectivity', Arial, sans-serif;
+    font-family: 'Subjectivity', Arial, sans-serif;
   }
 }
 
@@ -87,9 +84,9 @@
   }
 
   .font-melison {
-    font-family: 'Melison', Arial, sans-serif;
+    @apply font-['Melison',_Arial,_sans-serif];
   }
   .font-subjectivity {
-     font-family: 'Subjectivity', Arial, sans-serif;
+    @apply font-['Subjectivity',_Arial,_sans-serif];
   }
 }
