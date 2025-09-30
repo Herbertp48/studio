@@ -90,9 +90,9 @@ function WinnersPageContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground">
+    <div className="flex flex-col w-full bg-background text-foreground">
       <AppHeader />
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
           <CardHeader className="bg-accent p-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -167,7 +167,7 @@ function WinnersPageContent() {
             </Table>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </div>
   );
 }

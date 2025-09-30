@@ -204,16 +204,18 @@ export default function LoginPage() {
 
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-       <Card className="w-full max-w-sm">
-         <div className="flex justify-center items-center gap-2 pt-6">
-                <Image src="/images/bee.png" alt="Spelling Bee" width={32} height={32} />
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                Spelling Bee
-            </h1>
-        </div>
-        {renderContent()}
-      </Card>
+    <div className="flex flex-col min-h-screen">
+      <main className="flex-grow flex items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-sm">
+            <div className="flex justify-center items-center gap-2 pt-6">
+                    <Image src="/images/bee.png" alt="Spelling Bee" width={32} height={32} />
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    Spelling Bee
+                </h1>
+            </div>
+            {renderContent()}
+        </Card>
+      </main>
     </div>
   );
 }
