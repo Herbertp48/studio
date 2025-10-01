@@ -254,14 +254,14 @@ export default function ProjectionPage() {
 
     const MainContent = () => (
         <div className="flex flex-col items-center justify-center w-full h-full">
-            <header className="flex items-center gap-4 text-accent">
+            <header className="flex items-center gap-4 text-accent py-4">
                 <h1 className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
                 </h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
             
-            <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center mt-8">
+            <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden">
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                     <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
                     <div className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
@@ -272,14 +272,14 @@ export default function ProjectionPage() {
                 </div>
                 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div className="grid grid-cols-12 items-center w-full gap-4">
-                        <div className="col-start-2 col-span-4 text-center">
+                    <div className="flex items-center justify-around w-full gap-4">
+                        <div className="flex-1 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
                         </div>
-                        <div className="col-span-2 text-center">
+                        <div className="flex-shrink-0 text-center px-4">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
-                        <div className="col-span-4 text-center">
+                        <div className="flex-1 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantB?.name || 'Participante B'}</h3>
                         </div>
                     </div>
