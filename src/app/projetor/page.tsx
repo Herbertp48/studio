@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
-import { Crown, Star, Trophy, ShieldAlert, MousePointerClick } from 'lucide-react';
+import { Crown, Star, Trophy, ShieldAlert, Maximize } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
@@ -50,14 +50,25 @@ export default function ProjectionPage() {
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const handleInitialClick = () => {
+     const handleEnterFullscreen = () => {
         if (isReady) return;
-        // Pre-carrega e talvez toque um som silencioso para "desbloquear" o áudio
+
+        // Ativa o áudio
         Object.values(sounds.current).forEach(sound => {
             sound.load();
-            sound.play().then(() => sound.pause()).catch(() => {}); // Tenta tocar e pausa para ativar o contexto de áudio
+            sound.play().then(() => sound.pause()).catch(() => {});
         });
         setIsReady(true);
+
+        // Entra em tela cheia
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if ((elem as any).webkitRequestFullscreen) { /* Safari */
+            (elem as any).webkitRequestFullscreen();
+        } else if ((elem as any).msRequestFullscreen) { /* IE11 */
+            (elem as any).msRequestFullscreen();
+        }
     };
 
     // Efeito para carregar os sons
@@ -101,7 +112,6 @@ export default function ProjectionPage() {
             if (soundToPlay) {
                 soundToPlay.loop = loop;
                 soundToPlay.play().catch(e => {
-                  // Ignore AbortError which is common when sounds are interrupted quickly
                   if (e.name !== 'AbortError') {
                     console.error("Erro ao tocar áudio:", e)
                   }
@@ -407,20 +417,18 @@ export default function ProjectionPage() {
     return (
         <div 
             className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer"
-            onClick={handleInitialClick}
+            onClick={handleEnterFullscreen}
         >
             {renderContent()}
             {!isReady && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="text-center text-accent animate-pulse">
-                        <MousePointerClick className="w-24 h-24 mx-auto" />
-                        <h1 className="text-6xl font-melison font-bold mt-4">Clique para Ativar o Áudio</h1>
-                        <p className="text-2xl mt-2 font-subjectivity">A interação é necessária para habilitar o som</p>
+                        <Maximize className="w-24 h-24 mx-auto" />
+                        <h1 className="text-6xl font-melison font-bold mt-4">Clique para Entrar em Tela Cheia</h1>
+                        <p className="text-2xl mt-2 font-subjectivity">Isso irá otimizar a visualização e ativar o som.</p>
                     </div>
                 </div>
             )}
         </div>
     );
 }
-
-    
