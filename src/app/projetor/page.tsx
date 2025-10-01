@@ -253,7 +253,7 @@ export default function ProjectionPage() {
     // ------ COMPONENTES DE RENDERIZAÇÃO ------
 
     const MainContent = () => (
-        <div className="flex flex-col items-center justify-center w-full h-full gap-8">
+        <div className="flex flex-col items-center justify-center w-full h-full">
             <header className="flex items-center gap-4 text-accent">
                 <h1 className="text-8xl font-melison font-bold tracking-tight">
                     Spelling Bee
@@ -261,7 +261,7 @@ export default function ProjectionPage() {
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
             
-            <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+            <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center mt-8">
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                     <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
                     <div className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
@@ -419,8 +419,7 @@ export default function ProjectionPage() {
             className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer"
             onClick={handleEnterFullscreen}
         >
-            {renderContent()}
-            {!isReady && (
+            {!isReady ? (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="text-center text-accent animate-pulse">
                         <Maximize className="w-24 h-24 mx-auto" />
@@ -428,7 +427,7 @@ export default function ProjectionPage() {
                         <p className="text-2xl mt-2 font-subjectivity">Isso irá otimizar a visualização e ativar o som.</p>
                     </div>
                 </div>
-            )}
+            ) : renderContent()}
         </div>
     );
 }
