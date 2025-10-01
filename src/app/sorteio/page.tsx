@@ -310,6 +310,11 @@ function RafflePageContent() {
     setRaffleState('round_finished');
   };
   
+  const handleNoWinner = () => {
+    toast({ title: 'Nova Rodada!', description: 'Nenhum participante foi eliminado. Começando uma nova rodada.'});
+    nextRound();
+  }
+
   const nextRound = () => {
     setCurrentDuel(null);
     setCurrentWord(null);
@@ -439,12 +444,15 @@ function RafflePageContent() {
             <p className="text-lg text-muted-foreground">A palavra é:</p>
             <p className="text-5xl font-bold tracking-widest uppercase text-primary">{currentWord}</p>
             <p className="text-xl font-semibold mt-4">Quem venceu a disputa?</p>
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center flex-wrap gap-4">
                 <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantA.id)}>
                     <Star className="mr-2"/> {currentDuel.participantA.name}
                 </Button>
                 <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantB.id)}>
                     <Star className="mr-2"/> {currentDuel.participantB.name}
+                </Button>
+                <Button variant="secondary" size="lg" onClick={handleNoWinner}>
+                    <RefreshCw className="mr-2" /> Ninguém Acertou
                 </Button>
             </div>
         </div>
