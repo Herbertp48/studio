@@ -51,9 +51,11 @@ export default function ProjectionPage() {
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleInitialClick = () => {
-        // Pré-carrega e talvez toque um som silencioso para "desbloquear" o áudio
+        if (isReady) return;
+        // Pre-carrega e talvez toque um som silencioso para "desbloquear" o áudio
         Object.values(sounds.current).forEach(sound => {
             sound.load();
+            sound.play().then(() => sound.pause()).catch(() => {}); // Tenta tocar e pausa para ativar o contexto de áudio
         });
         setIsReady(true);
     };
@@ -238,21 +240,6 @@ export default function ProjectionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isReady]);
 
-    if (!isReady) {
-        return (
-            <div 
-                className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-center cursor-pointer"
-                onClick={handleInitialClick}
-            >
-                <div className="text-center text-accent animate-pulse">
-                    <MousePointerClick className="w-24 h-24 mx-auto" />
-                    <h1 className="text-6xl font-melison font-bold mt-4">Clique para Iniciar a Projeção</h1>
-                    <p className="text-2xl mt-2 font-subjectivity">É necessário interagir para habilitar o áudio</p>
-                </div>
-            </div>
-        )
-    }
-
     // ------ COMPONENTES DE RENDERIZAÇÃO ------
 
     const MainContent = () => (
@@ -418,8 +405,22 @@ export default function ProjectionPage() {
     }
 
     return (
-        <div className="projetado-page h-screen w-screen overflow-hidden relative">
+        <div 
+            className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer"
+            onClick={handleInitialClick}
+        >
             {renderContent()}
+            {!isReady && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="text-center text-accent animate-pulse">
+                        <MousePointerClick className="w-24 h-24 mx-auto" />
+                        <h1 className="text-6xl font-melison font-bold mt-4">Clique para Ativar o Áudio</h1>
+                        <p className="text-2xl mt-2 font-subjectivity">A interação é necessária para habilitar o som</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+
+    
