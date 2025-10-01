@@ -34,7 +34,7 @@ export type WordList = {
 type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'round_finished' | 'shuffling';
 type SortMode = 'random' | 'sequential';
 type DisputeState = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
@@ -86,10 +86,11 @@ function RafflePageContent() {
         const allParticipants = Object.values(currentParticipants);
         const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
         
-        if (maxStars === 0 && activeParticipants.length === 0) {
+        if (maxStars === 0) {
              setFinalWinners([]);
              setIsTie(false);
              setShowFinalWinnerDialog(true);
+             setDisputeState({ type: 'NO_WINNER' });
             return;
         }
         
@@ -116,6 +117,7 @@ function RafflePageContent() {
               setFinalWinners([]);
               setIsTie(false);
               setShowFinalWinnerDialog(true);
+              setDisputeState({ type: 'NO_WINNER' });
             }
         }
     }
@@ -311,7 +313,7 @@ function RafflePageContent() {
   };
   
   const handleNoWinner = () => {
-    toast({ title: 'Nova Rodada!', description: 'Nenhum participante foi eliminado. Começando uma nova rodada.'});
+    toast({ title: 'Nova Rodada!', description: 'Ninguém foi eliminado. Começando uma nova rodada.'});
     nextRound();
   }
 

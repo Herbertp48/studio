@@ -11,7 +11,7 @@ import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
@@ -24,7 +24,7 @@ type DisputeAction = {
 }
 
 type DisplayState = {
-    view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement';
+    view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement' | 'no_winner';
     participantA: Participant | null;
     participantB: Participant | null;
     word: string | null;
@@ -219,6 +219,13 @@ export default function ProjectionPage() {
                     });
                     break;
                 
+                case 'NO_WINNER':
+                    stopShufflingAnimation();
+                    stopAllSounds();
+                    setAnimationKey(prev => prev + 1);
+                    setDisplayState({ ...initialDisplayState, view: 'no_winner' });
+                    break;
+
                 case 'TIE_ANNOUNCEMENT':
                     stopShufflingAnimation();
                     playSound('sinos.mp3');
@@ -336,6 +343,22 @@ export default function ProjectionPage() {
         )
     }
 
+    const NoWinnerMessage = () => {
+        return (
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </div>
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <Trophy className="w-32 h-32 mx-auto text-accent-foreground/50 mb-6" />
+                    <h2 className="text-7xl font-bold font-melison mb-4">Fim da Disputa</h2>
+                    <p className="text-3xl">Não houve vencedores nesta competição.</p>
+                </div>
+            </div>
+        );
+    }
+
     const TieAnnouncement = () => {
         if (!displayState.tieWinners) return null;
         const { tieWinners } = displayState;
@@ -404,6 +427,8 @@ export default function ProjectionPage() {
                 return <RoundWinnerMessage />;
             case 'final_winner':
                 return <FinalWinnerMessage />;
+            case 'no_winner':
+                return <NoWinnerMessage />;
             case 'tie_announcement':
                 return <TieAnnouncement />;
             case 'winners_table':
