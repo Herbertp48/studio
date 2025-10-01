@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
-import { Crown, Star, Trophy, ShieldAlert } from 'lucide-react';
+import { Crown, Star, Trophy, ShieldAlert, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
@@ -44,17 +44,22 @@ const initialDisplayState: DisplayState = {
 };
 
 export default function ProjectionPage() {
-    const [isMounted, setIsMounted] = useState(false);
+    const [isReady, setIsReady] = useState(false);
     const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const [animationKey, setAnimationKey] = useState(0);
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Efeito para garantir que o código só rode no cliente.
-    useEffect(() => {
-        setIsMounted(true);
+    const handleInitialClick = () => {
+        // Pré-carrega e talvez toque um som silencioso para "desbloquear" o áudio
+        Object.values(sounds.current).forEach(sound => {
+            sound.load();
+        });
+        setIsReady(true);
+    };
 
-        // Pré-carregamento dos sons em um local seguro
+    // Efeito para carregar os sons
+    useEffect(() => {
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
@@ -74,9 +79,9 @@ export default function ProjectionPage() {
         };
     }, []);
 
-    // Efeito para o Firebase, depende do isMounted.
+    // Efeito para o Firebase, depende do isReady.
     useEffect(() => {
-        if (!isMounted) return;
+        if (!isReady) return;
 
         const stopAllSounds = () => {
             Object.values(sounds.current).forEach(sound => {
@@ -231,10 +236,21 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isMounted]);
+    }, [isReady]);
 
-    if (!isMounted) {
-      return null;
+    if (!isReady) {
+        return (
+            <div 
+                className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-center cursor-pointer"
+                onClick={handleInitialClick}
+            >
+                <div className="text-center text-accent animate-pulse">
+                    <MousePointerClick className="w-24 h-24 mx-auto" />
+                    <h1 className="text-6xl font-melison font-bold mt-4">Clique para Iniciar a Projeção</h1>
+                    <p className="text-2xl mt-2 font-subjectivity">É necessário interagir para habilitar o áudio</p>
+                </div>
+            </div>
+        )
     }
 
     // ------ COMPONENTES DE RENDERIZAÇÃO ------
