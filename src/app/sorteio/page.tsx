@@ -313,8 +313,15 @@ function RafflePageContent() {
   };
   
   const handleNoWinner = () => {
+    if (!currentWord) return;
+    setDisputeState({
+      type: 'ROUND_WINNER',
+      winner: null,
+      loser: null,
+      word: currentWord
+    });
     toast({ title: 'Nova Rodada!', description: 'Ninguém foi eliminado. Começando uma nova rodada.'});
-    nextRound();
+    setRaffleState('round_finished');
   }
 
   const nextRound = () => {
@@ -461,17 +468,22 @@ function RafflePageContent() {
       )
     }
 
-    if (raffleState === 'round_finished' && roundWinner) {
-      return (
-        <div className="text-center flex flex-col items-center gap-6">
-            <h2 className="text-3xl font-bold">{roundWinner.name} venceu!</h2>
-            <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
-                <Star /> Ganhou 1 estrela!
-            </p>
-            <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
-            <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
-        </div>
-      )
+    if (raffleState === 'round_finished') {
+        const message = roundWinner ? `${roundWinner.name} venceu!` : 'Ninguém acertou!';
+        const description = roundWinner ? 'Ganhou 1 estrela!' : 'Nenhum ponto foi dado.';
+
+        return (
+            <div className="text-center flex flex-col items-center gap-6">
+                <h2 className="text-3xl font-bold">{message}</h2>
+                {roundWinner && (
+                    <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
+                        <Star /> {description}
+                    </p>
+                )}
+                <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
+                <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
+            </div>
+        )
     }
     
     return null;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { Participant } from '@/app/page';
-import { Crown, Star, Trophy, ShieldAlert, Maximize } from 'lucide-react';
+import { Crown, Star, Trophy, ShieldAlert, Maximize, CircleX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { database } from '@/lib/firebase';
@@ -29,7 +29,7 @@ type DisplayState = {
     participantB: Participant | null;
     word: string | null;
     showWord: boolean;
-    roundWinner?: { winner: Participant, loser: Participant, word: string };
+    roundWinner?: { winner: Participant | null, loser: Participant | null, word: string };
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
@@ -196,13 +196,15 @@ export default function ProjectionPage() {
                 case 'ROUND_WINNER':
                     stopShufflingAnimation();
                     stopAllSounds();
-                    playSound('vencedor.mp3');
+                    if (action.winner) {
+                        playSound('vencedor.mp3');
+                    }
                     setAnimationKey(prev => prev + 1);
-                    if (action.winner && action.loser && action.word) {
+                    if (action.word) {
                        setDisplayState({
                            ...initialDisplayState,
                            view: 'round_winner',
-                           roundWinner: { winner: action.winner, loser: action.loser, word: action.word }
+                           roundWinner: { winner: action.winner || null, loser: action.loser || null, word: action.word }
                        });
                     }
                     break;
@@ -299,23 +301,39 @@ export default function ProjectionPage() {
         if (!displayState.roundWinner) return null;
         const { winner, word } = displayState.roundWinner;
 
+        if (winner) {
+            return (
+                <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+                    <div className="absolute top-8 flex items-center gap-4 text-accent">
+                        <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                        <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                    </div>
+                    <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                        <div className="text-6xl mb-6 inline-block">
+                            <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
+                        </div>
+                        <p className="text-5xl leading-tight font-semibold">
+                            Ganhou a disputa soletrando
+                            <br/> 
+                            corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>
+                            <br/> 
+                            e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
+                        </p>
+                    </div>
+                </div>
+            );
+        }
+
         return (
-             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                 <div className="absolute top-8 flex items-center gap-4 text-accent">
                     <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                     <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
                 </div>
                 <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
-                     <div className="text-6xl mb-6 inline-block">
-                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
-                    </div>
-                     <p className="text-5xl leading-tight font-semibold">
-                        Ganhou a disputa soletrando
-                         <br/> 
-                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>
-                        <br/> 
-                        e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
-                    </p>
+                    <CircleX className="w-32 h-32 mx-auto text-destructive mb-6" />
+                    <h2 className="text-7xl font-bold font-melison mb-4">Rodada sem Vencedor</h2>
+                    <p className="text-3xl">Ninguém acertou a palavra <b className="text-white bg-destructive px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>.</p>
                 </div>
             </div>
         );
