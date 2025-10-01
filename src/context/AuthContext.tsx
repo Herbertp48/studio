@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUserPermissions(null);
         setLoading(false);
-        if (pathname !== '/login') {
+        if (pathname !== '/login' && pathname !== '/projetor') {
             router.replace('/login');
         }
       }
@@ -109,10 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...permissions
     });
     
-    // Only sign out if it's a public sign-up page. Admin creating a user should not be signed out.
-    if (!isAdminCreation) {
-        await signOut(auth);
+    // Only sign out if it's an admin creating a user, not on public signup.
+    if (isAdminCreation) {
+      // Don't sign out, let the admin stay logged in.
+    } else {
+      await signOut(auth);
     }
+
 
     return userCredential;
   }
