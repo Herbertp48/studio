@@ -22,6 +22,7 @@ type DisputeAction = {
     activeParticipants?: Participant[];
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
+    duelScore?: { a: number, b: number };
 }
 
 type DisplayState = {
@@ -34,6 +35,7 @@ type DisplayState = {
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
+    duelScore?: { a: number, b: number };
 };
 
 const initialDisplayState: DisplayState = {
@@ -42,6 +44,7 @@ const initialDisplayState: DisplayState = {
     participantB: null,
     words: null,
     showWord: false,
+    duelScore: { a: 0, b: 0 }
 };
 
 export default function ProjectionPage() {
@@ -165,20 +168,24 @@ export default function ProjectionPage() {
                         ...prevState,
                         view: 'main',
                         showWord: false,
-                        words: null
+                        words: null,
+                        duelScore: { a: 0, b: 0 }
                     }));
                     break;
 
                 case 'UPDATE_PARTICIPANTS':
                     stopShufflingAnimation();
-                    stopAllSounds();
-                    playSound('sinos.mp3');
-                    setDisplayState({
-                        ...initialDisplayState,
+                    if (!shufflingIntervalRef.current && !displayState.participantA) { // Only play sound on initial duel set
+                        playSound('sinos.mp3');
+                    }
+                    setDisplayState(prevState => ({
+                        ...prevState,
                         view: 'main',
-                        participantA: action.participantA || null,
-                        participantB: action.participantB || null,
-                    });
+                        showWord: false,
+                        participantA: action.participantA || prevState.participantA,
+                        participantB: action.participantB || prevState.participantB,
+                        duelScore: action.duelScore || prevState.duelScore,
+                    }));
                     break;
 
                 case 'SHOW_WORD':
@@ -284,15 +291,17 @@ export default function ProjectionPage() {
                 </div>
                 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div className="flex items-center justify-around w-full">
+                    <div className="flex items-start justify-around w-full">
                         <div className="flex-1 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
+                            <p className="text-4xl font-bold mt-4">Pontos: {displayState.duelScore?.a || 0}</p>
                         </div>
-                        <div className="flex-shrink-0 text-center px-4">
+                        <div className="flex-shrink-0 text-center px-4 pt-4">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
                         <div className="flex-1 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantB?.name || 'Participante B'}</h3>
+                             <p className="text-4xl font-bold mt-4">Pontos: {displayState.duelScore?.b || 0}</p>
                         </div>
                     </div>
                 </div>
@@ -303,7 +312,6 @@ export default function ProjectionPage() {
     const RoundWinnerMessage = () => {
         if (!displayState.roundWinner) return null;
         const { winner, words } = displayState.roundWinner;
-        const word = words[0];
 
         if (winner) {
             return (
@@ -317,11 +325,7 @@ export default function ProjectionPage() {
                             <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
                         </div>
                         <p className="text-5xl leading-tight font-semibold">
-                            Ganhou a disputa soletrando
-                            <br/> 
-                            corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>
-                            <br/> 
-                            e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
+                            Ganhou o duelo e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
                         </p>
                     </div>
                 </div>

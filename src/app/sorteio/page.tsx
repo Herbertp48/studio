@@ -32,7 +32,7 @@ export type WordList = {
     words: string[];
 }
 
-type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'round_finished' | 'shuffling';
+type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'round_finished' | 'shuffling' | 'duel_in_progress';
 type SortMode = 'random' | 'sequential';
 type DisputeState = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
@@ -44,6 +44,7 @@ type DisputeState = {
     finalWinner?: Participant | null;
     activeParticipants?: Participant[];
     tieWinners?: Participant[];
+    duelScore?: { a: number, b: number };
 }
 
 const setDisputeState = (state: DisputeState | null) => {
@@ -68,7 +69,8 @@ function RafflePageContent() {
   const [originalWords, setOriginalWords] = useState<string[]>([]);
   const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [wordsPerRound, setWordsPerRound] = useState(1);
-  const [roundWinningWord, setRoundWinningWord] = useState<string | null>(null);
+  const [wordsPlayed, setWordsPlayed] = useState(0);
+  const [duelScore, setDuelScore] = useState({ a: 0, b: 0 });
 
   const { toast } = useToast();
   const router = useRouter();
@@ -109,7 +111,6 @@ function RafflePageContent() {
                  setDisputeState({ type: 'TIE_ANNOUNCEMENT', tieWinners: winners });
             }
         } else {
-            // No winners with stars, could be the single remaining participant
             const winner = activeParticipants.length === 1 ? activeParticipants[0] : null;
             if (winner) {
               setFinalWinners([winner]);
@@ -212,134 +213,147 @@ function RafflePageContent() {
             shufflingIntervalRef.current = null;
         }
 
-        // Get a final shuffle to set the definitive participants
         const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
         const participantA = shuffled[0];
         const participantB = shuffled[1];
 
         setCurrentDuel({ participantA, participantB });
+        setWordsPlayed(0);
+        setDuelScore({a: 0, b: 0});
         setRaffleState('participants_sorted');
-        setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA, participantB });
+        setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA, participantB, duelScore: {a: 0, b: 0} });
     }, 4000); // Animation duration
   };
 
   const sortWord = () => {
-    let currentAvailableWords = [...availableWords];
-    if (currentAvailableWords.length < wordsPerRound) {
+    if (availableWords.length === 0) {
       toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
       setAvailableWords(originalWords);
-      currentAvailableWords = originalWords;
     }
-     if (currentAvailableWords.length < wordsPerRound) {
+     if (availableWords.length === 0) {
         toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio, mesmo após reiniciar a lista." });
         return;
     }
 
-    const sortedWords: string[] = [];
-    let remainingWords = [...currentAvailableWords];
-
-    for (let i = 0; i < wordsPerRound; i++) {
-        let wordIndex: number;
-        if (sortMode === 'sequential') {
-            wordIndex = 0;
-        } else {
-            wordIndex = Math.floor(Math.random() * remainingWords.length);
-        }
-        const [sortedWord] = remainingWords.splice(wordIndex, 1);
-        sortedWords.push(sortedWord);
+    let remainingWords = [...availableWords];
+    let wordIndex: number;
+    if (sortMode === 'sequential') {
+        wordIndex = 0;
+    } else {
+        wordIndex = Math.floor(Math.random() * remainingWords.length);
     }
+    const [sortedWord] = remainingWords.splice(wordIndex, 1);
     
-    setCurrentWords(sortedWords);
+    setCurrentWords([sortedWord]);
     setAvailableWords(remainingWords);
     
     if (manualReveal) {
         setRaffleState('word_preview');
     } else {
         setRaffleState('word_sorted');
-        setDisputeState({ type: 'SHOW_WORD', words: sortedWords, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
+        setDisputeState({ type: 'SHOW_WORD', words: [sortedWord], participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore });
     }
   };
 
   const revealWord = () => {
     if (!currentWords || !currentDuel) return;
     setRaffleState('word_sorted');
-    setDisputeState({ type: 'SHOW_WORD', words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB });
+    setDisputeState({ type: 'SHOW_WORD', words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
   };
   
-  const handleWinner = async (winnerId: string, winningWord: string) => {
+  const handleWordWinner = async (wordWinnerId: string) => {
     if (!currentDuel || !currentWords) return;
 
-    const winner = participants[winnerId];
-    const loserId = currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id;
-    const loser = participants[loserId];
-
-    if (!winner || !loser) {
-        toast({ variant: "destructive", title: "Erro", description: "Participante não encontrado." });
-        return;
+    const newScore = { ...duelScore };
+    if (wordWinnerId === currentDuel.participantA.id) {
+        newScore.a++;
+    } else {
+        newScore.b++;
     }
 
-    const newWinnerEntryRef = push(ref(database, 'winners'));
-    await set(newWinnerEntryRef, {
-        name: winner.name,
-        word: winningWord,
-        stars: 1 
-    });
-
-    const updates: { [key: string]: any } = {};
-    const newStars = (winner.stars || 0) + 1;
-
-    updates[`/dispute/participants/${winner.id}/stars`] = newStars;
-    updates[`/dispute/participants/${loser.id}/eliminated`] = true;
+    const newWordsPlayed = wordsPlayed + 1;
+    setWordsPlayed(newWordsPlayed);
+    setDuelScore(newScore);
     
-    await update(ref(database), updates);
+    setCurrentWords(null);
+    setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
 
-    const winnerUpdate = { ...winner, stars: newStars, eliminated: false };
-    const loserUpdate = { ...loser, eliminated: true };
-    
-    setParticipants(prev => ({
-        ...prev,
-        [winner.id]: winnerUpdate,
-        [loser.id]: loserUpdate,
-    }));
+    const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
 
+    if (isDuelOver) {
+        const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
+        const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
 
-    setRoundWinner(winnerUpdate);
-    setRoundWinningWord(winningWord);
-    setDisputeState({ 
-        type: 'ROUND_WINNER', 
-        winner: winnerUpdate, 
-        loser: loserUpdate, 
-        words: [winningWord]
-    });
-    toast({
-        title: "Disputa Encerrada!",
-        description: `${winner.name} venceu a rodada e ganhou uma estrela!`,
-    });
-    
-    setRaffleState('round_finished');
-  };
+        const newWinnerEntryRef = push(ref(database, 'winners'));
+        await set(newWinnerEntryRef, {
+            name: duelWinner.name,
+            word: "Rodada Vencida",
+            stars: 1 
+        });
+
+        const updates: { [key: string]: any } = {};
+        const newStars = (duelWinner.stars || 0) + 1;
+
+        updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
+        updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
+        
+        await update(ref(database), updates);
+
+        const winnerUpdate = { ...duelWinner, stars: newStars, eliminated: false };
+        const loserUpdate = { ...duelLoser, eliminated: true };
+        
+        setParticipants(prev => ({
+            ...prev,
+            [duelWinner.id]: winnerUpdate,
+            [duelLoser.id]: loserUpdate,
+        }));
+
+        setRoundWinner(winnerUpdate);
+        setDisputeState({ 
+            type: 'ROUND_WINNER', 
+            winner: winnerUpdate, 
+            loser: loserUpdate, 
+            words: ['Rodada']
+        });
+        toast({
+            title: "Disputa Encerrada!",
+            description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
+        });
+        setRaffleState('round_finished');
+    } else {
+        // Duel continues
+        setRaffleState('participants_sorted');
+        toast({ title: 'Ponto Marcado!', description: `Próxima palavra do duelo.` });
+    }
+};
+
   
   const handleNoWinner = () => {
-    if (!currentWords) return;
-    setDisputeState({
-      type: 'ROUND_WINNER',
-      winner: null,
-      loser: null,
-      words: currentWords
-    });
-    toast({ title: 'Nova Rodada!', description: 'Ninguém foi eliminado. Começando uma nova rodada.'});
-    setRaffleState('round_finished');
+     if (!currentDuel) return;
+    const newWordsPlayed = wordsPlayed + 1;
+    setWordsPlayed(newWordsPlayed);
+    
+    setCurrentWords(null);
+    toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou. Preparando próxima palavra.'});
+    setDisputeState({ type: 'HIDE_WORD', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
+
+    const isDuelOver = newWordsPlayed >= wordsPerRound && duelScore.a !== duelScore.b;
+    if(isDuelOver){
+        handleWordWinner(duelScore.a > duelScore.b ? currentDuel.participantA.id : currentDuel.participantB.id);
+    } else {
+        setRaffleState('participants_sorted');
+    }
   }
 
   const nextRound = () => {
     setCurrentDuel(null);
     setCurrentWords(null);
     setRoundWinner(null);
-    setRoundWinningWord(null);
+    setDuelScore({ a: 0, b: 0 });
+    setWordsPlayed(0);
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
     
-    // Use a slight delay to allow state to propagate before checking for winner
     setTimeout(() => {
       const dbRef = ref(database, 'dispute/participants');
       get(dbRef).then(snapshot => {
@@ -389,16 +403,17 @@ function RafflePageContent() {
   
   const renderWordButtons = () => {
     if (!currentWords || !currentDuel) return null;
+    const word = currentWords[0];
 
-    return currentWords.map(word => (
-      <Card key={word} className="p-4 flex flex-col items-center gap-2 bg-muted/50">
+    return (
+      <Card className="p-4 flex flex-col items-center gap-2 bg-muted/50 w-full">
         <p className="text-xl font-bold tracking-wider uppercase text-primary">{word}</p>
         <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => handleWinner(currentDuel.participantA.id, word)}>{currentDuel.participantA.name}</Button>
-            <Button size="sm" variant="outline" onClick={() => handleWinner(currentDuel.participantB.id, word)}>{currentDuel.participantB.name}</Button>
+            <Button size="sm" variant="outline" onClick={() => handleWordWinner(currentDuel.participantA.id)}>{currentDuel.participantA.name}</Button>
+            <Button size="sm" variant="outline" onClick={() => handleWordWinner(currentDuel.participantB.id)}>{currentDuel.participantB.name}</Button>
         </div>
       </Card>
-    ));
+    );
   }
 
   const renderState = () => {
@@ -436,22 +451,26 @@ function RafflePageContent() {
     }
 
     if (raffleState === 'participants_sorted' && currentDuel) {
+      const duelIsTie = wordsPlayed >= wordsPerRound && duelScore.a === duelScore.b;
       return (
         <div className="text-center flex flex-col items-center gap-6">
-          <h2 className="text-2xl font-bold text-primary">Disputa Definida!</h2>
+          <h2 className="text-2xl font-bold text-primary">Disputa em Andamento!</h2>
           <div className="flex items-center justify-center gap-4 text-2xl font-semibold">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col items-center gap-1">
                 <Trophy className="text-amber-400" />
                 <span>{currentDuel.participantA.name}</span>
+                <span className='text-lg font-bold'>Pontos: {duelScore.a}</span>
               </div>
-              <span className="text-muted-foreground">vs.</span>
-              <div className="flex items-center gap-2">
-                <span>{currentDuel.participantB.name}</span>
+              <span className="text-muted-foreground self-center">vs.</span>
+              <div className="flex flex-col items-center gap-1">
                 <Trophy className="text-amber-400" />
+                <span>{currentDuel.participantB.name}</span>
+                 <span className='text-lg font-bold'>Pontos: {duelScore.b}</span>
               </div>
           </div>
+          <p className='text-muted-foreground'>Palavra {wordsPlayed + 1} de {wordsPerRound}{duelIsTie ? " (Desempate!)" : ""}</p>
           <Button size="lg" onClick={sortWord} className="mt-4">
-            <PartyPopper className="mr-2"/>Sortear Palavra(s)
+            <PartyPopper className="mr-2"/>Sortear Palavra
           </Button>
         </div>
       )
@@ -460,10 +479,8 @@ function RafflePageContent() {
     if (raffleState === 'word_preview' && currentWords) {
        return (
          <div className="text-center flex flex-col items-center gap-6">
-            <p className="text-lg text-muted-foreground">Palavra(s) sorteada(s) (apenas para você):</p>
-            <div className='flex flex-col gap-2'>
-              {currentWords.map(word => <p key={word} className="text-3xl font-bold tracking-widest uppercase text-primary">{word}</p>)}
-            </div>
+            <p className="text-lg text-muted-foreground">Palavra sorteada (apenas para você):</p>
+            <p className="text-3xl font-bold tracking-widest uppercase text-primary">{currentWords[0]}</p>
             <Button size="lg" onClick={revealWord} className="mt-4 bg-amber-500 hover:bg-amber-600">
                 <Eye className="mr-2"/>Revelar no Projetor
             </Button>
@@ -474,8 +491,8 @@ function RafflePageContent() {
     if (raffleState === 'word_sorted' && currentDuel && currentWords) {
       return (
         <div className="text-center flex flex-col items-center gap-6 w-full">
-            <p className="text-lg text-muted-foreground">Quem venceu a disputa com qual palavra?</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+            <p className="text-lg text-muted-foreground">Quem venceu a disputa com a palavra?</p>
+            <div className="w-full">
                 {renderWordButtons()}
             </div>
             <p className="text-xl font-semibold mt-4">Ou...</p>
@@ -487,15 +504,14 @@ function RafflePageContent() {
     }
 
     if (raffleState === 'round_finished') {
-        const message = roundWinner ? `${roundWinner.name} venceu!` : 'Ninguém acertou!';
-        const description = roundWinner ? `Soletrando "${roundWinningWord}" e ganhou 1 estrela!` : 'Nenhum ponto foi dado.';
+        const message = `${roundWinner?.name} venceu o duelo!`;
 
         return (
             <div className="text-center flex flex-col items-center gap-6">
                 <h2 className="text-3xl font-bold">{message}</h2>
                 {roundWinner && (
                     <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
-                        <Star /> {description}
+                        <Star /> Ganhou 1 estrela!
                     </p>
                 )}
                 <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
