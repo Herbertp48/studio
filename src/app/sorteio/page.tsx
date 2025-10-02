@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -337,6 +338,8 @@ function RafflePageContent() {
         // Duel continues, reset for next word
         setCurrentWords(null);
         setRaffleState('participants_sorted');
+        // Update projector with new score
+        setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
     }
 };
   
@@ -389,6 +392,8 @@ function RafflePageContent() {
         // Duel continues, reset for next word
         setCurrentWords(null);
         setRaffleState('participants_sorted');
+        // Update projector with current score
+        setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
     }
   }
 

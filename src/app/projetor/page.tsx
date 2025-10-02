@@ -35,7 +35,7 @@ type DisplayState = {
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
-    duelScore?: { a: number, b: number };
+    duelScore: { a: number, b: number };
 };
 
 const initialDisplayState: DisplayState = {
@@ -175,7 +175,7 @@ export default function ProjectionPage() {
 
                 case 'UPDATE_PARTICIPANTS':
                     stopShufflingAnimation();
-                    if (!shufflingIntervalRef.current && !displayState.participantA) { // Only play sound on initial duel set
+                    if (!shufflingIntervalRef.current && !displayState.participantA) { 
                         playSound('sinos.mp3');
                     }
                     setDisplayState(prevState => ({
@@ -210,11 +210,11 @@ export default function ProjectionPage() {
                     }
                     setAnimationKey(prev => prev + 1);
                     if (action.words) {
-                       setDisplayState({
-                           ...initialDisplayState,
+                       setDisplayState(prevState => ({
+                           ...prevState, // Keep participant and score data
                            view: 'round_winner',
                            roundWinner: { winner: action.winner || null, loser: action.loser || null, words: action.words }
-                       });
+                       }));
                     }
                     break;
 
