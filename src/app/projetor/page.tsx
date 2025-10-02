@@ -12,7 +12,7 @@ import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER';
     participantA?: Participant | null;
     participantB?: Participant | null;
     words?: string[] | null;
@@ -23,15 +23,17 @@ type DisputeAction = {
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
     duelScore?: { a: number, b: number };
+    duelWordsWon?: string[];
 }
 
 type DisplayState = {
-    view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement' | 'no_winner';
+    view: 'main' | 'word_winner' | 'duel_winner' | 'final_winner' | 'winners_table' | 'tie_announcement' | 'no_winner';
     participantA: Participant | null;
     participantB: Participant | null;
     words: string[] | null;
     showWord: boolean;
-    roundWinner?: { winner: Participant | null, loser: Participant | null, words: string[] };
+    wordWinner?: { winner: Participant | null, words: string[] };
+    duelWinner?: { winner: Participant | null, words: string[] };
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
@@ -202,20 +204,36 @@ export default function ProjectionPage() {
                      setDisplayState(prevState => ({ ...prevState, showWord: false, words: null, view: 'main' }));
                      break;
 
-                case 'ROUND_WINNER':
-                    stopShufflingAnimation();
+                case 'WORD_WINNER':
                     stopAllSounds();
-                    if (action.winner) {
-                        playSound('vencedor.mp3');
-                    }
+                    if(action.winner) playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
-                    if (action.words) {
-                       setDisplayState(prevState => ({
-                           ...prevState, // Keep participant and score data
-                           view: 'round_winner',
-                           roundWinner: { winner: action.winner || null, loser: action.loser || null, words: action.words }
-                       }));
-                    }
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'word_winner',
+                        wordWinner: { winner: action.winner || null, words: action.words || [] }
+                    }));
+                    break;
+                
+                case 'NO_WORD_WINNER':
+                    stopAllSounds();
+                    setAnimationKey(prev => prev + 1);
+                     setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'word_winner',
+                        wordWinner: { winner: null, words: action.words || [] }
+                    }));
+                    break;
+
+                case 'DUEL_WINNER':
+                    stopAllSounds();
+                    playSound('vencedor.mp3');
+                    setAnimationKey(prev => prev + 1);
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'duel_winner',
+                        duelWinner: { winner: action.winner || null, words: action.duelWordsWon || [] }
+                    }));
                     break;
 
                 case 'FINAL_WINNER':
@@ -310,9 +328,9 @@ export default function ProjectionPage() {
         </div>
     );
 
-    const RoundWinnerMessage = () => {
-        if (!displayState.roundWinner) return null;
-        const { winner, words } = displayState.roundWinner;
+    const WordWinnerMessage = () => {
+        if (!displayState.wordWinner) return null;
+        const { winner, words } = displayState.wordWinner;
         const word = words && words.length > 0 ? words[0] : null;
 
         if (winner && word) {
@@ -349,6 +367,28 @@ export default function ProjectionPage() {
         );
     }
     
+     const DuelWinnerMessage = () => {
+        if (!displayState.duelWinner || !displayState.duelWinner.winner) return null;
+        const { winner, words } = displayState.duelWinner;
+
+        return (
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </div>
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <div className="text-6xl mb-6 inline-block">
+                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner!.name}</b>
+                    </div>
+                    <p className="text-5xl leading-tight font-semibold">
+                        Ganhou a disputa soletrando corretamente a(s) palavra(s): <b className="text-white bg-accent px-4 py-1 rounded-md">{words.join(', ')}</b> e recebeu uma estrela <span className="text-yellow-400">⭐</span>!
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     const FinalWinnerMessage = () => {
          if (!displayState.finalWinner) return null;
          const { finalWinner } = displayState;
@@ -451,8 +491,10 @@ export default function ProjectionPage() {
 
     const renderContent = () => {
         switch (displayState.view) {
-            case 'round_winner':
-                return <RoundWinnerMessage />;
+            case 'word_winner':
+                return <WordWinnerMessage />;
+            case 'duel_winner':
+                return <DuelWinnerMessage />;
             case 'final_winner':
                 return <FinalWinnerMessage />;
             case 'no_winner':
