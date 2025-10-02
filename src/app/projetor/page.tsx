@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -281,7 +282,7 @@ export default function ProjectionPage() {
                 </div>
                 
                 <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div className="flex items-center justify-around w-full gap-4">
+                    <div className="flex items-center justify-around w-full">
                         <div className="flex-1 text-center">
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
                         </div>
@@ -474,3 +475,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
