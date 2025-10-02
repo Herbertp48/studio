@@ -297,7 +297,7 @@ export default function ProjectionPage() {
                             <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
                             <p className="text-4xl font-bold mt-4">Pontos: {displayState.duelScore?.a || 0}</p>
                         </div>
-                        <div className="flex-shrink-0 text-center px-4 pt-4">
+                        <div className="flex-shrink-0 text-center px-4">
                             <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                         </div>
                         <div className="flex-1 text-center">

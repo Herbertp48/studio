@@ -227,6 +227,8 @@ function RafflePageContent() {
   };
 
   const sortWord = () => {
+    setDisputeState({ type: 'HIDE_WORD' });
+
     if (availableWords.length === 0) {
       toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
       setAvailableWords(originalWords);
@@ -329,19 +331,12 @@ function RafflePageContent() {
             description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
         });
         
-        // A small delay before showing the "Round Finished" state, to let the projector message be seen
-        setTimeout(() => {
-            setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
-            setRaffleState('round_finished');
-        }, 3000);
+        setRaffleState('round_finished');
 
     } else {
         // Duel continues, reset for next word
-        setTimeout(() => {
-            setCurrentWords(null);
-            setDisputeState({ type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
-            setRaffleState('participants_sorted');
-        }, 3000); // Delay to show projector message
+        setCurrentWords(null);
+        setRaffleState('participants_sorted');
     }
 };
   
@@ -389,14 +384,11 @@ function RafflePageContent() {
         setRoundWinner(winnerUpdate);
         toast({ title: "Duelo Encerrado!", description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!` });
 
-        setTimeout(() => setRaffleState('round_finished'), 3000);
+        setRaffleState('round_finished');
     } else {
         // Duel continues, reset for next word
-        setTimeout(() => {
-            setCurrentWords(null);
-            setDisputeState({ type: 'HIDE_WORD', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
-            setRaffleState('participants_sorted');
-        }, 3000);
+        setCurrentWords(null);
+        setRaffleState('participants_sorted');
     }
   }
 
