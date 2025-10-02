@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Input } from '@/components/ui/input';
 
 export type WordList = {
     id: string;
@@ -37,7 +38,7 @@ type DisputeState = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
     participantA?: Participant | null;
     participantB?: Participant | null;
-    word?: string | null;
+    words?: string[] | null;
     winner?: Participant | null;
     loser?: Participant | null;
     finalWinner?: Participant | null;
@@ -55,7 +56,7 @@ function RafflePageContent() {
   const [wordLists, setWordLists] = useState<WordList[]>([]);
   
   const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
-  const [currentWord, setCurrentWord] = useState<string | null>(null);
+  const [currentWords, setCurrentWords] = useState<string[] | null>(null);
   const [raffleState, setRaffleState] = useState<RaffleState>('idle');
   const [roundWinner, setRoundWinner] = useState<Participant | null>(null);
   const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
@@ -66,6 +67,8 @@ function RafflePageContent() {
   const [manualReveal, setManualReveal] = useState(false);
   const [originalWords, setOriginalWords] = useState<string[]>([]);
   const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [wordsPerRound, setWordsPerRound] = useState(1);
+  const [roundWinningWord, setRoundWinningWord] = useState<string | null>(null);
 
   const { toast } = useToast();
   const router = useRouter();
@@ -180,7 +183,7 @@ function RafflePageContent() {
     if (!participants || raffleState === 'shuffling') return;
     
     setRoundWinner(null);
-    setCurrentWord(null);
+    setCurrentWords(null);
     setDisputeState({ type: 'RESET' });
 
     let activeParticipants = Object.values(participants).filter(p => !p.eliminated);
@@ -222,46 +225,49 @@ function RafflePageContent() {
 
   const sortWord = () => {
     let currentAvailableWords = [...availableWords];
-    if (currentAvailableWords.length === 0) {
-      toast({ title: "Aviso", description: "Todas as palavras já foram sorteadas. Reiniciando a lista de palavras." });
+    if (currentAvailableWords.length < wordsPerRound) {
+      toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
       setAvailableWords(originalWords);
       currentAvailableWords = originalWords;
     }
-     if (currentAvailableWords.length === 0) {
-        toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
+     if (currentAvailableWords.length < wordsPerRound) {
+        toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio, mesmo após reiniciar a lista." });
         return;
     }
 
-    let sortedWord: string;
-    let wordIndex: number;
+    const sortedWords: string[] = [];
+    let remainingWords = [...currentAvailableWords];
 
-    if (sortMode === 'sequential') {
-      wordIndex = 0;
-      sortedWord = currentAvailableWords[wordIndex];
-    } else {
-      wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
-      sortedWord = currentAvailableWords[wordIndex];
+    for (let i = 0; i < wordsPerRound; i++) {
+        let wordIndex: number;
+        if (sortMode === 'sequential') {
+            wordIndex = 0;
+        } else {
+            wordIndex = Math.floor(Math.random() * remainingWords.length);
+        }
+        const [sortedWord] = remainingWords.splice(wordIndex, 1);
+        sortedWords.push(sortedWord);
     }
     
-    setCurrentWord(sortedWord);
-    setAvailableWords(prev => prev.filter((_, i) => i !== prev.indexOf(sortedWord)));
+    setCurrentWords(sortedWords);
+    setAvailableWords(remainingWords);
     
     if (manualReveal) {
         setRaffleState('word_preview');
     } else {
         setRaffleState('word_sorted');
-        setDisputeState({ type: 'SHOW_WORD', word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
+        setDisputeState({ type: 'SHOW_WORD', words: sortedWords, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB });
     }
   };
 
   const revealWord = () => {
-    if (!currentWord || !currentDuel) return;
+    if (!currentWords || !currentDuel) return;
     setRaffleState('word_sorted');
-    setDisputeState({ type: 'SHOW_WORD', word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB });
+    setDisputeState({ type: 'SHOW_WORD', words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB });
   };
   
-  const handleWinner = async (winnerId: string) => {
-    if (!currentDuel || !currentWord) return;
+  const handleWinner = async (winnerId: string, winningWord: string) => {
+    if (!currentDuel || !currentWords) return;
 
     const winner = participants[winnerId];
     const loserId = currentDuel.participantA.id === winnerId ? currentDuel.participantB.id : currentDuel.participantA.id;
@@ -275,7 +281,7 @@ function RafflePageContent() {
     const newWinnerEntryRef = push(ref(database, 'winners'));
     await set(newWinnerEntryRef, {
         name: winner.name,
-        word: currentWord,
+        word: winningWord,
         stars: 1 
     });
 
@@ -298,11 +304,12 @@ function RafflePageContent() {
 
 
     setRoundWinner(winnerUpdate);
+    setRoundWinningWord(winningWord);
     setDisputeState({ 
         type: 'ROUND_WINNER', 
         winner: winnerUpdate, 
         loser: loserUpdate, 
-        word: currentWord 
+        words: [winningWord]
     });
     toast({
         title: "Disputa Encerrada!",
@@ -313,12 +320,12 @@ function RafflePageContent() {
   };
   
   const handleNoWinner = () => {
-    if (!currentWord) return;
+    if (!currentWords) return;
     setDisputeState({
       type: 'ROUND_WINNER',
       winner: null,
       loser: null,
-      word: currentWord
+      words: currentWords
     });
     toast({ title: 'Nova Rodada!', description: 'Ninguém foi eliminado. Começando uma nova rodada.'});
     setRaffleState('round_finished');
@@ -326,8 +333,9 @@ function RafflePageContent() {
 
   const nextRound = () => {
     setCurrentDuel(null);
-    setCurrentWord(null);
+    setCurrentWords(null);
     setRoundWinner(null);
+    setRoundWinningWord(null);
     setDisputeState({ type: 'RESET' });
     setRaffleState('idle'); 
     
@@ -378,6 +386,20 @@ function RafflePageContent() {
         nextRound();
         toast({ title: "Desempate!", description: "A rodada de desempate começou." });
     }
+  
+  const renderWordButtons = () => {
+    if (!currentWords || !currentDuel) return null;
+
+    return currentWords.map(word => (
+      <Card key={word} className="p-4 flex flex-col items-center gap-2 bg-muted/50">
+        <p className="text-xl font-bold tracking-wider uppercase text-primary">{word}</p>
+        <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => handleWinner(currentDuel.participantA.id, word)}>{currentDuel.participantA.name}</Button>
+            <Button size="sm" variant="outline" onClick={() => handleWinner(currentDuel.participantB.id, word)}>{currentDuel.participantB.name}</Button>
+        </div>
+      </Card>
+    ));
+  }
 
   const renderState = () => {
     if (!participants) {
@@ -429,17 +451,19 @@ function RafflePageContent() {
               </div>
           </div>
           <Button size="lg" onClick={sortWord} className="mt-4">
-            <PartyPopper className="mr-2"/>Sortear Palavra
+            <PartyPopper className="mr-2"/>Sortear Palavra(s)
           </Button>
         </div>
       )
     }
 
-    if (raffleState === 'word_preview' && currentWord) {
+    if (raffleState === 'word_preview' && currentWords) {
        return (
          <div className="text-center flex flex-col items-center gap-6">
-            <p className="text-lg text-muted-foreground">Palavra sorteada (apenas para você):</p>
-            <p className="text-5xl font-bold tracking-widest uppercase text-primary">{currentWord}</p>
+            <p className="text-lg text-muted-foreground">Palavra(s) sorteada(s) (apenas para você):</p>
+            <div className='flex flex-col gap-2'>
+              {currentWords.map(word => <p key={word} className="text-3xl font-bold tracking-widest uppercase text-primary">{word}</p>)}
+            </div>
             <Button size="lg" onClick={revealWord} className="mt-4 bg-amber-500 hover:bg-amber-600">
                 <Eye className="mr-2"/>Revelar no Projetor
             </Button>
@@ -447,30 +471,24 @@ function RafflePageContent() {
        )
     }
     
-    if (raffleState === 'word_sorted' && currentDuel && currentWord) {
+    if (raffleState === 'word_sorted' && currentDuel && currentWords) {
       return (
-        <div className="text-center flex flex-col items-center gap-6">
-            <p className="text-lg text-muted-foreground">A palavra é:</p>
-            <p className="text-5xl font-bold tracking-widest uppercase text-primary">{currentWord}</p>
-            <p className="text-xl font-semibold mt-4">Quem venceu a disputa?</p>
-            <div className="flex justify-center flex-wrap gap-4">
-                <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantA.id)}>
-                    <Star className="mr-2"/> {currentDuel.participantA.name}
-                </Button>
-                <Button variant="outline" size="lg" onClick={() => handleWinner(currentDuel.participantB.id)}>
-                    <Star className="mr-2"/> {currentDuel.participantB.name}
-                </Button>
-                <Button variant="secondary" size="lg" onClick={handleNoWinner}>
-                    <RefreshCw className="mr-2" /> Ninguém Acertou
-                </Button>
+        <div className="text-center flex flex-col items-center gap-6 w-full">
+            <p className="text-lg text-muted-foreground">Quem venceu a disputa com qual palavra?</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                {renderWordButtons()}
             </div>
+            <p className="text-xl font-semibold mt-4">Ou...</p>
+            <Button variant="secondary" size="lg" onClick={handleNoWinner}>
+                <RefreshCw className="mr-2" /> Ninguém Acertou
+            </Button>
         </div>
       )
     }
 
     if (raffleState === 'round_finished') {
         const message = roundWinner ? `${roundWinner.name} venceu!` : 'Ninguém acertou!';
-        const description = roundWinner ? 'Ganhou 1 estrela!' : 'Nenhum ponto foi dado.';
+        const description = roundWinner ? `Soletrando "${roundWinningWord}" e ganhou 1 estrela!` : 'Nenhum ponto foi dado.';
 
         return (
             <div className="text-center flex flex-col items-center gap-6">
@@ -516,6 +534,19 @@ function RafflePageContent() {
                             <Label htmlFor="r-sequential">Sequencial</Label>
                         </div>
                     </RadioGroup>
+                 </div>
+                 <div className="flex items-center justify-between">
+                    <Label htmlFor="words-per-round-input">Palavras por Rodada:</Label>
+                    <Input
+                        id="words-per-round-input"
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={wordsPerRound}
+                        onChange={(e) => setWordsPerRound(Math.max(1, parseInt(e.target.value, 10)))}
+                        className="w-20"
+                        disabled={raffleState !== 'idle'}
+                    />
                  </div>
                  <div className="flex items-center justify-between">
                     <Label htmlFor="manual-reveal-switch">Revelação Manual:</Label>

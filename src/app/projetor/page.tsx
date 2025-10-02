@@ -15,7 +15,7 @@ type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER';
     participantA?: Participant | null;
     participantB?: Participant | null;
-    word?: string | null;
+    words?: string[] | null;
     winner?: Participant | null;
     loser?: Participant | null;
     finalWinner?: Participant | null;
@@ -28,9 +28,9 @@ type DisplayState = {
     view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement' | 'no_winner';
     participantA: Participant | null;
     participantB: Participant | null;
-    word: string | null;
+    words: string[] | null;
     showWord: boolean;
-    roundWinner?: { winner: Participant | null, loser: Participant | null, word: string };
+    roundWinner?: { winner: Participant | null, loser: Participant | null, words: string[] };
     finalWinner?: Participant;
     winners?: AggregatedWinner[];
     tieWinners?: Participant[];
@@ -40,7 +40,7 @@ const initialDisplayState: DisplayState = {
     view: 'main',
     participantA: null,
     participantB: null,
-    word: null,
+    words: null,
     showWord: false,
 };
 
@@ -165,7 +165,7 @@ export default function ProjectionPage() {
                         ...prevState,
                         view: 'main',
                         showWord: false,
-                        word: null
+                        words: null
                     }));
                     break;
 
@@ -185,13 +185,13 @@ export default function ProjectionPage() {
                     playSound('premio.mp3');
                     setDisplayState(prevState => ({
                         ...prevState,
-                        word: action.word || null,
+                        words: action.words || null,
                         showWord: true,
                     }));
                     break;
 
                 case 'HIDE_WORD':
-                     setDisplayState(prevState => ({ ...prevState, showWord: false, word: null }));
+                     setDisplayState(prevState => ({ ...prevState, showWord: false, words: null }));
                      break;
 
                 case 'ROUND_WINNER':
@@ -201,11 +201,11 @@ export default function ProjectionPage() {
                         playSound('vencedor.mp3');
                     }
                     setAnimationKey(prev => prev + 1);
-                    if (action.word) {
+                    if (action.words) {
                        setDisplayState({
                            ...initialDisplayState,
                            view: 'round_winner',
-                           roundWinner: { winner: action.winner || null, loser: action.loser || null, word: action.word }
+                           roundWinner: { winner: action.winner || null, loser: action.loser || null, words: action.words }
                        });
                     }
                     break;
@@ -274,10 +274,12 @@ export default function ProjectionPage() {
             <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden">
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                     <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-                    <div className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
-                        <p className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
-                            {displayState.word || '...'}
-                        </p>
+                    <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl p-4">
+                        {displayState.words && displayState.words.map(word => (
+                            <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
+                                {word}
+                            </p>
+                        ))}
                     </div>
                 </div>
                 
@@ -300,7 +302,8 @@ export default function ProjectionPage() {
 
     const RoundWinnerMessage = () => {
         if (!displayState.roundWinner) return null;
-        const { winner, word } = displayState.roundWinner;
+        const { winner, words } = displayState.roundWinner;
+        const word = words[0];
 
         if (winner) {
             return (
@@ -334,7 +337,7 @@ export default function ProjectionPage() {
                 <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
                     <CircleX className="w-32 h-32 mx-auto text-destructive mb-6" />
                     <h2 className="text-7xl font-bold font-melison mb-4">Rodada sem Vencedor</h2>
-                    <p className="text-3xl">Ninguém acertou a palavra <b className="text-white bg-destructive px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>.</p>
+                    <p className="text-3xl">Ninguém acertou a(s) palavra(s) desta rodada.</p>
                 </div>
             </div>
         );
@@ -475,5 +478,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
