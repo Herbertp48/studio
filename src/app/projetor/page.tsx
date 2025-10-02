@@ -192,13 +192,14 @@ export default function ProjectionPage() {
                     playSound('premio.mp3');
                     setDisplayState(prevState => ({
                         ...prevState,
+                        view: 'main',
                         words: action.words || null,
                         showWord: true,
                     }));
                     break;
 
                 case 'HIDE_WORD':
-                     setDisplayState(prevState => ({ ...prevState, showWord: false, words: null }));
+                     setDisplayState(prevState => ({ ...prevState, showWord: false, words: null, view: 'main' }));
                      break;
 
                 case 'ROUND_WINNER':
@@ -312,8 +313,9 @@ export default function ProjectionPage() {
     const RoundWinnerMessage = () => {
         if (!displayState.roundWinner) return null;
         const { winner, words } = displayState.roundWinner;
+        const word = words && words.length > 0 ? words[0] : null;
 
-        if (winner) {
+        if (winner && word) {
             return (
                 <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                     <div className="absolute top-8 flex items-center gap-4 text-accent">
@@ -325,7 +327,7 @@ export default function ProjectionPage() {
                             <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
                         </div>
                         <p className="text-5xl leading-tight font-semibold">
-                            Ganhou o duelo e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
+                            Ganhou a disputa soletrando corretamente a palavra <b className="text-white bg-accent px-4 py-1 rounded-md">{word}</b> e marcou um ponto!
                         </p>
                     </div>
                 </div>
@@ -341,7 +343,7 @@ export default function ProjectionPage() {
                 <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
                     <CircleX className="w-32 h-32 mx-auto text-destructive mb-6" />
                     <h2 className="text-7xl font-bold font-melison mb-4">Rodada sem Vencedor</h2>
-                    <p className="text-3xl">Ninguém acertou a(s) palavra(s) desta rodada.</p>
+                    <p className="text-3xl">Ninguém pontuou com a palavra <b className="text-white bg-destructive px-4 py-1 rounded-md">{word}</b>.</p>
                 </div>
             </div>
         );
