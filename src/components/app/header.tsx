@@ -1,4 +1,4 @@
-import { Home, List, Dices, Trophy, LogOut, Users, User, Menu } from 'lucide-react';
+import { Home, List, Dices, Trophy, LogOut, Users, User, Menu, Palette } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
@@ -20,6 +20,7 @@ export function AppHeader() {
     { href: '/disputa', label: 'Disputa', icon: List, requiredPermission: 'disputa' },
     { href: '/sorteio', label: 'Sorteio', icon: Dices, requiredPermission: 'sorteio' },
     { href: '/ganhadores', label: 'Ganhadores', icon: Trophy, requiredPermission: 'ganhadores' },
+    { href: '/estudio', label: 'Estúdio', icon: Palette, requiredPermission: 'admin' },
     { href: '/usuarios', label: 'Usuários', icon: Users, requiredPermission: 'admin' },
   ];
 

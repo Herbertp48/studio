@@ -17,7 +17,7 @@ const pageNames = {
     disputa: "Disputa",
     sorteio: "Sorteio",
     ganhadores: "Ganhadores",
-    admin: "Gerenciamento de Usuários"
+    admin: "Administração"
 }
 
 export default function ProtectedRoute({ children, page }: ProtectedRouteProps) {
