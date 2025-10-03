@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Separator } from '@/components/ui/separator';
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -87,6 +88,55 @@ const initialTemplates: MessageTemplates = {
     },
 };
 
+const renderPreview = (template: MessageTemplate) => {
+    const { text, styles } = template;
+
+    const dummyData = {
+        name: 'PARTICIPANTE',
+        words: ['PALAVRA-1', 'PALAVRA-2'],
+        'words.0': 'PALAVRA-EXEMPLO',
+        stars: '5',
+        participants: [{ name: 'JOÃO' }, { name: 'MARIA' }]
+    };
+
+    let renderedText = text;
+    // Basic replacement for preview
+    renderedText = renderedText.replace(/\{\{name\}\}/g, dummyData.name);
+    renderedText = renderedText.replace(/\{\{words\.0\}\}/g, dummyData['words.0']);
+    renderedText = renderedText.replace(/\{\{words\}\}/g, dummyData.words.join(', '));
+    renderedText = renderedText.replace(/\{\{stars\}\}/g, dummyData.stars);
+    
+    const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
+    renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
+        if (!Array.isArray(dummyData.participants)) return '';
+        return dummyData.participants.map((p: any) => innerTemplate.replace(/\{\{this\.name\}\}/g, p.name)).join('');
+    });
+
+
+    const style: React.CSSProperties = {
+        background: styles.backgroundColor,
+        color: styles.textColor,
+        border: `${styles.borderWidth} solid ${styles.borderColor}`,
+        borderRadius: styles.borderRadius,
+        padding: '2rem',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+        textAlign: 'center',
+        maxWidth: '100%',
+        wordBreak: 'break-word',
+    };
+
+    return (
+        <div className='p-4 border bg-muted rounded-lg mt-4'>
+             <Label className='font-bold text-sm text-muted-foreground'>PRÉ-VISUALIZAÇÃO</Label>
+            <div className='flex justify-center items-center p-4 mt-2'>
+                <div style={style}>
+                    <div dangerouslySetInnerHTML={{ __html: renderedText }} />
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 function StudioPageContent() {
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
@@ -152,7 +202,10 @@ function StudioPageContent() {
                     </CardHeader>
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
-                            {Object.entries(templates).map(([key, template]) => (
+                            {Object.keys(templates).map((key) => {
+                                const template = templates[key];
+                                if (!template) return null; // Safety check
+                                return (
                                 <AccordionItem key={key} value={key}>
                                     <AccordionTrigger className="text-lg font-semibold">{templateLabels[key]?.title || key}</AccordionTrigger>
                                     <AccordionContent className="space-y-6 pt-4">
@@ -178,6 +231,8 @@ function StudioPageContent() {
                                             />
                                             <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
                                         </div>
+
+                                        <Separator/>
 
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                             <div className="space-y-2">
@@ -251,10 +306,12 @@ function StudioPageContent() {
                                             </div>
                                         </div>
 
-                                        <Button onClick={() => handleSaveChanges(key)}>Salvar Template</Button>
+                                        {renderPreview(template)}
+
+                                        <Button onClick={() => handleSaveChanges(key)} className='mt-4'>Salvar Template</Button>
                                     </AccordionContent>
                                 </AccordionItem>
-                            ))}
+                            )})}
                         </Accordion>
                     </CardContent>
                 </Card>

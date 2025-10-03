@@ -98,7 +98,7 @@ export default function ProjectionPage() {
         const unsubTemplates = onValue(templatesRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                setTemplates(prev => ({ ...prev, ...data }));
+                setTemplates(prev => ({ ...initialTemplates, ...data }));
             }
         });
 
@@ -184,7 +184,7 @@ export default function ProjectionPage() {
                 break;
 
             case 'SHOW_WORD':
-                if (action.payload && action.payload.words) {
+                if (action.payload?.words) {
                     playSound('premio.mp3');
                     setWords(action.payload.words);
                     setShowWord(true);
@@ -234,7 +234,7 @@ export default function ProjectionPage() {
     // --- Componentes de Renderização ---
 
     const renderMessage = () => {
-        if (!currentAction || !currentAction.type.endsWith('_WINNER') && !currentAction.type.endsWith('_ANNOUNCEMENT') ) {
+        if (!currentAction || (!currentAction.type.includes('_WINNER') && !currentAction.type.includes('_ANNOUNCEMENT'))) {
             return null;
         }
         
@@ -247,28 +247,28 @@ export default function ProjectionPage() {
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
-            words: payload.duelWordsWon?.join(', ') || (payload.words ? payload.words.join(', ') : ''),
+            words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : (Array.isArray(payload.words) ? payload.words.join(', ') : ''),
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
             participants: payload.tieWinners || [],
             ...payload
         };
         
         // Simple placeholder replacement
-        renderedText = renderedText.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
+        renderedText = renderedText.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, key) => {
             const keys = key.trim().split('.');
             let value: any = data;
             try {
                 for (const k of keys) {
                     if (value && typeof value === 'object' && k in value) {
                         value = value[k];
+                    } else if (keys.length === 1 && k in data) { // Fallback for single keys like 'words.0'
+                        return data[k as keyof typeof data] as string;
                     } else {
-                        // If any part of the path is missing, return empty string.
                         return '';
                     }
                 }
-                // Handle cases where the final value might be an object (like words array)
                 if (typeof value === 'object' && value !== null) {
-                    return JSON.stringify(value); // Or a more user-friendly format
+                   return Array.isArray(value) ? value.join(', ') : '';
                 }
                 return value !== undefined && value !== null ? value : '';
             } catch {
