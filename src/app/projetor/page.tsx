@@ -18,6 +18,7 @@ type DisputeAction = {
 type TemplateStyle = {
     backgroundColor: string;
     textColor: string;
+    highlightColor: string;
     borderColor: string;
     borderWidth: string;
     borderRadius: string;
@@ -37,23 +38,23 @@ type MessageTemplates = {
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
-        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i>{{words}}</i><br> e ganhou uma <b>estrela ⭐</b>!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="crown">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
         text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
 
@@ -315,7 +316,8 @@ export default function ProjectionPage() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             textAlign: 'center',
             maxWidth: '60rem',
-        };
+            '--highlight-color': template.styles.highlightColor
+        } as React.CSSProperties;
 
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
@@ -411,7 +413,7 @@ const GlobalStyle = () => (
       /* Font size is now controlled by inline style */
     }
     .dynamic-message-content b {
-      background: rgba(0,0,0,0.1);
+      background: var(--highlight-color, rgba(0,0,0,0.1));
       padding: 0.2em 0.5em;
       border-radius: 0.3em;
       display: inline-block;
@@ -420,6 +422,7 @@ const GlobalStyle = () => (
         display: block;
         font-size: 0.8em;
         margin: 0.5em 0;
+        font-style: italic;
     }
     .dynamic-message-content .crown {
         font-size: 8rem;
@@ -434,7 +437,7 @@ const GlobalStyle = () => (
         align-items: center;
     }
     .dynamic-message-content .participants div {
-        background: rgba(0,0,0,0.1);
+        background: var(--highlight-color, rgba(0,0,0,0.1));
         padding: 0.5em 1em;
         border-radius: 0.5em;
         font-size: 1.5rem;
