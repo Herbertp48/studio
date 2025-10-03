@@ -42,7 +42,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
-        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
+        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i>{{words}}</i><br> e ganhou uma estrela ⭐!',
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
@@ -305,9 +305,11 @@ export default function ProjectionPage() {
         }
 
         // Simple placeholder replacement for {{key}} and {{key.subkey}}
-        renderedText = renderedText.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
+        renderedText = renderedText.replace(/\{\{\{?([\w.]+)\}?\}\}/g, (match, key) => {
             const keys = key.trim().split('.');
             let value: any = data;
+             // Do not process our special list
+            if (key === 'participantsList') return match;
             try {
                 // Special case for 'words.0'
                 if (key === 'words.0') {
@@ -326,6 +328,10 @@ export default function ProjectionPage() {
                 return '';
             }
         });
+
+        // Apply inline styles to <b> tags
+        const highlightStyle = `style="background-color: ${template.styles.highlightColor}; color: ${template.styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;"`;
+        renderedText = renderedText.replace(/<b(?![^>]*style)>/g, `<b ${highlightStyle}>`);
         
         const style: React.CSSProperties = {
             background: template.styles.backgroundColor,
@@ -340,21 +346,9 @@ export default function ProjectionPage() {
             maxWidth: '60rem',
         } as React.CSSProperties;
 
-        const dynamicStyleId = `dynamic-style-${templateKey}`;
-        const dynamicCSS = `
-            #${dynamicStyleId} b {
-                background: ${template.styles.highlightColor};
-                color: ${template.styles.highlightTextColor};
-                padding: 0.2em 0.5em;
-                border-radius: 0.3em;
-                display: inline-block;
-            }
-        `;
-
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <style dangerouslySetInnerHTML={{ __html: dynamicCSS }} />
-                <div id={dynamicStyleId} style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                     <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
             </div>
