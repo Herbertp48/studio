@@ -66,7 +66,7 @@ const templateLabels: { [key: string]: { title: string, description: string, var
     tie_announcement: {
         title: "Anúncio de Empate",
         description: "Exibida quando há um empate no final da disputa, anunciando a rodada de desempate.",
-        variables: ["{{#each participants}} {{this.name}} {{/each}}"]
+        variables: ["{{{participantsList}}}"]
     }
 };
 
@@ -88,7 +88,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
-        text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
+        text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{{participantsList}}}</div>',
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
@@ -122,11 +122,10 @@ const renderPreview = (template: MessageTemplate) => {
     renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, dummyData.words);
     renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, dummyData.stars);
     
-    const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
-    renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
-        if (!Array.isArray(dummyData.participants)) return '';
-        return dummyData.participants.map((p: any) => innerTemplate.replace(/\{\{this\.name\}\}/g, p.name)).join('');
-    });
+    if (renderedText.includes('{{{participantsList}}}')) {
+        const participantsHtml = dummyData.participants.map(p => `<div>${p.name}</div>`).join('');
+        renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+    }
 
 
     const style: React.CSSProperties = {

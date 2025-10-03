@@ -54,7 +54,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
-        text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
+        text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{{participantsList}}}</div>',
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
@@ -296,6 +296,11 @@ export default function ProjectionPage() {
             ...payload
         };
         
+        if (currentAction.type === 'TIE_ANNOUNCEMENT' && Array.isArray(data.participants)) {
+            const participantsHtml = data.participants.map((p: any) => `<div>${p.name || ''}</div>`).join('');
+            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+        }
+
         // Simple placeholder replacement for {{key}} and {{key.subkey}}
         renderedText = renderedText.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
             const keys = key.trim().split('.');
@@ -317,15 +322,6 @@ export default function ProjectionPage() {
             } catch {
                 return '';
             }
-        });
-
-        const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
-        renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
-            if (!Array.isArray(data.participants)) return '';
-            return data.participants.map((p: any) => {
-                // Replace {{this.name}} inside the loop content
-                return innerTemplate.replace(/\{\{\s*this\.name\s*\}\}/g, p.name || '');
-            }).join('');
         });
         
         const style: React.CSSProperties = {
