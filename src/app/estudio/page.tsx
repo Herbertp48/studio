@@ -89,11 +89,22 @@ const initialTemplates: MessageTemplates = {
 };
 
 const renderPreview = (template: MessageTemplate) => {
+    if (!template || !template.styles) {
+        return (
+            <div className='p-4 border bg-muted rounded-lg mt-4'>
+                 <Label className='font-bold text-sm text-muted-foreground'>PRÉ-VISUALIZAÇÃO</Label>
+                 <div className='flex justify-center items-center p-4 mt-2 text-destructive'>
+                    Erro ao renderizar template.
+                 </div>
+            </div>
+        )
+    }
+    
     const { text, styles } = template;
 
     const dummyData = {
         name: 'PARTICIPANTE',
-        words: ['PALAVRA-1', 'PALAVRA-2'],
+        words: ['PALAVRA-1', 'PALAVRA-2'].join(', '),
         'words.0': 'PALAVRA-EXEMPLO',
         stars: '5',
         participants: [{ name: 'JOÃO' }, { name: 'MARIA' }]
@@ -101,10 +112,10 @@ const renderPreview = (template: MessageTemplate) => {
 
     let renderedText = text;
     // Basic replacement for preview
-    renderedText = renderedText.replace(/\{\{name\}\}/g, dummyData.name);
-    renderedText = renderedText.replace(/\{\{words\.0\}\}/g, dummyData['words.0']);
-    renderedText = renderedText.replace(/\{\{words\}\}/g, dummyData.words.join(', '));
-    renderedText = renderedText.replace(/\{\{stars\}\}/g, dummyData.stars);
+    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, dummyData.name);
+    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, dummyData['words.0']);
+    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, dummyData.words);
+    renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, dummyData.stars);
     
     const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
     renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
