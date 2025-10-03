@@ -241,11 +241,13 @@ export default function ProjectionPage() {
                     stopAllSounds();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
-                    setDisplayState({
+                    setDisplayState(prevState => ({
                         ...initialDisplayState,
                         view: 'final_winner',
+                        participantA: null, // Clear participants from previous views
+                        participantB: null,
                         finalWinner: action.finalWinner
-                    });
+                    }));
                     break;
                 
                 case 'NO_WINNER':
@@ -345,7 +347,7 @@ export default function ProjectionPage() {
                             <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
                         </div>
                         <p className="text-5xl leading-tight font-semibold">
-                            Ganhou a disputa soletrando corretamente a palavra <b className="text-white bg-accent px-4 py-1 rounded-md">{word}</b> e marcou um ponto!
+                            Ganhou a disputa soletrando corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-1 rounded-md">{word}</b> e marcou um ponto!
                         </p>
                     </div>
                 </div>
@@ -383,7 +385,7 @@ export default function ProjectionPage() {
                         <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner!.name}</b>
                     </div>
                     <p className="text-5xl leading-tight font-semibold">
-                        Ganhou a disputa soletrando corretamente a(s) palavra(s): <b className="text-white bg-accent px-4 py-1 rounded-md">{words.join(', ')}</b> e recebeu uma estrela <span className="text-yellow-400">⭐</span>!
+                        Ganhou a disputa soletrando corretamente a(s) palavra(s): <b className="text-white bg-accent-foreground px-4 py-1 rounded-md">{words.join(', ')}</b> e recebeu uma estrela <span className="text-yellow-400">⭐</span>!
                     </p>
                 </div>
             </div>
