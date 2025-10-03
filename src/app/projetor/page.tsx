@@ -42,7 +42,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
-        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i>{{words}}</i><br> e ganhou uma estrela ⭐!',
+        text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
@@ -50,7 +50,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
-        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
+        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
@@ -287,8 +287,8 @@ export default function ProjectionPage() {
         
         if (!template) return null;
 
-        let renderedText = template.text;
-
+        const { styles, text } = template;
+        
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
@@ -297,58 +297,77 @@ export default function ProjectionPage() {
             participants: payload.participants || [],
             ...payload
         };
-        
-        // Handle Tie Announcement separately for the list
-        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
-            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
-            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
-        }
 
-        // Simple placeholder replacement for {{key}} and {{key.subkey}}
-        renderedText = renderedText.replace(/\{\{\{?([\w.]+)\}?\}\}/g, (match, key) => {
-            const keys = key.trim().split('.');
-            let value: any = data;
-             // Do not process our special list
-            if (key === 'participantsList') return match;
-            try {
-                // Special case for 'words.0'
-                if (key === 'words.0') {
-                    return data['words.0'];
-                }
-
-                for (const k of keys) {
-                    if (value && typeof value === 'object' && k in value) {
-                        value = value[k];
-                    } else {
-                        return ''; // Return empty if path is invalid
-                    }
-                }
-                return value !== undefined && value !== null ? String(value) : '';
-            } catch {
-                return '';
-            }
-        });
-
-        // Apply inline styles to <b> tags
-        const highlightStyle = `style="background-color: ${template.styles.highlightColor}; color: ${template.styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;"`;
-        renderedText = renderedText.replace(/<b(?![^>]*style)>/g, `<b ${highlightStyle}>`);
-        
-        const style: React.CSSProperties = {
-            background: template.styles.backgroundColor,
-            color: template.styles.textColor,
-            border: `${template.styles.borderWidth} solid ${template.styles.borderColor}`,
-            borderRadius: template.styles.borderRadius,
-            fontFamily: template.styles.fontFamily,
-            fontSize: template.styles.fontSize,
+        const containerStyle: React.CSSProperties = {
+            background: styles.backgroundColor,
+            color: styles.textColor,
+            border: `${styles.borderWidth} solid ${styles.borderColor}`,
+            borderRadius: styles.borderRadius,
+            fontFamily: styles.fontFamily,
+            fontSize: styles.fontSize,
             padding: '4rem',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             textAlign: 'center',
             maxWidth: '60rem',
         } as React.CSSProperties;
 
+        // Specific robust implementation for FINAL_WINNER
+        if (currentAction.type === 'FINAL_WINNER' && data.name) {
+            const parts = text.split(/\{\{\s*name\s*\}\}/);
+            const beforeName = parts[0] || '';
+            const afterName = (parts[1] || '').replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
+            
+            const highlightStyle: React.CSSProperties = {
+                backgroundColor: styles.highlightColor,
+                color: styles.highlightTextColor,
+                padding: '0.2em 0.5em',
+                borderRadius: '0.3em',
+                display: 'inline-block'
+            };
+
+            return (
+                <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
+                    <div style={containerStyle} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                        <div className="dynamic-message-content">
+                           <div dangerouslySetInnerHTML={{ __html: beforeName }} />
+                           <h1><span style={highlightStyle}>{data.name}</span></h1>
+                           <div dangerouslySetInnerHTML={{ __html: afterName }} />
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Fallback to dangerouslySetInnerHTML for other templates
+        let renderedText = text;
+
+        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
+            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
+            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+        }
+
+        renderedText = renderedText.replace(/\{\{\{?([\w.]+)\}?\}\}/g, (match, key) => {
+             if (key === 'participantsList') return match;
+            const keys = key.trim().split('.');
+            let value: any = data;
+            try {
+                if (key === 'words.0') return data['words.0'];
+                for (const k of keys) {
+                    if (value && typeof value === 'object' && k in value) {
+                        value = value[k];
+                    } else {
+                        return '';
+                    }
+                }
+                return value !== undefined && value !== null ? String(value) : '';
+            } catch { return ''; }
+        });
+        
+        renderedText = renderedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+        
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                <div style={containerStyle} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                     <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
             </div>
