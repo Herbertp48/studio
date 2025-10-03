@@ -55,7 +55,9 @@ function WinnersPageContent() {
         if (!aggregated[winner.name]) {
           aggregated[winner.name] = { name: winner.name, words: {}, totalStars: 0 };
         }
-        aggregated[winner.name].words[winner.word] = (aggregated[winner.name].words[winner.word] || 0) + 1;
+        if (winner.stars === 0) { // Only count words if no star was given
+            aggregated[winner.name].words[winner.word] = (aggregated[winner.name].words[winner.word] || 0) + 1;
+        }
         aggregated[winner.name].totalStars += winner.stars;
       });
 
@@ -85,7 +87,7 @@ function WinnersPageContent() {
   };
 
   const projectWinners = () => {
-    setDisputeState({ type: 'SHOW_WINNERS', winners });
+    setDisputeState({ type: 'SHOW_WINNERS', payload: { winners } });
     toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
   }
 

@@ -7,10 +7,11 @@ import { ref, onValue } from 'firebase/database';
 import type { Participant } from '@/app/page';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import type { AggregatedWinner } from '@/app/ganhadores/page';
 
 // --- Tipos de Dados ---
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS_TABLE' | 'SHOW_MESSAGE';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS' | 'SHOW_MESSAGE';
     payload?: any;
 };
 
@@ -177,7 +178,7 @@ export default function ProjectionPage() {
 
             case 'UPDATE_PARTICIPANTS':
                 stopShufflingAnimation();
-                if (!participantA) playSound('sinos.mp3');
+                if (!participantA && action.payload?.participantA) playSound('sinos.mp3');
                 setParticipantA(action.payload?.participantA || null);
                 setParticipantB(action.payload?.participantB || null);
                 setDuelScore(action.payload?.duelScore || { a: 0, b: 0 });
@@ -234,7 +235,10 @@ export default function ProjectionPage() {
     // --- Componentes de Renderização ---
 
     const renderMessage = () => {
-        if (!currentAction || (!currentAction.type.includes('_WINNER') && !currentAction.type.includes('_ANNOUNCEMENT') && currentAction.type !== 'SHOW_MESSAGE')) {
+        if (!currentAction || !currentAction.type) return null;
+        
+        const validMessageTypes = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'SHOW_MESSAGE', 'NO_WINNER'];
+        if (!validMessageTypes.includes(currentAction.type)) {
             return null;
         }
         
@@ -247,7 +251,8 @@ export default function ProjectionPage() {
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
-            words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : (Array.isArray(payload.words) ? payload.words.join(', ') : ''),
+            words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
+            'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
             participants: payload.tieWinners || [],
             ...payload
@@ -258,15 +263,16 @@ export default function ProjectionPage() {
             const keys = key.trim().split('.');
             let value: any = data;
             try {
+                // Special case for 'words.0'
+                if (key === 'words.0') {
+                    return data['words.0'];
+                }
+
                 for (const k of keys) {
                     if (value && typeof value === 'object' && k in value) {
                         value = value[k];
                     } else {
-                        // Fallback for keys like "words.0"
-                        if (keys.length > 1 && data.hasOwnProperty(key)) {
-                            return data[key as keyof typeof data] as string;
-                        }
-                        return '';
+                        return ''; // Return empty if path is invalid
                     }
                 }
                 return value !== undefined && value !== null ? String(value) : '';
@@ -294,7 +300,7 @@ export default function ProjectionPage() {
         };
 
         return (
-            <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
+            <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
                 <div style={style}>
                     <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
@@ -340,7 +346,7 @@ export default function ProjectionPage() {
         </div>
     );
 
-    const shouldShowMessage = currentAction && (currentAction.type.includes('_WINNER') || currentAction.type.includes('_ANNOUNCEMENT'));
+    const shouldShowMessage = currentAction && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER'].includes(currentAction.type);
 
     if (!isReady) {
         return (
@@ -359,8 +365,8 @@ export default function ProjectionPage() {
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
             <GlobalStyle />
-            { (participantA || participantB) && !shouldShowMessage && renderMainContent() }
-            { shouldShowMessage ? renderMessage() : (participantA || participantB ? null : renderMainContent()) }
+            {renderMainContent()}
+            {shouldShowMessage && renderMessage()}
         </div>
     );
 }
