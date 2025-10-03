@@ -172,12 +172,42 @@ export default function ProjectionPage() {
     };
 
     const handleAction = (action: DisputeAction | null) => {
+        
+        const previousActionType = currentAction?.type;
         setCurrentAction(action); // Sempre armazena a última ação
 
         if (!action) {
             resetToIdle();
             return;
         }
+
+        // Play sound only on state transition
+        if (action.type !== previousActionType) {
+            switch (action.type) {
+                case 'SHUFFLING_PARTICIPANTS':
+                     if (!shufflingIntervalRef.current) {
+                        startShufflingAnimation(action.payload?.activeParticipants || []);
+                    }
+                    break;
+                case 'UPDATE_PARTICIPANTS':
+                    stopShufflingAnimation();
+                    if (!participantA && action.payload?.participantA) playSound('sinos.mp3');
+                    break;
+                case 'SHOW_WORD':
+                    playSound('premio.mp3');
+                    break;
+                case 'NO_WORD_WINNER':
+                    playSound('erro.mp3');
+                    break;
+                case 'WORD_WINNER':
+                case 'DUEL_WINNER':
+                case 'FINAL_WINNER':
+                case 'TIE_ANNOUNCEMENT':
+                    playSound('vencedor.mp3');
+                    break;
+            }
+        }
+
 
         switch (action.type) {
             case 'RESET':
@@ -188,14 +218,10 @@ export default function ProjectionPage() {
                 setShowWord(false);
                 setWords([]);
                 setDuelScore({ a: 0, b: 0 });
-                if (!shufflingIntervalRef.current) {
-                    startShufflingAnimation(action.payload?.activeParticipants || []);
-                }
+                // Animation is started by the sound logic above
                 break;
 
             case 'UPDATE_PARTICIPANTS':
-                stopShufflingAnimation();
-                if (!participantA && action.payload?.participantA) playSound('sinos.mp3');
                 setParticipantA(action.payload?.participantA || null);
                 setParticipantB(action.payload?.participantB || null);
                 setDuelScore(action.payload?.duelScore || { a: 0, b: 0 });
@@ -203,7 +229,6 @@ export default function ProjectionPage() {
 
             case 'SHOW_WORD':
                 if (action.payload && action.payload.words) {
-                    playSound('premio.mp3');
                     setWords(action.payload.words);
                     setShowWord(true);
                 }
@@ -214,16 +239,11 @@ export default function ProjectionPage() {
                 break;
             
             case 'NO_WORD_WINNER':
-                playSound('erro.mp3');
-                // A mensagem será exibida pelo estado global `currentAction`
-                break;
-
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
-                 playSound('vencedor.mp3');
-                // A mensagem será exibida pelo estado global `currentAction`
+                // Message display is handled by the global `currentAction` state
                 break;
         }
     };
