@@ -297,6 +297,12 @@ export default function ProjectionPage() {
             participants: payload.participants || [],
             ...payload
         };
+        
+        // Handle Tie Announcement separately for the list
+        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
+            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
+            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+        }
 
         // Simple placeholder replacement for {{key}} and {{key.subkey}}
         renderedText = renderedText.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
@@ -320,11 +326,6 @@ export default function ProjectionPage() {
                 return '';
             }
         });
-        
-        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
-            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
-            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
-        }
         
         const style: React.CSSProperties = {
             background: template.styles.backgroundColor,
