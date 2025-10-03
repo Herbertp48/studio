@@ -348,6 +348,8 @@ function RafflePageContent() {
     setWordsPlayed(newWordsPlayed);
     setDuelScore(newScore);
     setDuelWordsWon(newWordsWon);
+    
+    setRaffleState('round_finished');
 
     const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
 
@@ -356,9 +358,12 @@ function RafflePageContent() {
         const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
         await finishDuel(duelWinner, duelLoser);
     } else {
-        setCurrentWords(null);
-        setRaffleState('participants_sorted');
-        setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
+       // Just show the word winner message and wait for the next action.
+       // The state will be 'round_finished' but the duel is not over.
+       // We'll rename it later. Let's call it 'word_finished'.
+       setRaffleState('participants_sorted'); // Go back to state to sort next word
+       setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore });
+       setCurrentWords(null);
     }
 };
   
@@ -370,18 +375,10 @@ function RafflePageContent() {
 
     const newWordsPlayed = wordsPlayed + 1;
     setWordsPlayed(newWordsPlayed);
-
-    const isDuelOver = newWordsPlayed >= wordsPerRound && duelScore.a !== duelScore.b;
-
-    if (isDuelOver) {
-        const duelWinner = duelScore.a > duelScore.b ? currentDuel.participantA : currentDuel.participantB;
-        const duelLoser = duelScore.a > duelScore.b ? currentDuel.participantB : currentDuel.participantA;
-        await finishDuel(duelWinner, duelLoser);
-    } else {
-        setCurrentWords(null);
-        setRaffleState('participants_sorted');
-        setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
-    }
+    
+    setRaffleState('participants_sorted');
+    setDisputeState({type: 'UPDATE_PARTICIPANTS', participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore });
+    setCurrentWords(null);
   }
 
   const nextRound = () => {
