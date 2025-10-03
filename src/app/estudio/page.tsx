@@ -19,6 +19,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -26,6 +27,8 @@ type TemplateStyle = {
     borderColor: string;
     borderWidth: string;
     borderRadius: string;
+    fontFamily: string;
+    fontSize: string;
 };
 
 type MessageTemplate = {
@@ -68,23 +71,23 @@ const templateLabels: { [key: string]: { title: string, description: string, var
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
         text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i>{{words}}</i><br> e ganhou uma <b>estrela ⭐</b>!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="crown">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
         text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
 
@@ -129,6 +132,8 @@ const renderPreview = (template: MessageTemplate) => {
         color: styles.textColor,
         border: `${styles.borderWidth} solid ${styles.borderColor}`,
         borderRadius: styles.borderRadius,
+        fontFamily: styles.fontFamily,
+        fontSize: styles.fontSize,
         padding: '2rem',
         boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
         textAlign: 'center',
@@ -140,7 +145,7 @@ const renderPreview = (template: MessageTemplate) => {
         <div className='p-4 border bg-muted rounded-lg mt-4'>
              <Label className='font-bold text-sm text-muted-foreground'>PRÉ-VISUALIZAÇÃO</Label>
             <div className='flex justify-center items-center p-4 mt-2'>
-                <div style={style}>
+                <div style={style} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                     <div dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
             </div>
@@ -159,7 +164,20 @@ function StudioPageContent() {
             const data = snapshot.val();
             if (data) {
                 // Merge initial templates with fetched data to ensure all keys exist
-                setTemplates(prev => ({...initialTemplates, ...data}));
+                const mergedTemplates = { ...initialTemplates };
+                for (const key in mergedTemplates) {
+                    if (data[key]) {
+                        mergedTemplates[key] = {
+                            ...mergedTemplates[key],
+                            ...data[key],
+                            styles: {
+                                ...mergedTemplates[key].styles,
+                                ...data[key].styles,
+                            }
+                        }
+                    }
+                }
+                setTemplates(mergedTemplates);
             }
         });
         return () => unsubscribe();
@@ -313,6 +331,31 @@ function StudioPageContent() {
                                                     value={template.styles.borderRadius}
                                                     onChange={(e) => handleStyleChange(key, 'borderRadius', e.target.value)}
                                                      placeholder="ex: 20px"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`fontFamily-${key}`}>Tipo de Fonte</Label>
+                                                <Select
+                                                  value={template.styles.fontFamily}
+                                                  onValueChange={(value) => handleStyleChange(key, 'fontFamily', value)}
+                                                >
+                                                  <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione uma fonte" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                    <SelectItem value="Melison">Melison</SelectItem>
+                                                    <SelectItem value="Subjectivity">Subjectivity</SelectItem>
+                                                    <SelectItem value="sans-serif">Padrão (Sans-serif)</SelectItem>
+                                                  </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`fontSize-${key}`}>Tamanho da Fonte</Label>
+                                                <Input
+                                                    id={`fontSize-${key}`}
+                                                    value={template.styles.fontSize}
+                                                    onChange={(e) => handleStyleChange(key, 'fontSize', e.target.value)}
+                                                    placeholder="ex: 2.5rem"
                                                 />
                                             </div>
                                         </div>

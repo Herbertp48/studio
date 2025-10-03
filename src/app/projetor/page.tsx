@@ -21,6 +21,8 @@ type TemplateStyle = {
     borderColor: string;
     borderWidth: string;
     borderRadius: string;
+    fontFamily: string;
+    fontSize: string;
 };
 
 type MessageTemplate = {
@@ -35,23 +37,23 @@ type MessageTemplates = {
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
         text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i>{{words}}</i><br> e ganhou uma <b>estrela ⭐</b>!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="crown">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
         text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
 
@@ -99,7 +101,20 @@ export default function ProjectionPage() {
         const unsubTemplates = onValue(templatesRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                setTemplates(prev => ({ ...initialTemplates, ...data }));
+                const mergedTemplates = { ...initialTemplates };
+                for (const key in mergedTemplates) {
+                    if (data[key]) {
+                        mergedTemplates[key] = {
+                            ...mergedTemplates[key],
+                            ...data[key],
+                            styles: {
+                                ...mergedTemplates[key].styles,
+                                ...data[key].styles,
+                            }
+                        }
+                    }
+                }
+                setTemplates(mergedTemplates);
             }
         });
 
@@ -244,10 +259,11 @@ export default function ProjectionPage() {
         
         const templateKey = currentAction.type.toLowerCase();
         const template = templates[templateKey];
+        const payload = currentAction.payload || {};
+        
         if (!template) return null;
 
         let renderedText = template.text;
-        const payload = currentAction.payload || {};
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
@@ -293,6 +309,8 @@ export default function ProjectionPage() {
             color: template.styles.textColor,
             border: `${template.styles.borderWidth} solid ${template.styles.borderColor}`,
             borderRadius: template.styles.borderRadius,
+            fontFamily: template.styles.fontFamily,
+            fontSize: template.styles.fontSize,
             padding: '4rem',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             textAlign: 'center',
@@ -301,7 +319,7 @@ export default function ProjectionPage() {
 
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <div style={style}>
+                <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                     <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
             </div>
@@ -390,7 +408,7 @@ const GlobalStyle = () => (
       margin-bottom: 1rem;
     }
     .dynamic-message-content p {
-      font-size: 2.5rem;
+      /* Font size is now controlled by inline style */
     }
     .dynamic-message-content b {
       background: rgba(0,0,0,0.1);
