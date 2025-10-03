@@ -84,7 +84,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
-        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
+        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
@@ -135,11 +135,12 @@ const renderPreview = (template: MessageTemplate) => {
         display: 'inline-block'
     };
 
-    const finalWinnerRegex = /<h2>Temos um Vencedor!<\/h2><p class="icon">👑<\/p><h1>(.*?)<\/h1><p>Com (.*?) ⭐<\/p>/;
+    const finalWinnerRegex = /<h1><b>(.*?)<\/b><\/h1>/;
     if (finalWinnerRegex.test(renderedText)) {
-        const parts = finalWinnerRegex.exec(renderedText)!;
-        const namePart = parts[1];
-        const starsPart = parts[2];
+        const parts = renderedText.split(finalWinnerRegex);
+        const beforeName = parts[0];
+        const namePart = dummyData.name; // Use dummy data
+        const afterName = parts[2];
         
         return (
              <div className='p-4 border bg-muted rounded-lg mt-4'>
@@ -158,10 +159,9 @@ const renderPreview = (template: MessageTemplate) => {
                         maxWidth: '60rem',
                     }} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                          <div className="dynamic-message-content">
-                            <h2>Temos um Vencedor!</h2>
-                            <p className="icon">👑</p>
+                            <div dangerouslySetInnerHTML={{ __html: beforeName }}/>
                             <h1><span style={highlightStyle}>{namePart}</span></h1>
-                            <p>Com {starsPart} ⭐</p>
+                           <div dangerouslySetInnerHTML={{ __html: afterName }}/>
                         </div>
                     </div>
                 </div>

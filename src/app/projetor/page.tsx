@@ -50,7 +50,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
-        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
+        text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
@@ -98,7 +98,6 @@ export default function ProjectionPage() {
     useEffect(() => {
         if (!isReady) return;
 
-        // Listener para os templates
         const templatesRef = ref(database, 'message_templates');
         const unsubTemplates = onValue(templatesRef, (snapshot) => {
             const data = snapshot.val();
@@ -120,11 +119,13 @@ export default function ProjectionPage() {
             }
         });
 
-        // Listener para as ações
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
-            const action: DisputeAction | null = snapshot.val();
-            handleAction(action);
+            const newAction: DisputeAction | null = snapshot.val();
+            setCurrentAction(prevAction => {
+                handleAction(newAction, prevAction);
+                return newAction;
+            });
         });
 
         return () => {
@@ -171,10 +172,8 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const handleAction = (action: DisputeAction | null) => {
-        
-        const previousActionType = currentAction?.type;
-        setCurrentAction(action); // Sempre armazena a última ação
+    const handleAction = (action: DisputeAction | null, prevAction: DisputeAction | null) => {
+        const previousActionType = prevAction?.type;
 
         if (!action) {
             resetToIdle();
@@ -204,6 +203,9 @@ export default function ProjectionPage() {
                 case 'FINAL_WINNER':
                 case 'TIE_ANNOUNCEMENT':
                     playSound('vencedor.mp3');
+                    break;
+                case 'RESET':
+                    resetToIdle();
                     break;
             }
         }
@@ -238,6 +240,7 @@ export default function ProjectionPage() {
                 setShowWord(false);
                 break;
             
+            // Message display is handled by the global `currentAction` state
             case 'NO_WORD_WINNER':
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
@@ -245,7 +248,7 @@ export default function ProjectionPage() {
             case 'TIE_ANNOUNCEMENT':
             case 'SHOW_MESSAGE':
             case 'NO_WINNER':
-                // Message display is handled by the global `currentAction` state
+                setShowWord(false);
                 break;
         }
     };
@@ -271,15 +274,13 @@ export default function ProjectionPage() {
         }, 150);
     };
 
+    const shouldShowMessage = currentAction && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'].includes(currentAction.type);
+
+
     // --- Componentes de Renderização ---
 
     const renderMessage = () => {
-        if (!currentAction || !currentAction.type) return null;
-        
-        const validMessageTypes = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'SHOW_MESSAGE', 'NO_WINNER'];
-        if (!validMessageTypes.includes(currentAction.type)) {
-            return null;
-        }
+        if (!shouldShowMessage || !currentAction) return null;
         
         const templateKey = currentAction.type.toLowerCase();
         const template = templates[templateKey];
@@ -313,7 +314,8 @@ export default function ProjectionPage() {
 
         // Specific robust implementation for FINAL_WINNER
         if (currentAction.type === 'FINAL_WINNER' && data.name) {
-            const parts = text.split(/\{\{\s*name\s*\}\}/);
+            const nameRegex = /<b>\{\{\s*name\s*\}\}<\/b>/;
+            const parts = text.split(nameRegex);
             const beforeName = parts[0] || '';
             const afterName = (parts[1] || '').replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
             
@@ -327,12 +329,10 @@ export default function ProjectionPage() {
 
             return (
                 <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                    <div style={containerStyle} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
-                        <div className="dynamic-message-content">
-                           <div dangerouslySetInnerHTML={{ __html: beforeName }} />
-                           <h1><span style={highlightStyle}>{data.name}</span></h1>
-                           <div dangerouslySetInnerHTML={{ __html: afterName }} />
-                        </div>
+                    <div style={containerStyle} className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity', "dynamic-message-content")}>
+                        <div dangerouslySetInnerHTML={{ __html: beforeName }} />
+                        <h1><span style={highlightStyle}>{data.name}</span></h1>
+                        <div dangerouslySetInnerHTML={{ __html: afterName }} />
                     </div>
                 </div>
             );
@@ -367,15 +367,16 @@ export default function ProjectionPage() {
         
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <div style={containerStyle} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
-                    <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
-                </div>
+                <div style={containerStyle} className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity', "dynamic-message-content")} dangerouslySetInnerHTML={{ __html: renderedText }} />
             </div>
         );
     };
 
     const renderMainContent = () => (
-         <div className="flex flex-col items-center justify-center w-full h-full">
+         <div className={cn(
+             "flex flex-col items-center justify-center w-full h-full transition-opacity duration-500",
+             shouldShowMessage ? 'opacity-0' : 'opacity-100'
+         )}>
             <header className="flex items-center gap-4 text-accent py-4">
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
@@ -412,8 +413,6 @@ export default function ProjectionPage() {
         </div>
     );
 
-    const shouldShowMessage = currentAction && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER'].includes(currentAction.type);
-
     if (!isReady) {
         return (
             <div className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer" onClick={handleEnterFullscreen}>
@@ -432,7 +431,7 @@ export default function ProjectionPage() {
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
             <GlobalStyle />
             {renderMainContent()}
-            {shouldShowMessage && renderMessage()}
+            {renderMessage()}
         </div>
     );
 }
