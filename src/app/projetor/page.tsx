@@ -338,13 +338,23 @@ export default function ProjectionPage() {
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             textAlign: 'center',
             maxWidth: '60rem',
-            '--highlight-color': template.styles.highlightColor,
-            '--highlight-text-color': template.styles.highlightTextColor,
         } as React.CSSProperties;
+
+        const dynamicStyleId = `dynamic-style-${templateKey}`;
+        const dynamicCSS = `
+            #${dynamicStyleId} b {
+                background: ${template.styles.highlightColor};
+                color: ${template.styles.highlightTextColor};
+                padding: 0.2em 0.5em;
+                border-radius: 0.3em;
+                display: inline-block;
+            }
+        `;
 
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                <style dangerouslySetInnerHTML={{ __html: dynamicCSS }} />
+                <div id={dynamicStyleId} style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
                     <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
                 </div>
             </div>
@@ -434,13 +444,6 @@ const GlobalStyle = () => (
     }
     .dynamic-message-content p {
       /* Font size is now controlled by inline style */
-    }
-    .dynamic-message-content b {
-      background: var(--highlight-color, rgba(0,0,0,0.1));
-      color: var(--highlight-text-color);
-      padding: 0.2em 0.5em;
-      border-radius: 0.3em;
-      display: inline-block;
     }
     .dynamic-message-content i {
         display: block;
