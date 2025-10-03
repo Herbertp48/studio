@@ -184,9 +184,11 @@ export default function ProjectionPage() {
                 break;
 
             case 'SHOW_WORD':
-                playSound('premio.mp3');
-                setWords(action.payload.words);
-                setShowWord(true);
+                if (action.payload && action.payload.words) {
+                    playSound('premio.mp3');
+                    setWords(action.payload.words);
+                    setShowWord(true);
+                }
                 break;
 
             case 'HIDE_WORD':
@@ -232,7 +234,7 @@ export default function ProjectionPage() {
     // --- Componentes de Renderização ---
 
     const renderMessage = () => {
-        if (!currentAction || !currentAction.type.endsWith('_WINNER') && !currentAction.type.endsWith('_ANNOUNCEMENT') && currentAction.type !== 'NO_WORD_WINNER' ) {
+        if (!currentAction || !currentAction.type.endsWith('_WINNER') && !currentAction.type.endsWith('_ANNOUNCEMENT') ) {
             return null;
         }
         
@@ -260,10 +262,15 @@ export default function ProjectionPage() {
                     if (value && typeof value === 'object' && k in value) {
                         value = value[k];
                     } else {
-                        return ''; // or {{key}}
+                        // If any part of the path is missing, return empty string.
+                        return '';
                     }
                 }
-                return value;
+                // Handle cases where the final value might be an object (like words array)
+                if (typeof value === 'object' && value !== null) {
+                    return JSON.stringify(value); // Or a more user-friendly format
+                }
+                return value !== undefined && value !== null ? value : '';
             } catch {
                 return '';
             }
