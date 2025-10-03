@@ -245,7 +245,7 @@ export default function ProjectionPage() {
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
-            words: payload.duelWordsWon?.join(', ') || payload.words?.join(', ') || '',
+            words: payload.duelWordsWon?.join(', ') || (payload.words ? payload.words.join(', ') : ''),
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
             participants: payload.tieWinners || [],
             ...payload
@@ -255,19 +255,24 @@ export default function ProjectionPage() {
         renderedText = renderedText.replace(/\{\{([^}]+)\}\}/g, (_, key) => {
             const keys = key.trim().split('.');
             let value: any = data;
-            for (const k of keys) {
-                if (value && typeof value === 'object' && k in value) {
-                    value = value[k];
-                } else {
-                    return ''; // or {{key}}
+            try {
+                for (const k of keys) {
+                    if (value && typeof value === 'object' && k in value) {
+                        value = value[k];
+                    } else {
+                        return ''; // or {{key}}
+                    }
                 }
+                return value;
+            } catch {
+                return '';
             }
-            return value;
         });
 
         // Simple {{#each}} block for tie announcement
         const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
         renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
+            if (!Array.isArray(data.participants)) return '';
             return data.participants.map((p: any) => innerTemplate.replace(/\{\{this\.name\}\}/g, p.name)).join('');
         });
         
@@ -345,6 +350,7 @@ export default function ProjectionPage() {
 
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
+            <GlobalStyle />
             {renderMainContent()}
             {renderMessage()}
         </div>
