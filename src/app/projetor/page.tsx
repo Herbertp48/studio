@@ -319,11 +319,13 @@ export default function ProjectionPage() {
             }
         });
 
-        // Simple {{#each}} block for tie announcement
         const eachRegex = /\{\{#each participants\}\}(.*?)\{\{\/each\}\}/gs;
         renderedText = renderedText.replace(eachRegex, (match, innerTemplate) => {
             if (!Array.isArray(data.participants)) return '';
-            return data.participants.map((p: any) => innerTemplate.replace(/\{\{this\.name\}\}/g, p.name)).join('');
+            return data.participants.map((p: any) => {
+                // Replace {{this.name}} inside the loop content
+                return innerTemplate.replace(/\{\{\s*this\.name\s*\}\}/g, p.name || '');
+            }).join('');
         });
         
         const style: React.CSSProperties = {
