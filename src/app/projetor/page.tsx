@@ -277,6 +277,37 @@ export default function ProjectionPage() {
     const shouldShowMessage = currentAction && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'].includes(currentAction.type);
 
 
+    const DynamicMessageContent = ({ template, payload }: { template: MessageTemplate; payload: any; }) => {
+        const { text, styles } = template;
+        
+        const data = {
+            name: payload.winner?.name || payload.finalWinner?.name || '',
+            words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
+            'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
+            stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
+            ...payload
+        };
+    
+        let processedText = text;
+        
+        // Step 1: Replace all simple variables
+        processedText = processedText.replace(/\{\{name\}\}/g, data.name);
+        processedText = processedText.replace(/\{\{stars\}\}/g, String(data.stars));
+        processedText = processedText.replace(/\{\{words\.0\}\}/g, data['words.0']);
+        processedText = processedText.replace(/\{\{words\}\}/g, data.words);
+
+        // Step 2: Handle special list for tie announcement
+        if (currentAction?.type === 'TIE_ANNOUNCEMENT' && processedText.includes('{{{participantsList}}}')) {
+            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join('');
+            processedText = processedText.replace('{{{participantsList}}}', `<div class="participants" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">${participantsHtml}</div>`);
+        }
+        
+        // Step 3: Apply highlight style to all <b> tags
+        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+      
+        return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
+    };
+
     // --- Componentes de Renderização ---
     const renderMessage = () => {
       if (!shouldShowMessage || !currentAction) return null;
@@ -287,16 +318,8 @@ export default function ProjectionPage() {
   
       if (!template) return null;
   
-      const { styles, text } = template;
+      const { styles } = template;
       
-      const data = {
-          name: payload.winner?.name || payload.finalWinner?.name || '',
-          words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
-          'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
-          stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-          ...payload
-      };
-  
       const containerStyle: React.CSSProperties = {
           background: styles.backgroundColor,
           color: styles.textColor,
@@ -310,71 +333,43 @@ export default function ProjectionPage() {
           maxWidth: '60rem',
       } as React.CSSProperties;
   
-      // --- NEW: Robust JSX-based message rendering ---
-      const DynamicMessageContent = () => {
-        let processedText = text;
-        // Step 1: Replace all simple variables
-        processedText = processedText.replace(/\{\{name\}\}/g, data.name);
-        processedText = processedText.replace(/\{\{stars\}\}/g, String(data.stars));
-        processedText = processedText.replace(/\{\{'words.0'\}\}/g, data['words.0']);
-        processedText = processedText.replace(/\{\{words\}\}/g, data.words);
-
-        // Step 2: Handle special list for tie announcement
-        if (currentAction.type === 'TIE_ANNOUNCEMENT' && processedText.includes('{{{participantsList}}}')) {
-            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join('');
-            processedText = processedText.replace('{{{participantsList}}}', `<div class="participants" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">${participantsHtml}</div>`);
-        }
-        
-        // Step 3: Apply highlight style to all <b> tags
-        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
-  
-        return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
-      };
-  
       return (
           <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
               <div style={containerStyle}>
-                  <DynamicMessageContent />
+                  <DynamicMessageContent template={template} payload={payload} />
               </div>
           </div>
       );
     };
 
-    const renderMainContent = () => (
-         <div className={cn(
-             "flex flex-col items-center justify-center w-full h-full transition-opacity duration-500",
-             shouldShowMessage ? 'opacity-0' : 'opacity-100'
-         )}>
-            <header className="flex items-center gap-4 text-accent py-4">
-                <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
-                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
-            </header>
-            
-            <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden">
-                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
-                    <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
-                    <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-4xl p-4">
-                         {words.map(word => (
-                            <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
-                                {word}
-                            </p>
-                        ))}
-                    </div>
+    const renderDuelContent = () => (
+        <div className={cn(
+            "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500",
+            shouldShowMessage ? 'opacity-0' : 'opacity-100'
+        )}>
+            <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+                <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
+                <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-4xl p-4">
+                     {words.map(word => (
+                        <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
+                            {word}
+                        </p>
+                    ))}
                 </div>
-                
-                <div className="relative w-full flex-1 flex items-center justify-center">
-                    <div className="flex items-start justify-around w-full">
-                        <div className="flex-1 text-center">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
-                            <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>
-                        </div>
-                        <div className="flex-shrink-0 text-center px-4">
-                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
-                        </div>
-                        <div className="flex-1 text-center">
-                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
-                             <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>
-                        </div>
+            </div>
+            
+            <div className="relative w-full flex-1 flex items-center justify-center">
+                <div className="flex items-start justify-around w-full">
+                    <div className="flex-1 text-center">
+                        <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
+                        <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>
+                    </div>
+                    <div className="flex-shrink-0 text-center px-4">
+                        <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                    </div>
+                    <div className="flex-1 text-center">
+                        <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
+                         <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>
                     </div>
                 </div>
             </div>
@@ -396,9 +391,13 @@ export default function ProjectionPage() {
     }
 
     return (
-        <div className="projetado-page h-screen w-screen overflow-hidden relative">
+        <div className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-center">
             <GlobalStyle />
-            {renderMainContent()}
+            <header className="flex items-center gap-4 text-accent py-4">
+                <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
+            </header>
+            {renderDuelContent()}
             {renderMessage()}
         </div>
     );
