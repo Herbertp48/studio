@@ -112,64 +112,15 @@ const renderPreview = (template: MessageTemplate) => {
         words: ['PALAVRA-1', 'PALAVRA-2'].join(', '),
         'words.0': 'PALAVRA-EXEMPLO',
         stars: '5',
-        participants: [{ name: 'JOÃO' }, { name: 'MARIA' }]
+        participantsList: '<div class="participants"><div>JOÃO</div><div>MARIA</div></div>'
     };
 
     let renderedText = text;
-    // Basic replacement for preview
+    renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, dummyData.participantsList);
     renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, dummyData.name);
     renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, dummyData['words.0']);
     renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, dummyData.words);
     renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, dummyData.stars);
-    
-    if (renderedText.includes('{{{participantsList}}}')) {
-        const participantsHtml = dummyData.participants.map(p => `<div>${p.name}</div>`).join('');
-        renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
-    }
-    
-    const highlightStyle: React.CSSProperties = {
-        backgroundColor: styles.highlightColor,
-        color: styles.highlightTextColor,
-        padding: '0.2em 0.5em',
-        borderRadius: '0.3em',
-        display: 'inline-block'
-    };
-
-    const finalWinnerRegex = /<h1><b>(.*?)<\/b><\/h1>/;
-    if (finalWinnerRegex.test(renderedText)) {
-        const parts = renderedText.split(finalWinnerRegex);
-        const beforeName = parts[0];
-        const namePart = dummyData.name; // Use dummy data
-        const afterName = parts[2];
-        
-        return (
-             <div className='p-4 border bg-muted rounded-lg mt-4'>
-                <Label className='font-bold text-sm text-muted-foreground'>PRÉ-VISUALIZAÇÃO</Label>
-                <div className='flex justify-center items-center p-4 mt-2'>
-                    <div style={{
-                        background: styles.backgroundColor,
-                        color: styles.textColor,
-                        border: `${styles.borderWidth} solid ${styles.borderColor}`,
-                        borderRadius: styles.borderRadius,
-                        fontFamily: styles.fontFamily,
-                        fontSize: styles.fontSize,
-                        padding: '4rem',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                        textAlign: 'center',
-                        maxWidth: '60rem',
-                    }} className={styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
-                         <div className="dynamic-message-content">
-                            <div dangerouslySetInnerHTML={{ __html: beforeName }}/>
-                            <h1><span style={highlightStyle}>{namePart}</span></h1>
-                           <div dangerouslySetInnerHTML={{ __html: afterName }}/>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )
-
-    }
-
 
     const style: React.CSSProperties = {
         background: styles.backgroundColor,

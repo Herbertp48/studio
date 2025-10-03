@@ -295,7 +295,6 @@ export default function ProjectionPage() {
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
             'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-            participants: payload.participants || [],
             ...payload
         };
 
@@ -312,33 +311,6 @@ export default function ProjectionPage() {
             maxWidth: '60rem',
         } as React.CSSProperties;
 
-        // Specific robust implementation for FINAL_WINNER
-        if (currentAction.type === 'FINAL_WINNER' && data.name) {
-            const nameRegex = /<b>\{\{\s*name\s*\}\}<\/b>/;
-            const parts = text.split(nameRegex);
-            const beforeName = parts[0] || '';
-            const afterName = (parts[1] || '').replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-            
-            const highlightStyle: React.CSSProperties = {
-                backgroundColor: styles.highlightColor,
-                color: styles.highlightTextColor,
-                padding: '0.2em 0.5em',
-                borderRadius: '0.3em',
-                display: 'inline-block'
-            };
-
-            return (
-                <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                    <div style={containerStyle} className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity', "dynamic-message-content")}>
-                        <div dangerouslySetInnerHTML={{ __html: beforeName }} />
-                        <h1><span style={highlightStyle}>{data.name}</span></h1>
-                        <div dangerouslySetInnerHTML={{ __html: afterName }} />
-                    </div>
-                </div>
-            );
-        }
-
-        // Fallback to dangerouslySetInnerHTML for other templates
         let renderedText = text;
 
         if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
@@ -346,22 +318,10 @@ export default function ProjectionPage() {
             renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
         }
 
-        renderedText = renderedText.replace(/\{\{\{?([\w.]+)\}?\}\}/g, (match, key) => {
-             if (key === 'participantsList') return match;
-            const keys = key.trim().split('.');
-            let value: any = data;
-            try {
-                if (key === 'words.0') return data['words.0'];
-                for (const k of keys) {
-                    if (value && typeof value === 'object' && k in value) {
-                        value = value[k];
-                    } else {
-                        return '';
-                    }
-                }
-                return value !== undefined && value !== null ? String(value) : '';
-            } catch { return ''; }
-        });
+        renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, String(data.name));
+        renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
+        renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
+        renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, String(data.words));
         
         renderedText = renderedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
         
