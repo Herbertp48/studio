@@ -73,54 +73,43 @@ function RafflePageContent() {
 
   const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
     if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
-    
+
     const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
-    
+
     if (activeParticipants.length < 2) {
         if (shufflingIntervalRef.current) {
             clearInterval(shufflingIntervalRef.current);
             shufflingIntervalRef.current = null;
         }
-        
+
         const allParticipants = Object.values(currentParticipants);
         const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
-        
-        if (maxStars === 0 && activeParticipants.length < 2) {
-             setFinalWinners([]);
-             setIsTie(false);
-             setShowFinalWinnerDialog(true);
-             setDisputeState({ type: 'NO_WINNER' });
-            return;
-        }
-        
         const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
         
-        if (winners.length > 0) {
+        setShowFinalWinnerDialog(true);
+
+        if (winners.length > 1) { // Tie
             setFinalWinners(winners);
-            setIsTie(winners.length > 1);
-            setShowFinalWinnerDialog(true);
-            if (winners.length === 1) {
-                setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
-            } else {
-                 setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
-            }
-        } else {
-            // This case handles a single remaining active participant who might not have any stars yet
+            setIsTie(true);
+            setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
+        } else if (winners.length === 1) { // Single winner
+            setFinalWinners(winners);
+            setIsTie(false);
+            setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
+        } else { // No winner with stars or single active participant without stars
             const winner = activeParticipants.length === 1 ? activeParticipants[0] : null;
-            if (winner) {
-              setFinalWinners([winner]);
-              setIsTie(false);
-              setShowFinalWinnerDialog(true);
-              setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winner } });
-            } else {
-              setFinalWinners([]);
-              setIsTie(false);
-              setShowFinalWinnerDialog(true);
-              setDisputeState({ type: 'NO_WINNER' });
-            }
+             if (winner) {
+                setFinalWinners([winner]);
+                setIsTie(false);
+                setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winner } });
+             } else {
+                setFinalWinners([]);
+                setIsTie(false);
+                setDisputeState({ type: 'NO_WINNER' });
+             }
         }
     }
-  }
+}
 
 
   useEffect(() => {
@@ -707,5 +696,3 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
-
-    
