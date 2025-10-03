@@ -25,6 +25,7 @@ type TemplateStyle = {
     backgroundColor: string;
     textColor: string;
     highlightColor: string;
+    highlightTextColor: string;
     borderColor: string;
     borderWidth: string;
     borderRadius: string;
@@ -72,23 +73,23 @@ const templateLabels: { [key: string]: { title: string, description: string, var
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     duel_winner: {
         text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="crown">👑</p><h1>{{name}}</h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
         text: '<h2>Temos um Empate!</h2><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{#each participants}}<div>{{this.name}}</div>{{/each}}</div>',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
 
@@ -140,7 +141,8 @@ const renderPreview = (template: MessageTemplate) => {
         textAlign: 'center',
         maxWidth: '100%',
         wordBreak: 'break-word',
-        '--highlight-color': styles.highlightColor
+        '--highlight-color': styles.highlightColor,
+        '--highlight-text-color': styles.highlightTextColor,
     } as React.CSSProperties;
 
     return (
@@ -314,6 +316,23 @@ function StudioPageContent() {
                                                         id={`highlightColor-${key}`}
                                                         value={template.styles.highlightColor}
                                                         onChange={(e) => handleStyleChange(key, 'highlightColor', e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor={`highlightTextColor-${key}`}>Cor da Fonte do Destaque</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        type="color"
+                                                        id={`highlightTextColor-picker-${key}`}
+                                                        value={template.styles.highlightTextColor}
+                                                        onChange={(e) => handleStyleChange(key, 'highlightTextColor', e.target.value)}
+                                                        className="p-1 h-10 w-10"
+                                                    />
+                                                    <Input
+                                                        id={`highlightTextColor-${key}`}
+                                                        value={template.styles.highlightTextColor}
+                                                        onChange={(e) => handleStyleChange(key, 'highlightTextColor', e.target.value)}
                                                     />
                                                 </div>
                                             </div>
