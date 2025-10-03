@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Maximize, Star, Trophy, Crown, ShieldAlert, CircleX } from 'lucide-react';
+import { Maximize } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
 import type { Participant } from '@/app/page';
@@ -184,7 +184,7 @@ export default function ProjectionPage() {
                 break;
 
             case 'SHOW_WORD':
-                if (action.payload?.words) {
+                if (action.payload && action.payload.words) {
                     playSound('premio.mp3');
                     setWords(action.payload.words);
                     setShowWord(true);
@@ -234,7 +234,7 @@ export default function ProjectionPage() {
     // --- Componentes de Renderização ---
 
     const renderMessage = () => {
-        if (!currentAction || (!currentAction.type.includes('_WINNER') && !currentAction.type.includes('_ANNOUNCEMENT'))) {
+        if (!currentAction || (!currentAction.type.includes('_WINNER') && !currentAction.type.includes('_ANNOUNCEMENT') && currentAction.type !== 'SHOW_MESSAGE')) {
             return null;
         }
         
@@ -253,24 +253,23 @@ export default function ProjectionPage() {
             ...payload
         };
         
-        // Simple placeholder replacement
-        renderedText = renderedText.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (match, key) => {
+        // Simple placeholder replacement for {{key}} and {{key.subkey}}
+        renderedText = renderedText.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
             const keys = key.trim().split('.');
             let value: any = data;
             try {
                 for (const k of keys) {
                     if (value && typeof value === 'object' && k in value) {
                         value = value[k];
-                    } else if (keys.length === 1 && k in data) { // Fallback for single keys like 'words.0'
-                        return data[k as keyof typeof data] as string;
                     } else {
+                        // Fallback for keys like "words.0"
+                        if (keys.length > 1 && data.hasOwnProperty(key)) {
+                            return data[key as keyof typeof data] as string;
+                        }
                         return '';
                     }
                 }
-                if (typeof value === 'object' && value !== null) {
-                   return Array.isArray(value) ? value.join(', ') : '';
-                }
-                return value !== undefined && value !== null ? value : '';
+                return value !== undefined && value !== null ? String(value) : '';
             } catch {
                 return '';
             }
@@ -341,6 +340,8 @@ export default function ProjectionPage() {
         </div>
     );
 
+    const shouldShowMessage = currentAction && (currentAction.type.includes('_WINNER') || currentAction.type.includes('_ANNOUNCEMENT'));
+
     if (!isReady) {
         return (
             <div className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer" onClick={handleEnterFullscreen}>
@@ -358,8 +359,8 @@ export default function ProjectionPage() {
     return (
         <div className="projetado-page h-screen w-screen overflow-hidden relative">
             <GlobalStyle />
-            {renderMainContent()}
-            {renderMessage()}
+            { (participantA || participantB) && !shouldShowMessage && renderMainContent() }
+            { shouldShowMessage ? renderMessage() : (participantA || participantB ? null : renderMainContent()) }
         </div>
     );
 }
