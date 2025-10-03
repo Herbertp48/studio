@@ -41,6 +41,7 @@ type DisputeState = {
 }
 
 const setDisputeState = (state: DisputeState | null) => {
+    console.log("DEBUG: Enviando para o projetor:", state);
     set(ref(database, 'dispute/state'), state);
 }
 
@@ -706,3 +707,5 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
+
+    
