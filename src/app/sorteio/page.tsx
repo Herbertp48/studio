@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -243,22 +242,35 @@ function RafflePageContent() {
     }
 
     let remainingWords = [...availableWords];
-    let wordIndex: number;
-    if (sortMode === 'sequential') {
-        wordIndex = 0;
-    } else {
-        wordIndex = Math.floor(Math.random() * remainingWords.length);
+    let wordsToDraw = [];
+    
+    for (let i = 0; i < 1; i++) { // Always draw one word at a time
+        if (remainingWords.length === 0) {
+            toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
+            remainingWords = [...originalWords];
+            if (remainingWords.length === 0) break;
+        }
+
+        let wordIndex: number;
+        if (sortMode === 'sequential') {
+            wordIndex = 0;
+        } else {
+            wordIndex = Math.floor(Math.random() * remainingWords.length);
+        }
+        const [sortedWord] = remainingWords.splice(wordIndex, 1);
+        wordsToDraw.push(sortedWord);
     }
-    const [sortedWord] = remainingWords.splice(wordIndex, 1);
     
-    setCurrentWords([sortedWord]);
     setAvailableWords(remainingWords);
-    
-    if (manualReveal) {
-        setRaffleState('word_preview');
-    } else {
-        setRaffleState('word_sorted');
-        setDisputeState({ type: 'SHOW_WORD', words: [sortedWord], participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore });
+
+    if (wordsToDraw.length > 0) {
+      setCurrentWords(wordsToDraw);
+      if (manualReveal) {
+          setRaffleState('word_preview');
+      } else {
+          setRaffleState('word_sorted');
+          setDisputeState({ type: 'SHOW_WORD', words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore });
+      }
     }
   };
 
@@ -580,7 +592,7 @@ function RafflePageContent() {
                     </RadioGroup>
                  </div>
                  <div className="flex items-center justify-between">
-                    <Label htmlFor="words-per-round-input">Palavras por Rodada:</Label>
+                    <Label htmlFor="words-per-round-input">Palavras por Duelo:</Label>
                     <Input
                         id="words-per-round-input"
                         type="number"
@@ -697,3 +709,5 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
+
+    

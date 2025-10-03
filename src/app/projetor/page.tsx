@@ -220,7 +220,7 @@ export default function ProjectionPage() {
                     setAnimationKey(prev => prev + 1);
                      setDisplayState(prevState => ({
                         ...prevState,
-                        view: 'word_winner',
+                        view: 'word_winner', // Reuses the same view
                         wordWinner: { winner: null, words: action.words || [] }
                     }));
                     break;
@@ -300,8 +300,8 @@ export default function ProjectionPage() {
             <div className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden">
                 <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                     <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-                    <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl p-4">
-                        {displayState.words && displayState.words.map(word => (
+                    <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-4xl p-4">
+                         {displayState.words && displayState.words.map(word => (
                             <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
                                 {word}
                             </p>
@@ -352,6 +352,7 @@ export default function ProjectionPage() {
             );
         }
 
+        // Message for when nobody wins the word
         return (
             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
                 <div className="absolute top-8 flex items-center gap-4 text-accent">
