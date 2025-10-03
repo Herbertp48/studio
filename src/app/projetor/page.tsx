@@ -79,7 +79,7 @@ export default function ProjectionPage() {
 
     // Efeito para carregar os sons
     useEffect(() => {
-        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
+        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
                 const audio = new Audio(`/som/${file}`);
@@ -217,6 +217,7 @@ export default function ProjectionPage() {
                 
                 case 'NO_WORD_WINNER':
                     stopAllSounds();
+                    playSound('erro.mp3');
                     setAnimationKey(prev => prev + 1);
                      setDisplayState(prevState => ({
                         ...prevState,
