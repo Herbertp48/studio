@@ -84,29 +84,25 @@ function RafflePageContent() {
 
         const allParticipants = Object.values(currentParticipants);
         const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
-        const winners = allParticipants.filter(p => p.stars === maxStars && p.stars > 0);
         
-        setShowFinalWinnerDialog(true);
-
-        if (winners.length > 1) { // Tie
-            setFinalWinners(winners);
-            setIsTie(true);
-            setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
-        } else if (winners.length === 1) { // Single winner
-            setFinalWinners(winners);
-            setIsTie(false);
-            setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
-        } else { // No winner with stars or single active participant without stars
-            const winner = activeParticipants.length === 1 ? activeParticipants[0] : null;
-             if (winner) {
-                setFinalWinners([winner]);
+        // Correctly identify winners, even if maxStars is 0.
+        const winners = allParticipants.filter(p => p.stars === maxStars);
+        
+        if (activeParticipants.length < 2) {
+            setShowFinalWinnerDialog(true);
+            if (winners.length > 1) { // Tie
+                setFinalWinners(winners);
+                setIsTie(true);
+                setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
+            } else if (winners.length === 1 && activeParticipants.length === 1 && winners[0].id === activeParticipants[0].id) { // Single winner
+                setFinalWinners(winners);
                 setIsTie(false);
-                setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winner } });
-             } else {
+                setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
+            } else { // No clear winner (e.g., all eliminated with 0 stars)
                 setFinalWinners([]);
                 setIsTie(false);
                 setDisputeState({ type: 'NO_WINNER' });
-             }
+            }
         }
     }
 }
@@ -696,3 +692,5 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
+
+    
