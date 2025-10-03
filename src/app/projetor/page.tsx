@@ -254,7 +254,7 @@ export default function ProjectionPage() {
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
             'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-            participants: payload.tieWinners || [],
+            participants: payload.participants || [],
             ...payload
         };
         

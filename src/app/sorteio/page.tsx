@@ -101,7 +101,7 @@ function RafflePageContent() {
             if (winners.length === 1) {
                 setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
             } else {
-                 setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { tieWinners: winners } });
+                 setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
             }
         } else {
             // This case handles a single remaining active participant who might not have any stars yet
