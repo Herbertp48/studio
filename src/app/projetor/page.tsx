@@ -278,58 +278,66 @@ export default function ProjectionPage() {
 
 
     // --- Componentes de Renderização ---
-
     const renderMessage = () => {
-        if (!shouldShowMessage || !currentAction) return null;
-        
-        const templateKey = currentAction.type.toLowerCase();
-        const template = templates[templateKey];
-        const payload = currentAction.payload || {};
-        
-        if (!template) return null;
+      if (!shouldShowMessage || !currentAction) return null;
+  
+      const templateKey = currentAction.type.toLowerCase();
+      const template = templates[templateKey];
+      const payload = currentAction.payload || {};
+  
+      if (!template) return null;
+  
+      const { styles, text } = template;
+      
+      const data = {
+          name: payload.winner?.name || payload.finalWinner?.name || '',
+          words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
+          'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
+          stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
+          ...payload
+      };
+  
+      const containerStyle: React.CSSProperties = {
+          background: styles.backgroundColor,
+          color: styles.textColor,
+          border: `${styles.borderWidth} solid ${styles.borderColor}`,
+          borderRadius: styles.borderRadius,
+          fontFamily: styles.fontFamily,
+          fontSize: styles.fontSize,
+          padding: '4rem',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+          textAlign: 'center',
+          maxWidth: '60rem',
+      } as React.CSSProperties;
+  
+      // --- NEW: Robust JSX-based message rendering ---
+      const DynamicMessageContent = () => {
+        let processedText = text;
+        // Step 1: Replace all simple variables
+        processedText = processedText.replace(/\{\{name\}\}/g, data.name);
+        processedText = processedText.replace(/\{\{stars\}\}/g, String(data.stars));
+        processedText = processedText.replace(/\{\{'words.0'\}\}/g, data['words.0']);
+        processedText = processedText.replace(/\{\{words\}\}/g, data.words);
 
-        const { styles, text } = template;
-        
-        const data = {
-            name: payload.winner?.name || payload.finalWinner?.name || '',
-            words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
-            'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
-            stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-            ...payload
-        };
-
-        const containerStyle: React.CSSProperties = {
-            background: styles.backgroundColor,
-            color: styles.textColor,
-            border: `${styles.borderWidth} solid ${styles.borderColor}`,
-            borderRadius: styles.borderRadius,
-            fontFamily: styles.fontFamily,
-            fontSize: styles.fontSize,
-            padding: '4rem',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-            textAlign: 'center',
-            maxWidth: '60rem',
-        } as React.CSSProperties;
-
-        let renderedText = text;
-
-        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
-            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
-            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+        // Step 2: Handle special list for tie announcement
+        if (currentAction.type === 'TIE_ANNOUNCEMENT' && processedText.includes('{{{participantsList}}}')) {
+            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join('');
+            processedText = processedText.replace('{{{participantsList}}}', `<div class="participants" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">${participantsHtml}</div>`);
         }
-
-        renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, String(data.name));
-        renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-        renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
-        renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, String(data.words));
         
-        renderedText = renderedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
-        
-        return (
-            <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
-                <div style={containerStyle} className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity', "dynamic-message-content")} dangerouslySetInnerHTML={{ __html: renderedText }} />
-            </div>
-        );
+        // Step 3: Apply highlight style to all <b> tags
+        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+  
+        return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
+      };
+  
+      return (
+          <div className="fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
+              <div style={containerStyle}>
+                  <DynamicMessageContent />
+              </div>
+          </div>
+      );
     };
 
     const renderMainContent = () => (
@@ -434,14 +442,6 @@ const GlobalStyle = () => (
         flex-direction: column;
         gap: 0.5rem;
         align-items: center;
-    }
-    .dynamic-message-content .participants div {
-        background: var(--highlight-color, rgba(0,0,0,0.1));
-        color: var(--highlight-text-color);
-        padding: 0.5em 1em;
-        border-radius: 0.5em;
-        font-size: 1.5rem;
-        font-weight: bold;
     }
   `}</style>
 );
