@@ -243,6 +243,8 @@ export default function ProjectionPage() {
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
+            case 'SHOW_MESSAGE':
+            case 'NO_WINNER':
                 // Message display is handled by the global `currentAction` state
                 break;
         }
@@ -295,11 +297,6 @@ export default function ProjectionPage() {
             participants: payload.participants || [],
             ...payload
         };
-        
-        if (currentAction.type === 'TIE_ANNOUNCEMENT' && Array.isArray(data.participants)) {
-            const participantsHtml = data.participants.map((p: any) => `<div>${p.name || ''}</div>`).join('');
-            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
-        }
 
         // Simple placeholder replacement for {{key}} and {{key.subkey}}
         renderedText = renderedText.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key) => {
@@ -323,6 +320,11 @@ export default function ProjectionPage() {
                 return '';
             }
         });
+        
+        if (currentAction.type === 'TIE_ANNOUNCEMENT' && renderedText.includes('{{{participantsList}}}')) {
+            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div>${p.name}</div>`).join('');
+            renderedText = renderedText.replace('{{{participantsList}}}', participantsHtml);
+        }
         
         const style: React.CSSProperties = {
             background: template.styles.backgroundColor,
