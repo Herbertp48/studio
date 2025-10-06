@@ -65,6 +65,8 @@ const initialTemplates: MessageTemplates = {
     },
 };
 
+const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE', 'SHOW_WINNERS'];
+
 // --- Componente Principal ---
 export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
@@ -130,13 +132,6 @@ export default function ProjectionPage() {
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
             
-            if (newAction?.type && templates[newAction.type.toLowerCase()]?.enabled === false) {
-                 // Se a mensagem está desabilitada, não a processa
-                 if (currentAction?.type === newAction.type) return;
-                 setCurrentAction(newAction); // Atualiza para evitar re-processamento
-                 return;
-            }
-
             setCurrentAction(prevAction => {
                 handleAction(newAction, prevAction);
                 return newAction;
@@ -193,6 +188,13 @@ export default function ProjectionPage() {
         if (!action) {
             resetToIdle();
             return;
+        }
+
+        // Verifica se é uma mensagem que pode ser desabilitada
+        if (action.type && messageActionTypes.includes(action.type) && templates[action.type.toLowerCase()]?.enabled === false) {
+             // Se a mensagem está desabilitada, não a processa
+             if (currentAction?.type === action.type) return;
+             return;
         }
 
         // Play sound only on state transition
