@@ -145,7 +145,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady]); // Removido `templates` como dependência para evitar re-execução
+    }, [isReady]);
 
     // --- Funções de Controle ---
     
@@ -195,20 +195,24 @@ export default function ProjectionPage() {
         if (messageActionTypes.includes(actionType)) {
             const templateKey = actionType.toLowerCase();
             if (templates[templateKey] && templates[templateKey].enabled === false) {
-                // Se a mensagem está desabilitada, não faz nada
+                // Se a mensagem está desabilitada, não faz nada visual, mas pode precisar resetar
+                if (actionType === 'RESET') resetToIdle();
                 return;
             }
         }
-
+        
         // Toca o som apenas na transição de estado
         if (actionType !== prevActionType) {
             switch (actionType) {
                 case 'SHUFFLING_PARTICIPANTS':
-                    startShufflingAnimation(action.payload?.activeParticipants || []);
+                    playSound('tambor.mp3', true);
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShufflingAnimation();
-                    if (!participantA && action.payload?.participantA) playSound('sinos.mp3');
+                    // Play sound only if it's the first time participants are shown in a duel
+                    if (!prevAction || prevAction.type === 'SHUFFLING_PARTICIPANTS' || prevAction.type === 'RESET') {
+                        if (action.payload?.participantA) playSound('sinos.mp3');
+                    }
                     break;
                 case 'SHOW_WORD':
                     playSound('premio.mp3');
@@ -227,13 +231,13 @@ export default function ProjectionPage() {
                     break;
             }
         }
-
-
+        
         switch (actionType) {
             case 'RESET':
                 resetToIdle();
                 break;
             case 'SHUFFLING_PARTICIPANTS':
+                startShufflingAnimation(action.payload?.activeParticipants || []);
                 setShowContent(true);
                 setShowWord(false);
                 setWords([]);
@@ -248,6 +252,7 @@ export default function ProjectionPage() {
                 break;
             case 'SHOW_WORD':
                 if (action.payload && action.payload.words) {
+                    setShowContent(true);
                     setWords(action.payload.words);
                     setShowWord(true);
                 }
@@ -282,8 +287,8 @@ export default function ProjectionPage() {
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
-        if (shufflingIntervalRef.current) return;
-        playSound('tambor.mp3', true);
+        if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
+        
         shufflingIntervalRef.current = setInterval(() => {
             const shuffled = [...participants].sort(() => 0.5 - Math.random());
             setParticipantA(shuffled[0] || null);
@@ -357,7 +362,7 @@ export default function ProjectionPage() {
     const renderDuelContent = () => (
         <div className={cn(
             "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500",
-            !showContent ? 'opacity-0' : 'opacity-100'
+            !showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
         )}>
             <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                 <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
