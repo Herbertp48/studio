@@ -179,7 +179,6 @@ export default function ProjectionPage() {
     };
 
     const handleAction = (action: DisputeAction | null) => {
-        const prevActionType = currentAction?.type;
         setCurrentAction(action);
         
         if (!action) {
@@ -189,45 +188,50 @@ export default function ProjectionPage() {
     
         const actionType = action.type;
         const payload = action.payload || {};
-    
-        // Primeiro, verifique se a ação é uma mensagem que está desabilitada.
-        if (messageActionTypes.includes(actionType)) {
+        
+        // Define o som a ser tocado, mas não toca ainda
+        let soundToPlay: string | null = null;
+        let loopSound = false;
+
+        switch (actionType) {
+            case 'SHUFFLING_PARTICIPANTS':
+                soundToPlay = 'tambor.mp3';
+                loopSound = true;
+                break;
+            case 'UPDATE_PARTICIPANTS':
+                if (payload.participantA) soundToPlay = 'sinos.mp3';
+                break;
+            case 'SHOW_WORD':
+                soundToPlay = 'premio.mp3';
+                break;
+            case 'NO_WORD_WINNER':
+                soundToPlay = 'erro.mp3';
+                break;
+            case 'WORD_WINNER':
+            case 'DUEL_WINNER':
+            case 'FINAL_WINNER':
+            case 'TIE_ANNOUNCEMENT':
+                soundToPlay = 'vencedor.mp3';
+                break;
+        }
+
+        // Verifica se é uma mensagem que pode ser desabilitada
+        const isMessageAction = messageActionTypes.includes(actionType);
+        if (isMessageAction) {
             const templateKey = actionType.toLowerCase();
+            // Se a mensagem estiver desabilitada, simplesmente retorne e não faça nada.
             if (templates[templateKey] && !templates[templateKey].enabled) {
-                // Se a mensagem estiver desabilitada, não faça nada.
-                // A lógica na página de sorteio deve prosseguir sem esperar.
                 return; 
             }
         }
     
-        // Toca sons apenas na transição de estados diferentes
-        if (actionType !== prevActionType) {
-            switch (actionType) {
-                case 'SHUFFLING_PARTICIPANTS':
-                    playSound('tambor.mp3', true);
-                    break;
-                case 'UPDATE_PARTICIPANTS':
-                    stopShufflingAnimation();
-                    if (payload.participantA) playSound('sinos.mp3');
-                    break;
-                case 'SHOW_WORD':
-                    playSound('premio.mp3');
-                    break;
-                case 'NO_WORD_WINNER':
-                    playSound('erro.mp3');
-                    break;
-                case 'WORD_WINNER':
-                case 'DUEL_WINNER':
-                case 'FINAL_WINNER':
-                case 'TIE_ANNOUNCEMENT':
-                    playSound('vencedor.mp3');
-                    break;
-                case 'RESET':
-                    resetToIdle();
-                    break;
-            }
+        // Se a ação for válida (ou não for uma mensagem desabilitável), toque o som.
+        if (soundToPlay) {
+            playSound(soundToPlay, loopSound);
+        } else {
+            stopAllSounds();
         }
-    
+
         // Gerencia o estado da UI com base na ação
         switch (actionType) {
             case 'RESET':
@@ -311,13 +315,16 @@ export default function ProjectionPage() {
             processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participants.map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
         }
     
+        processedText = processedText.replace(/<b>\{\{\s*name\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data.name}</b>`);
         processedText = processedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
+        processedText = processedText.replace(/<b>\{\{\s*words\.0\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data['words.0']}</b>`);
         processedText = processedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
+        processedText = processedText.replace(/<b>\{\{\s*words\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data.words}</b>`);
         processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
         processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-    
-        const highlightStyle = `background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
-        processedText = processedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
+        
+        // Fallback for any other <b> tags
+        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
     
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
     };

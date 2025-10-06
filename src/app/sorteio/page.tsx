@@ -283,15 +283,15 @@ function RafflePageContent() {
     setRaffleState('duel_finished');
   }
 
-  const handleDuelResult = async (newScore: {a: number, b: number}, newWordsPlayed: number) => {
+  const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
     if (!currentDuel) return;
 
     const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
 
     if (isDuelOver) {
         const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
-        const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
-        await finishDuel(duelWinner, duelLoser);
+        const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.A;
+        finishDuel(duelWinner, duelLoser);
     } else {
         // Wait for message to show on projector before changing state
         setTimeout(() => {
