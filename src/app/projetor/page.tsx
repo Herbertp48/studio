@@ -290,13 +290,16 @@ export default function ProjectionPage() {
     
         let processedText = text;
         
-        processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
+        if (Array.isArray(data.participants)) {
+             processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
+        }
+
         processedText = processedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
         processedText = processedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
         processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
         processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
         
-        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+        processedText = processedText.replace(/<b>(.*?)<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">$1</b>`);
       
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
     };
