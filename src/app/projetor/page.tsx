@@ -145,7 +145,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady, templates]); // Adicionado `templates` como dependência
+    }, [isReady]); // Removido `templates` como dependência para evitar re-execução
 
     // --- Funções de Controle ---
     
@@ -240,6 +240,7 @@ export default function ProjectionPage() {
                 setDuelScore({ a: 0, b: 0 });
                 break;
             case 'UPDATE_PARTICIPANTS':
+                stopShufflingAnimation();
                 setShowContent(true);
                 setParticipantA(action.payload?.participantA || null);
                 setParticipantB(action.payload?.participantB || null);
@@ -455,5 +456,3 @@ const GlobalStyle = () => (
     }
   `}</style>
 );
-
-    
