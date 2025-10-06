@@ -54,7 +54,7 @@ const initialTemplates: MessageTemplates = {
         styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
     },
      tie_announcement: {
-        text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{{participantsList}}}</div>',
+        text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p>{{{participantsList}}}',
         styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
     },
 };
@@ -290,19 +290,12 @@ export default function ProjectionPage() {
     
         let processedText = text;
         
-        // Step 1: Replace all simple variables
-        processedText = processedText.replace(/\{\{name\}\}/g, data.name);
-        processedText = processedText.replace(/\{\{stars\}\}/g, String(data.stars));
-        processedText = processedText.replace(/\{\{words\.0\}\}/g, data['words.0']);
-        processedText = processedText.replace(/\{\{words\}\}/g, data.words);
-
-        // Step 2: Handle special list for tie announcement
-        if (currentAction?.type === 'TIE_ANNOUNCEMENT' && processedText.includes('{{{participantsList}}}')) {
-            const participantsHtml = (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join('');
-            processedText = processedText.replace('{{{participantsList}}}', `<div class="participants" style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem; align-items: center;">${participantsHtml}</div>`);
-        }
+        processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
+        processedText = processedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
+        processedText = processedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
+        processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
+        processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
         
-        // Step 3: Apply highlight style to all <b> tags
         processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
       
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
