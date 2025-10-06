@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -36,6 +37,7 @@ type TemplateStyle = {
 type MessageTemplate = {
     text: string;
     styles: TemplateStyle;
+    enabled: boolean;
 };
 
 type MessageTemplates = {
@@ -73,23 +75,28 @@ const templateLabels: { [key: string]: { title: string, description: string, var
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
     duel_winner: {
         text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' },
+        enabled: true,
     },
      tie_announcement: {
-        text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p><div class="participants">{{{participantsList}}}</div>',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p>{{{participantsList}}}',
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
 };
 
@@ -117,9 +124,9 @@ const renderPreview = (template: MessageTemplate) => {
 
     let renderedText = text;
     renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, dummyData.participantsList);
-    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, dummyData.name);
-    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, dummyData['words.0']);
-    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, dummyData.words);
+    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, `<b>${dummyData.name}</b>`);
+    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, `<b>${dummyData['words.0']}</b>`);
+    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, `<b>${dummyData.words}</b>`);
     renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, dummyData.stars);
 
     const style: React.CSSProperties = {
@@ -135,7 +142,8 @@ const renderPreview = (template: MessageTemplate) => {
         maxWidth: '60rem',
     } as React.CSSProperties;
     
-    renderedText = renderedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+    const highlightStyle = `background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
+    renderedText = renderedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
 
 
     return (
@@ -170,7 +178,9 @@ function StudioPageContent() {
                             styles: {
                                 ...mergedTemplates[key].styles,
                                 ...data[key].styles,
-                            }
+                            },
+                             // Ensure `enabled` property exists, default to true if not set in DB
+                            enabled: data[key].enabled !== undefined ? data[key].enabled : true,
                         }
                     }
                 }
@@ -199,6 +209,16 @@ function StudioPageContent() {
             [templateKey]: {
                 ...prev[templateKey],
                 text: value
+            }
+        }));
+    };
+
+    const handleEnabledChange = (templateKey: string, checked: boolean) => {
+        setTemplates(prev => ({
+            ...prev,
+            [templateKey]: {
+                ...prev[templateKey],
+                enabled: checked
             }
         }));
     };
@@ -235,6 +255,20 @@ function StudioPageContent() {
                                 <AccordionItem key={key} value={key}>
                                     <AccordionTrigger className="text-lg font-semibold">{templateLabels[key]?.title || key}</AccordionTrigger>
                                     <AccordionContent className="space-y-6 pt-4">
+                                        <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor={`enable-switch-${key}`} className="text-base">Exibir esta mensagem</Label>
+                                                <p className="text-sm text-muted-foreground">
+                                                   {template.enabled ? 'A mensagem será exibida' : 'A mensagem não será exibida'} no projetor.
+                                                </p>
+                                            </div>
+                                            <Switch
+                                                id={`enable-switch-${key}`}
+                                                checked={template.enabled}
+                                                onCheckedChange={(checked) => handleEnabledChange(key, checked)}
+                                            />
+                                        </div>
+
                                         <div>
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Label htmlFor={`text-${key}`} className="font-bold">Texto da Mensagem</Label>
@@ -328,7 +362,7 @@ function StudioPageContent() {
                                                         onChange={(e) => handleStyleChange(key, 'highlightTextColor', e.target.value)}
                                                     />
                                                 </div>
-                                            </div>
+d                                            </div>
                                             <div className="space-y-2">
                                                 <Label htmlFor={`borderColor-${key}`}>Cor da Borda</Label>
                                                 <div className="flex items-center gap-2">

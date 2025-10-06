@@ -30,6 +30,7 @@ type TemplateStyle = {
 type MessageTemplate = {
     text: string;
     styles: TemplateStyle;
+    enabled: boolean;
 };
 
 type MessageTemplates = {
@@ -39,32 +40,37 @@ type MessageTemplates = {
 const initialTemplates: MessageTemplates = {
     word_winner: {
         text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
     duel_winner: {
         text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
     no_word_winner: {
         text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
-        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
      final_winner: {
         text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
-        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' }
+        styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' },
+        enabled: true,
     },
      tie_announcement: {
         text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p>{{{participantsList}}}',
-        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' }
+        styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
+        enabled: true,
     },
 };
-
 
 // --- Componente Principal ---
 export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
+    const [showDuelContent, setShowDuelContent] = useState(true);
 
     const [participantA, setParticipantA] = useState<Participant | null>(null);
     const [participantB, setParticipantB] = useState<Participant | null>(null);
@@ -111,7 +117,8 @@ export default function ProjectionPage() {
                             styles: {
                                 ...mergedTemplates[key].styles,
                                 ...data[key].styles,
-                            }
+                            },
+                             enabled: data[key].enabled !== undefined ? data[key].enabled : true,
                         }
                     }
                 }
@@ -122,6 +129,14 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
+            
+            if (newAction?.type && templates[newAction.type.toLowerCase()]?.enabled === false) {
+                 // Se a mensagem está desabilitada, não a processa
+                 if (currentAction?.type === newAction.type) return;
+                 setCurrentAction(newAction); // Atualiza para evitar re-processamento
+                 return;
+            }
+
             setCurrentAction(prevAction => {
                 handleAction(newAction, prevAction);
                 return newAction;
@@ -135,7 +150,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady]);
+    }, [isReady, templates]); // Adicionado `templates` como dependência
 
     // --- Funções de Controle ---
     
@@ -217,13 +232,14 @@ export default function ProjectionPage() {
                 break;
             
             case 'SHUFFLING_PARTICIPANTS':
+                setShowDuelContent(true);
                 setShowWord(false);
                 setWords([]);
                 setDuelScore({ a: 0, b: 0 });
-                // Animation is started by the sound logic above
                 break;
 
             case 'UPDATE_PARTICIPANTS':
+                setShowDuelContent(true);
                 setParticipantA(action.payload?.participantA || null);
                 setParticipantB(action.payload?.participantB || null);
                 setDuelScore(action.payload?.duelScore || { a: 0, b: 0 });
@@ -240,7 +256,6 @@ export default function ProjectionPage() {
                 setShowWord(false);
                 break;
             
-            // Message display is handled by the global `currentAction` state
             case 'NO_WORD_WINNER':
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
@@ -248,6 +263,7 @@ export default function ProjectionPage() {
             case 'TIE_ANNOUNCEMENT':
             case 'SHOW_MESSAGE':
             case 'NO_WINNER':
+                setShowDuelContent(false);
                 setShowWord(false);
                 break;
         }
@@ -262,6 +278,7 @@ export default function ProjectionPage() {
         setShowWord(false);
         setWords([]);
         setDuelScore({ a: 0, b: 0 });
+        setShowDuelContent(true);
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
@@ -274,12 +291,12 @@ export default function ProjectionPage() {
         }, 150);
     };
 
-    const shouldShowMessage = currentAction && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'].includes(currentAction.type);
-
+    const shouldShowMessage = currentAction && templates[currentAction.type.toLowerCase()]?.enabled && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'].includes(currentAction.type);
 
     const DynamicMessageContent = ({ template, payload }: { template: MessageTemplate; payload: any; }) => {
         const { text, styles } = template;
         
+        let processedText = text;
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
@@ -287,8 +304,6 @@ export default function ProjectionPage() {
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
             ...payload
         };
-    
-        let processedText = text;
         
         if (Array.isArray(data.participants)) {
              processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
@@ -299,7 +314,8 @@ export default function ProjectionPage() {
         processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
         processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
         
-        processedText = processedText.replace(/<b>(.*?)<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">$1</b>`);
+        const highlightStyle = `background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
+        processedText = processedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
       
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
     };
@@ -341,7 +357,7 @@ export default function ProjectionPage() {
     const renderDuelContent = () => (
         <div className={cn(
             "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500",
-            shouldShowMessage ? 'opacity-0' : 'opacity-100'
+            !showDuelContent ? 'opacity-0' : 'opacity-100'
         )}>
             <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                 <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
