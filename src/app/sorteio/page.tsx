@@ -41,7 +41,6 @@ type DisputeState = {
 }
 
 const setDisputeState = (state: DisputeState | null) => {
-    console.log("DEBUG: Enviando para o projetor:", state);
     set(ref(database, 'dispute/state'), state);
 }
 
@@ -176,18 +175,7 @@ function RafflePageContent() {
     }
 
     setRaffleState('shuffling');
-
-    shufflingIntervalRef.current = setInterval(() => {
-        const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
-        setDisputeState({ 
-            type: 'SHUFFLING_PARTICIPANTS', 
-            payload: {
-                activeParticipants,
-                participantA: shuffled[0],
-                participantB: shuffled[1]
-            }
-        });
-    }, 150);
+    setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', payload: { activeParticipants } });
 
     setTimeout(() => {
         if (shufflingIntervalRef.current) {
@@ -329,12 +317,9 @@ function RafflePageContent() {
     const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
 
     if (isDuelOver) {
-        // Delay moving to the next state to allow the message to show
-        setTimeout(async () => {
-            const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
-            const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
-            await finishDuel(duelWinner, duelLoser);
-        }, 3000); // Wait 3 seconds
+        const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
+        const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
+        await finishDuel(duelWinner, duelLoser);
     } else {
        setRaffleState('word_finished'); 
        setDisputeState({type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore } });
@@ -343,7 +328,7 @@ function RafflePageContent() {
 };
   
   const handleNoWinner = async () => {
-    if (!currentWords) return;
+    if (!currentWords || !currentDuel) return;
 
     setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords } });
     toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou.' });
@@ -352,15 +337,15 @@ function RafflePageContent() {
     setWordsPlayed(newWordsPlayed);
     setRaffleState('word_finished');
     setCurrentWords(null);
+    setDisputeState({type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: duelScore } });
+
 
     const isDuelOver = newWordsPlayed >= wordsPerRound && duelScore.a !== duelScore.b;
 
-    if (isDuelOver && currentDuel) {
-         setTimeout(async () => {
-            const duelWinner = duelScore.a > duelScore.b ? currentDuel.participantA : currentDuel.participantB;
-            const duelLoser = duelScore.a > duelScore.b ? currentDuel.participantB : currentDuel.participantA;
-            await finishDuel(duelWinner, duelLoser);
-        }, 3000); // Wait 3 seconds
+    if (isDuelOver) {
+        const duelWinner = duelScore.a > duelScore.b ? currentDuel.participantA : currentDuel.participantB;
+        const duelLoser = duelScore.a > duelScore.b ? currentDuel.participantB : currentDuel.participantA;
+        await finishDuel(duelWinner, duelLoser);
     }
   }
 
@@ -692,5 +677,3 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
-
-    

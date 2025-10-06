@@ -65,7 +65,7 @@ const initialTemplates: MessageTemplates = {
     },
 };
 
-const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE', 'SHOW_WINNERS'];
+const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_WINNERS', 'SHOW_MESSAGE'];
 
 // --- Componente Principal ---
 export default function ProjectionPage() {
@@ -131,11 +131,7 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-            
-            setCurrentAction(prevAction => {
-                handleAction(newAction, prevAction);
-                return newAction;
-            });
+            handleAction(newAction);
         });
 
         return () => {
@@ -145,7 +141,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady]);
+    }, [isReady, templates]);
 
     // --- Funções de Controle ---
     
@@ -182,26 +178,29 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const handleAction = (action: DisputeAction | null, prevAction: DisputeAction | null) => {
+    const handleAction = (action: DisputeAction | null) => {
+        const prevActionType = currentAction?.type;
+        setCurrentAction(action);
+        
         if (!action) {
             resetToIdle();
             return;
         }
-
+    
         const actionType = action.type;
-        const prevActionType = prevAction?.type;
-
-        // Se a ação é uma mensagem que pode ser desabilitada, verifica a permissão
+        const payload = action.payload || {};
+    
+        // Primeiro, verifique se a ação é uma mensagem que está desabilitada.
         if (messageActionTypes.includes(actionType)) {
             const templateKey = actionType.toLowerCase();
-            if (templates[templateKey] && templates[templateKey].enabled === false) {
-                // Se a mensagem está desabilitada, não faz nada visual, mas pode precisar resetar
-                if (actionType === 'RESET') resetToIdle();
-                return;
+            if (templates[templateKey] && !templates[templateKey].enabled) {
+                // Se a mensagem estiver desabilitada, não faça nada.
+                // A lógica na página de sorteio deve prosseguir sem esperar.
+                return; 
             }
         }
-        
-        // Toca o som apenas na transição de estado
+    
+        // Toca sons apenas na transição de estados diferentes
         if (actionType !== prevActionType) {
             switch (actionType) {
                 case 'SHUFFLING_PARTICIPANTS':
@@ -209,10 +208,7 @@ export default function ProjectionPage() {
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShufflingAnimation();
-                    // Play sound only if it's the first time participants are shown in a duel
-                    if (!prevAction || prevAction.type === 'SHUFFLING_PARTICIPANTS' || prevAction.type === 'RESET') {
-                        if (action.payload?.participantA) playSound('sinos.mp3');
-                    }
+                    if (payload.participantA) playSound('sinos.mp3');
                     break;
                 case 'SHOW_WORD':
                     playSound('premio.mp3');
@@ -231,31 +227,31 @@ export default function ProjectionPage() {
                     break;
             }
         }
-        
+    
+        // Gerencia o estado da UI com base na ação
         switch (actionType) {
             case 'RESET':
                 resetToIdle();
                 break;
             case 'SHUFFLING_PARTICIPANTS':
-                startShufflingAnimation(action.payload?.activeParticipants || []);
                 setShowContent(true);
                 setShowWord(false);
                 setWords([]);
                 setDuelScore({ a: 0, b: 0 });
+                startShufflingAnimation(payload.activeParticipants || []);
                 break;
             case 'UPDATE_PARTICIPANTS':
                 stopShufflingAnimation();
                 setShowContent(true);
-                setParticipantA(action.payload?.participantA || null);
-                setParticipantB(action.payload?.participantB || null);
-                setDuelScore(action.payload?.duelScore || { a: 0, b: 0 });
+                setShowWord(false);
+                setParticipantA(payload.participantA || null);
+                setParticipantB(payload.participantB || null);
+                setDuelScore(payload.duelScore || { a: 0, b: 0 });
                 break;
             case 'SHOW_WORD':
-                if (action.payload && action.payload.words) {
-                    setShowContent(true);
-                    setWords(action.payload.words);
-                    setShowWord(true);
-                }
+                setShowContent(true);
+                setWords(payload.words || []);
+                setShowWord(true);
                 break;
             case 'HIDE_WORD':
                 setShowWord(false);
@@ -268,7 +264,7 @@ export default function ProjectionPage() {
             case 'NO_WINNER':
             case 'SHOW_WINNERS':
             case 'SHOW_MESSAGE':
-                setShowContent(false);
+                setShowContent(false); // Oculta o conteúdo do duelo para focar na mensagem
                 setShowWord(false);
                 break;
         }
@@ -300,28 +296,29 @@ export default function ProjectionPage() {
 
     const DynamicMessageContent = ({ template, payload }: { template: MessageTemplate; payload: any; }) => {
         const { text, styles } = template;
-        
+    
         let processedText = text;
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
             'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
+            participants: payload.participants,
             ...payload
         };
-        
+    
         if (Array.isArray(data.participants)) {
-             processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, (data.participants as Participant[]).map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
+            processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participants.map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
         }
-
+    
         processedText = processedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
         processedText = processedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
         processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
         processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-        
+    
         const highlightStyle = `background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
         processedText = processedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
-      
+    
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
     };
 
@@ -414,7 +411,9 @@ export default function ProjectionPage() {
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            {renderDuelContent()}
+            <main className='flex-grow w-full flex flex-col justify-center items-center'>
+                {renderDuelContent()}
+            </main>
             {renderMessage()}
         </div>
     );
