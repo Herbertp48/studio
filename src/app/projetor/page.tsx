@@ -72,7 +72,7 @@ export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
-    const [showDuelContent, setShowDuelContent] = useState(true);
+    const [showContent, setShowContent] = useState(true);
 
     const [participantA, setParticipantA] = useState<Participant | null>(null);
     const [participantB, setParticipantB] = useState<Participant | null>(null);
@@ -183,27 +183,28 @@ export default function ProjectionPage() {
     };
 
     const handleAction = (action: DisputeAction | null, prevAction: DisputeAction | null) => {
-        const previousActionType = prevAction?.type;
-
         if (!action) {
             resetToIdle();
             return;
         }
 
-        // Verifica se é uma mensagem que pode ser desabilitada
-        if (action.type && messageActionTypes.includes(action.type) && templates[action.type.toLowerCase()]?.enabled === false) {
-             // Se a mensagem está desabilitada, não a processa
-             if (currentAction?.type === action.type) return;
-             return;
+        const actionType = action.type;
+        const prevActionType = prevAction?.type;
+
+        // Se a ação é uma mensagem que pode ser desabilitada, verifica a permissão
+        if (messageActionTypes.includes(actionType)) {
+            const templateKey = actionType.toLowerCase();
+            if (templates[templateKey] && templates[templateKey].enabled === false) {
+                // Se a mensagem está desabilitada, não faz nada
+                return;
+            }
         }
 
-        // Play sound only on state transition
-        if (action.type !== previousActionType) {
-            switch (action.type) {
+        // Toca o som apenas na transição de estado
+        if (actionType !== prevActionType) {
+            switch (actionType) {
                 case 'SHUFFLING_PARTICIPANTS':
-                     if (!shufflingIntervalRef.current) {
-                        startShufflingAnimation(action.payload?.activeParticipants || []);
-                    }
+                    startShufflingAnimation(action.payload?.activeParticipants || []);
                     break;
                 case 'UPDATE_PARTICIPANTS':
                     stopShufflingAnimation();
@@ -228,44 +229,40 @@ export default function ProjectionPage() {
         }
 
 
-        switch (action.type) {
+        switch (actionType) {
             case 'RESET':
                 resetToIdle();
                 break;
-            
             case 'SHUFFLING_PARTICIPANTS':
-                setShowDuelContent(true);
+                setShowContent(true);
                 setShowWord(false);
                 setWords([]);
                 setDuelScore({ a: 0, b: 0 });
                 break;
-
             case 'UPDATE_PARTICIPANTS':
-                setShowDuelContent(true);
+                setShowContent(true);
                 setParticipantA(action.payload?.participantA || null);
                 setParticipantB(action.payload?.participantB || null);
                 setDuelScore(action.payload?.duelScore || { a: 0, b: 0 });
                 break;
-
             case 'SHOW_WORD':
                 if (action.payload && action.payload.words) {
                     setWords(action.payload.words);
                     setShowWord(true);
                 }
                 break;
-
             case 'HIDE_WORD':
                 setShowWord(false);
                 break;
-            
-            case 'NO_WORD_WINNER':
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
-            case 'SHOW_MESSAGE':
+            case 'NO_WORD_WINNER':
             case 'NO_WINNER':
-                setShowDuelContent(false);
+            case 'SHOW_WINNERS':
+            case 'SHOW_MESSAGE':
+                setShowContent(false);
                 setShowWord(false);
                 break;
         }
@@ -280,11 +277,11 @@ export default function ProjectionPage() {
         setShowWord(false);
         setWords([]);
         setDuelScore({ a: 0, b: 0 });
-        setShowDuelContent(true);
+        setShowContent(true);
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
-        stopShufflingAnimation();
+        if (shufflingIntervalRef.current) return;
         playSound('tambor.mp3', true);
         shufflingIntervalRef.current = setInterval(() => {
             const shuffled = [...participants].sort(() => 0.5 - Math.random());
@@ -293,7 +290,7 @@ export default function ProjectionPage() {
         }, 150);
     };
 
-    const shouldShowMessage = currentAction && templates[currentAction.type.toLowerCase()]?.enabled && ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'].includes(currentAction.type);
+    const shouldShowMessage = currentAction && messageActionTypes.includes(currentAction.type) && templates[currentAction.type.toLowerCase()]?.enabled;
 
     const DynamicMessageContent = ({ template, payload }: { template: MessageTemplate; payload: any; }) => {
         const { text, styles } = template;
@@ -359,7 +356,7 @@ export default function ProjectionPage() {
     const renderDuelContent = () => (
         <div className={cn(
             "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500",
-            !showDuelContent ? 'opacity-0' : 'opacity-100'
+            !showContent ? 'opacity-0' : 'opacity-100'
         )}>
             <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                 <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
@@ -458,3 +455,5 @@ const GlobalStyle = () => (
     }
   `}</style>
 );
+
+    
