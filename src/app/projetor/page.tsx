@@ -141,7 +141,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady, templates]);
+    }, [isReady]);
 
     // --- Funções de Controle ---
     
@@ -150,6 +150,7 @@ export default function ProjectionPage() {
         const soundToPlay = sounds.current[soundFile];
         if (soundToPlay) {
             soundToPlay.loop = loop;
+            soundToPlay.currentTime = 0;
             soundToPlay.play().catch(e => {
               if (e.name !== 'AbortError') { console.error("Erro ao tocar áudio:", e); }
             });
@@ -179,6 +180,7 @@ export default function ProjectionPage() {
     };
 
     const handleAction = (action: DisputeAction | null) => {
+        stopAllSounds();
         setCurrentAction(action);
         
         if (!action) {
@@ -189,7 +191,6 @@ export default function ProjectionPage() {
         const actionType = action.type;
         const payload = action.payload || {};
         
-        // Define o som a ser tocado, mas não toca ainda
         let soundToPlay: string | null = null;
         let loopSound = false;
 
@@ -215,24 +216,18 @@ export default function ProjectionPage() {
                 break;
         }
 
-        // Verifica se é uma mensagem que pode ser desabilitada
         const isMessageAction = messageActionTypes.includes(actionType);
         if (isMessageAction) {
             const templateKey = actionType.toLowerCase();
-            // Se a mensagem estiver desabilitada, simplesmente retorne e não faça nada.
             if (templates[templateKey] && !templates[templateKey].enabled) {
                 return; 
             }
         }
     
-        // Se a ação for válida (ou não for uma mensagem desabilitável), toque o som.
         if (soundToPlay) {
             playSound(soundToPlay, loopSound);
-        } else {
-            stopAllSounds();
         }
 
-        // Gerencia o estado da UI com base na ação
         switch (actionType) {
             case 'RESET':
                 resetToIdle();
@@ -268,7 +263,7 @@ export default function ProjectionPage() {
             case 'NO_WINNER':
             case 'SHOW_WINNERS':
             case 'SHOW_MESSAGE':
-                setShowContent(false); // Oculta o conteúdo do duelo para focar na mensagem
+                setShowContent(false);
                 setShowWord(false);
                 break;
         }
@@ -312,19 +307,20 @@ export default function ProjectionPage() {
         };
     
         if (Array.isArray(data.participants)) {
-            processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participants.map((p: Participant) => `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`).join(''));
+            const participantsHtml = data.participants.map((p: Participant) => 
+                `<div style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.5em 1em; border-radius: 0.5em; font-size: 1.5rem; font-weight: bold;">${p.name}</div>`
+            ).join('');
+            processedText = processedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, participantsHtml);
         }
-    
-        processedText = processedText.replace(/<b>\{\{\s*name\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data.name}</b>`);
+        
+        const highlightStyle = `background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
+
         processedText = processedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
-        processedText = processedText.replace(/<b>\{\{\s*words\.0\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data['words.0']}</b>`);
         processedText = processedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
-        processedText = processedText.replace(/<b>\{\{\s*words\s*\}\}<\/b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">${data.words}</b>`);
         processedText = processedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
         processedText = processedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
         
-        // Fallback for any other <b> tags
-        processedText = processedText.replace(/<b>/g, `<b style="background-color: ${styles.highlightColor}; color: ${styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;">`);
+        processedText = processedText.replace(/<b>(.*?)<\/b>/g, `<b style="${highlightStyle}">$1</b>`);
     
         return <div className={cn(styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity')} dangerouslySetInnerHTML={{ __html: processedText }} />;
     };
