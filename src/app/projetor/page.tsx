@@ -82,8 +82,7 @@ export default function ProjectionPage() {
     
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
-    const isShowingMessageRef = useRef(false);
-    const actionQueue = useRef<DisputeAction[]>([]);
+    const isProcessingActionRef = useRef(false);
     
     // --- Efeitos ---
 
@@ -134,12 +133,12 @@ export default function ProjectionPage() {
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
 
-            if (isShowingMessageRef.current && newAction) {
-                actionQueue.current.push(newAction);
-            } else if (newAction) {
-                processAction(newAction);
+            if (isProcessingActionRef.current) return;
+            
+            if (newAction) {
+                isProcessingActionRef.current = processAction(newAction);
             } else {
-                 processAction(null);
+                processAction(null);
             }
         });
 
@@ -150,7 +149,7 @@ export default function ProjectionPage() {
             stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady]);
+    }, [isReady, templates]);
 
     // --- Funções de Controle ---
     
@@ -188,10 +187,10 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const processAction = (action: DisputeAction | null) => {
+    const processAction = (action: DisputeAction | null): boolean => {
         if (!action) {
             resetToIdle();
-            return;
+            return false;
         }
     
         const actionType = action.type;
@@ -202,11 +201,8 @@ export default function ProjectionPage() {
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
         if (isMessageDisabled) {
-            const nextAction = actionQueue.current.shift();
-            if (nextAction) {
-                setTimeout(() => processAction(nextAction), 10);
-            }
-            return;
+            // If the message is disabled, do nothing and allow the next action to be processed.
+            return false;
         }
         
         stopAllSounds();
@@ -240,6 +236,8 @@ export default function ProjectionPage() {
         if (soundToPlay) {
             playSound(soundToPlay, loopSound);
         }
+
+        let isBlocking = false;
 
         switch (actionType) {
             case 'RESET':
@@ -278,16 +276,14 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                 setShowContent(false);
                 setShowWord(false);
-                isShowingMessageRef.current = true;
+                isBlocking = true;
                 setTimeout(() => {
-                    isShowingMessageRef.current = false;
-                    const nextAction = actionQueue.current.shift();
-                     if (nextAction) {
-                        processAction(nextAction);
-                    }
+                   isProcessingActionRef.current = false;
                 }, 4000);
                 break;
         }
+
+        return isBlocking;
     };
 
 
