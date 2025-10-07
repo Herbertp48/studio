@@ -189,9 +189,6 @@ export default function ProjectionPage() {
     };
 
     const processAction = (action: DisputeAction | null) => {
-        stopAllSounds();
-        setCurrentAction(action);
-        
         if (!action) {
             resetToIdle();
             return;
@@ -205,13 +202,15 @@ export default function ProjectionPage() {
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
         if (isMessageDisabled) {
-             // Se a mensagem está desabilitada, apenas ignora e tenta processar a próxima da fila.
             const nextAction = actionQueue.current.shift();
             if (nextAction) {
-                processAction(nextAction);
+                setTimeout(() => processAction(nextAction), 10);
             }
             return;
         }
+        
+        stopAllSounds();
+        setCurrentAction(action);
         
         let soundToPlay: string | null = null;
         let loopSound = false;
