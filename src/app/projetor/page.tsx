@@ -82,6 +82,8 @@ export default function ProjectionPage() {
     
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
+    const isShowingMessageRef = useRef(false);
+    const actionQueue = useRef<DisputeAction[]>([]);
     
     // --- Efeitos ---
 
@@ -131,7 +133,14 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-            handleAction(newAction);
+
+            if (isShowingMessageRef.current && newAction) {
+                actionQueue.current.push(newAction);
+            } else if (newAction) {
+                processAction(newAction);
+            } else {
+                 processAction(null);
+            }
         });
 
         return () => {
@@ -179,7 +188,7 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const handleAction = (action: DisputeAction | null) => {
+    const processAction = (action: DisputeAction | null) => {
         stopAllSounds();
         setCurrentAction(action);
         
@@ -190,6 +199,19 @@ export default function ProjectionPage() {
     
         const actionType = action.type;
         const payload = action.payload || {};
+        
+        const isMessage = messageActionTypes.includes(actionType);
+        const templateKey = isMessage ? actionType.toLowerCase() : '';
+        const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
+
+        if (isMessageDisabled) {
+             // Se a mensagem está desabilitada, apenas ignora e tenta processar a próxima da fila.
+            const nextAction = actionQueue.current.shift();
+            if (nextAction) {
+                processAction(nextAction);
+            }
+            return;
+        }
         
         let soundToPlay: string | null = null;
         let loopSound = false;
@@ -214,14 +236,6 @@ export default function ProjectionPage() {
             case 'TIE_ANNOUNCEMENT':
                 soundToPlay = 'vencedor.mp3';
                 break;
-        }
-
-        const isMessageAction = messageActionTypes.includes(actionType);
-        if (isMessageAction) {
-            const templateKey = actionType.toLowerCase();
-            if (templates[templateKey] && !templates[templateKey].enabled) {
-                return; 
-            }
         }
     
         if (soundToPlay) {
@@ -265,9 +279,18 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                 setShowContent(false);
                 setShowWord(false);
+                isShowingMessageRef.current = true;
+                setTimeout(() => {
+                    isShowingMessageRef.current = false;
+                    const nextAction = actionQueue.current.shift();
+                     if (nextAction) {
+                        processAction(nextAction);
+                    }
+                }, 4000);
                 break;
         }
     };
+
 
     const resetToIdle = () => {
         stopAllSounds();

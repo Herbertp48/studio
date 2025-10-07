@@ -285,21 +285,18 @@ function RafflePageContent() {
 
   const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
     if (!currentDuel) return;
-  
-    // Wait for message to show on projector before changing state
-    setTimeout(() => {
-      const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
-  
-      if (isDuelOver) {
-        const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
-        const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA; // Corrected loser assignment
-        finishDuel(duelWinner, duelLoser);
-      } else {
-        setRaffleState('word_finished');
-        setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore } });
-        setCurrentWords(null);
-      }
-    }, 4000); // 4-second delay to allow message and sound to play
+    
+    const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
+
+    if (isDuelOver) {
+      const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
+      const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
+      finishDuel(duelWinner, duelLoser);
+    } else {
+      setRaffleState('word_finished');
+      setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore } });
+      setCurrentWords(null);
+    }
   };
 
   const handleWordWinner = async (wordWinnerId: string) => {
