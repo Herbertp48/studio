@@ -293,11 +293,13 @@ function RafflePageContent() {
         const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
         const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
         finishDuel(duelWinner, duelLoser);
-      }, 500); // Small delay to allow final point message to show if enabled
+      }, 4100);
     } else {
-      setRaffleState('word_finished');
-      setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore } });
-      setCurrentWords(null);
+       setTimeout(() => {
+        setRaffleState('word_finished');
+        setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore } });
+        setCurrentWords(null);
+      }, 4100);
     }
   };
 
@@ -332,7 +334,7 @@ function RafflePageContent() {
     setDuelScore(newScore);
     setDuelWordsWon(newWordsWon);
     
-    setTimeout(() => handleDuelResult(newScore, newWordsPlayed), 100);
+    handleDuelResult(newScore, newWordsPlayed);
 };
   
   const handleNoWinner = async () => {
@@ -344,7 +346,7 @@ function RafflePageContent() {
     const newWordsPlayed = wordsPlayed + 1;
     setWordsPlayed(newWordsPlayed);
 
-    setTimeout(() => handleDuelResult(duelScore, newWordsPlayed), 100);
+    handleDuelResult(duelScore, newWordsPlayed);
   }
 
   const nextRound = () => {

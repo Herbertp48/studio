@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -132,11 +133,9 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-
-            if (isProcessingActionRef.current) return;
             
             if (newAction) {
-                isProcessingActionRef.current = processAction(newAction);
+                processAction(newAction);
             } else {
                 processAction(null);
             }
@@ -188,8 +187,8 @@ export default function ProjectionPage() {
     };
 
     const processAction = (action: DisputeAction | null): boolean => {
-        stopAllSounds(); // Ensure all sounds are stopped before processing a new action.
-        
+        stopAllSounds();
+    
         if (!action) {
             resetToIdle();
             return false;
@@ -202,10 +201,10 @@ export default function ProjectionPage() {
         const templateKey = isMessage ? actionType.toLowerCase() : '';
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
-        if (isMessageDisabled) {
-            return false;
+        if (isMessage && isMessageDisabled) {
+             return false;
         }
-        
+
         setCurrentAction(action);
         
         let soundToPlay: string | null = null;
@@ -217,7 +216,8 @@ export default function ProjectionPage() {
                 loopSound = true;
                 break;
             case 'UPDATE_PARTICIPANTS':
-                if (payload.participantA) soundToPlay = 'sinos.mp3';
+                soundToPlay = 'sinos.mp3';
+                loopSound = false;
                 break;
             case 'SHOW_WORD':
                 soundToPlay = 'premio.mp3';
@@ -237,8 +237,6 @@ export default function ProjectionPage() {
             playSound(soundToPlay, loopSound);
         }
 
-        let isBlocking = false;
-
         switch (actionType) {
             case 'RESET':
                 resetToIdle();
@@ -257,7 +255,6 @@ export default function ProjectionPage() {
                 setParticipantA(payload.participantA || null);
                 setParticipantB(payload.participantB || null);
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
-                playSound('sinos.mp3', false); // Force sound stop and transition
                 break;
             case 'SHOW_WORD':
                 setShowContent(true);
@@ -277,14 +274,10 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                 setShowContent(false);
                 setShowWord(false);
-                isBlocking = true;
-                setTimeout(() => {
-                   isProcessingActionRef.current = false;
-                }, 4000);
                 break;
         }
 
-        return isBlocking;
+        return true;
     };
 
 
