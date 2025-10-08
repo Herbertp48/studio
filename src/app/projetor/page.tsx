@@ -188,6 +188,8 @@ export default function ProjectionPage() {
     };
 
     const processAction = (action: DisputeAction | null): boolean => {
+        stopAllSounds(); // Ensure all sounds are stopped before processing a new action.
+
         if (!action) {
             resetToIdle();
             return false;
@@ -205,7 +207,6 @@ export default function ProjectionPage() {
             return false;
         }
         
-        stopAllSounds();
         setCurrentAction(action);
         
         let soundToPlay: string | null = null;
