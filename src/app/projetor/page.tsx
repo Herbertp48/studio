@@ -74,6 +74,7 @@ export default function ProjectionPage() {
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
     const [showContent, setShowContent] = useState(true);
+    const [wordsPerRound, setWordsPerRound] = useState(1);
 
     const [participantA, setParticipantA] = useState<Participant | null>(null);
     const [participantB, setParticipantB] = useState<Participant | null>(null);
@@ -100,7 +101,7 @@ export default function ProjectionPage() {
         });
         return () => {
             stopAllSounds();
-            if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
+            stopShufflingAnimation();
             if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         };
     }, []);
@@ -189,7 +190,7 @@ export default function ProjectionPage() {
             clearTimeout(messageTimeoutRef.current);
             messageTimeoutRef.current = null;
         }
-    
+
         const actionType = action.type;
         const payload = action.payload || {};
         
@@ -200,7 +201,8 @@ export default function ProjectionPage() {
         if (isMessage && isMessageDisabled) {
              return false;
         }
-
+        
+        stopAllSounds();
         setCurrentAction(action);
         
         let soundToPlay: string | null = null;
@@ -217,12 +219,12 @@ export default function ProjectionPage() {
                 break;
             case 'UPDATE_PARTICIPANTS':
                 stopShufflingAnimation();
-                stopAllSounds(); // Explicitly stop sound here
                 setShowContent(true);
                 setShowWord(false);
                 setParticipantA(payload.participantA || null);
                 setParticipantB(payload.participantB || null);
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
+                setWordsPerRound(payload.wordsPerRound || 1);
                 playSound('sinos.mp3', false);
                 break;
             case 'SHOW_WORD':
@@ -260,9 +262,7 @@ export default function ProjectionPage() {
         
         if (isMessage) {
             messageTimeoutRef.current = setTimeout(() => {
-                if (actionType !== 'SHUFFLING_PARTICIPANTS' && actionType !== 'UPDATE_PARTICIPANTS') {
-                    resetToIdle();
-                }
+                resetToIdle();
             }, 4000);
         }
 
@@ -380,14 +380,14 @@ export default function ProjectionPage() {
                 <div className="flex items-start justify-around w-full">
                     <div className="flex-1 text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
-                        <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>
+                        {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>}
                     </div>
                     <div className="flex-shrink-0 text-center px-4">
                         <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                     </div>
                     <div className="flex-1 text-center">
                         <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
-                         <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>
+                         {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>}
                     </div>
                 </div>
             </div>
