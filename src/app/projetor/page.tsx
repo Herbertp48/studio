@@ -84,6 +84,7 @@ export default function ProjectionPage() {
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const isProcessingActionRef = useRef(false);
+    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     // --- Efeitos ---
 
@@ -98,9 +99,9 @@ export default function ProjectionPage() {
             }
         });
         return () => {
-             Object.values(sounds.current).forEach(sound => {
-                if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
-            });
+            stopAllSounds();
+            if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
+            if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         };
     }, []);
 
@@ -133,22 +134,19 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-            
-            if (newAction) {
+             if (newAction) {
                 processAction(newAction);
             } else {
-                processAction(null);
+                resetToIdle();
             }
         });
 
         return () => {
             unsubTemplates();
             unsubDispute();
-            stopAllSounds();
-            stopShufflingAnimation();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady, templates]);
+    }, [isReady]);
 
     // --- Funções de Controle ---
     
@@ -186,12 +184,10 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const processAction = (action: DisputeAction | null): boolean => {
-        stopAllSounds();
-    
-        if (!action) {
-            resetToIdle();
-            return false;
+    const processAction = (action: DisputeAction): boolean => {
+        if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+            messageTimeoutRef.current = null;
         }
     
         const actionType = action.type;
@@ -212,69 +208,62 @@ export default function ProjectionPage() {
 
         switch (actionType) {
             case 'SHUFFLING_PARTICIPANTS':
-                soundToPlay = 'tambor.mp3';
-                loopSound = true;
-                break;
-            case 'UPDATE_PARTICIPANTS':
-                soundToPlay = 'sinos.mp3';
-                loopSound = false;
-                break;
-            case 'SHOW_WORD':
-                soundToPlay = 'premio.mp3';
-                break;
-            case 'NO_WORD_WINNER':
-                soundToPlay = 'erro.mp3';
-                break;
-            case 'WORD_WINNER':
-            case 'DUEL_WINNER':
-            case 'FINAL_WINNER':
-            case 'TIE_ANNOUNCEMENT':
-                soundToPlay = 'vencedor.mp3';
-                break;
-        }
-    
-        if (soundToPlay) {
-            playSound(soundToPlay, loopSound);
-        }
-
-        switch (actionType) {
-            case 'RESET':
-                resetToIdle();
-                break;
-            case 'SHUFFLING_PARTICIPANTS':
                 setShowContent(true);
                 setShowWord(false);
                 setWords([]);
                 setDuelScore({ a: 0, b: 0 });
                 startShufflingAnimation(payload.activeParticipants || []);
+                playSound('tambor.mp3', true);
                 break;
             case 'UPDATE_PARTICIPANTS':
                 stopShufflingAnimation();
+                stopAllSounds(); // Explicitly stop sound here
                 setShowContent(true);
                 setShowWord(false);
                 setParticipantA(payload.participantA || null);
                 setParticipantB(payload.participantB || null);
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
+                playSound('sinos.mp3', false);
                 break;
             case 'SHOW_WORD':
                 setShowContent(true);
                 setWords(payload.words || []);
                 setShowWord(true);
+                playSound('premio.mp3');
                 break;
             case 'HIDE_WORD':
                 setShowWord(false);
                 break;
+            case 'NO_WORD_WINNER':
+                 setShowContent(false);
+                 setShowWord(false);
+                 playSound('erro.mp3');
+                 break;
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
-            case 'NO_WORD_WINNER':
-            case 'NO_WINNER':
-            case 'SHOW_WINNERS':
-            case 'SHOW_MESSAGE':
+                 setShowContent(false);
+                 setShowWord(false);
+                 playSound('vencedor.mp3');
+                break;
+            case 'RESET':
+                resetToIdle();
+                break;
+             case 'NO_WINNER':
+             case 'SHOW_WINNERS':
+             case 'SHOW_MESSAGE':
                 setShowContent(false);
                 setShowWord(false);
                 break;
+        }
+        
+        if (isMessage) {
+            messageTimeoutRef.current = setTimeout(() => {
+                if (actionType !== 'SHUFFLING_PARTICIPANTS' && actionType !== 'UPDATE_PARTICIPANTS') {
+                    resetToIdle();
+                }
+            }, 4000);
         }
 
         return true;
@@ -294,7 +283,7 @@ export default function ProjectionPage() {
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
-        if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
+        stopShufflingAnimation();
         
         shufflingIntervalRef.current = setInterval(() => {
             const shuffled = [...participants].sort(() => 0.5 - Math.random());
