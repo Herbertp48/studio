@@ -153,6 +153,12 @@ export default function ProjectionPage() {
 
     // --- Funções de Controle ---
     
+    const stopAllSounds = () => {
+        Object.values(sounds.current).forEach(sound => {
+            if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
+        });
+    };
+    
     const playSound = (soundFile: string, loop = false) => {
         stopAllSounds();
         const soundToPlay = sounds.current[soundFile];
@@ -163,12 +169,6 @@ export default function ProjectionPage() {
               if (e.name !== 'AbortError') { console.error("Erro ao tocar áudio:", e); }
             });
         }
-    };
-
-    const stopAllSounds = () => {
-        Object.values(sounds.current).forEach(sound => {
-            if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
-        });
     };
 
     const stopShufflingAnimation = () => {
@@ -189,7 +189,7 @@ export default function ProjectionPage() {
 
     const processAction = (action: DisputeAction | null): boolean => {
         stopAllSounds(); // Ensure all sounds are stopped before processing a new action.
-
+        
         if (!action) {
             resetToIdle();
             return false;
@@ -203,7 +203,6 @@ export default function ProjectionPage() {
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
         if (isMessageDisabled) {
-            // If the message is disabled, do nothing and allow the next action to be processed.
             return false;
         }
         
@@ -258,6 +257,7 @@ export default function ProjectionPage() {
                 setParticipantA(payload.participantA || null);
                 setParticipantB(payload.participantB || null);
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
+                playSound('sinos.mp3', false); // Force sound stop and transition
                 break;
             case 'SHOW_WORD':
                 setShowContent(true);
