@@ -87,8 +87,12 @@ function WinnersPageContent() {
   };
 
   const projectWinners = () => {
-    setDisputeState({ type: 'SHOW_WINNERS', payload: { winners } });
-    toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
+    set(ref(database, 'dispute/state'), { type: 'RESET' }).then(() => {
+        setTimeout(() => {
+            setDisputeState({ type: 'SHOW_WINNERS', payload: { winners } });
+            toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
+        }, 200);
+    });
   }
 
   return (

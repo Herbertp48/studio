@@ -66,7 +66,7 @@ const initialTemplates: MessageTemplates = {
     },
 };
 
-const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_WINNERS', 'SHOW_MESSAGE'];
+const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'];
 
 // --- Componente Principal ---
 export default function ProjectionPage() {
@@ -210,6 +210,7 @@ export default function ProjectionPage() {
 
         switch (actionType) {
             case 'SHUFFLING_PARTICIPANTS':
+                stopShufflingAnimation();
                 setShowContent(true);
                 setShowWord(false);
                 setWords([]);
@@ -253,8 +254,11 @@ export default function ProjectionPage() {
                 resetToIdle();
                 break;
              case 'NO_WINNER':
-             case 'SHOW_WINNERS':
              case 'SHOW_MESSAGE':
+                setShowContent(false);
+                setShowWord(false);
+                break;
+            case 'SHOW_WINNERS':
                 setShowContent(false);
                 setShowWord(false);
                 break;
