@@ -394,6 +394,49 @@ export default function ProjectionPage() {
         </div>
     );
 
+    const renderWinnersTable = () => {
+        if (currentAction?.type !== 'SHOW_WINNERS' || !currentAction.payload?.winners) return null;
+    
+        const winners: AggregatedWinner[] = currentAction.payload.winners;
+    
+        return (
+            <div className={cn(
+                "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8",
+                 showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            )}>
+                 <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-6xl">
+                    <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
+                    <table className="w-full text-2xl">
+                        <thead>
+                            <tr className="border-b-4 border-accent">
+                                <th className="p-4 text-left font-melison text-4xl">Nome</th>
+                                <th className="p-4 text-left font-melison text-4xl">Palavras Acertadas</th>
+                                <th className="p-4 text-center font-melison text-4xl">Estrelas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {winners.map((winner, index) => (
+                                <tr key={index} className="border-b-2 border-accent/50">
+                                    <td className="p-4 text-left font-subjectivity font-bold">{winner.name}</td>
+                                    <td className="p-4 text-left font-subjectivity text-xl">
+                                        {Object.entries(winner.words).map(([word, count]) => `${word} (x${count})`).join(', ')}
+                                    </td>
+                                    <td className="p-4 text-center">
+                                        <div className="flex items-center justify-center gap-1">
+                                            {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                                <span key={i} className="text-yellow-400 text-4xl">⭐</span>
+                                            ))}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                 </div>
+            </div>
+        );
+    };
+
     if (!isReady) {
         return (
             <div className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer" onClick={handleEnterFullscreen}>
@@ -417,6 +460,7 @@ export default function ProjectionPage() {
             </header>
             <main className='flex-grow w-full flex flex-col justify-center items-center'>
                 {renderDuelContent()}
+                {renderWinnersTable()}
             </main>
             {renderMessage()}
         </div>
