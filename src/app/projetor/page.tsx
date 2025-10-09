@@ -135,12 +135,13 @@ export default function ProjectionPage() {
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
              if (newAction) {
-                if (isProcessingActionRef.current && newAction.type === 'RESET') {
-                    // Ignore reset actions while another action is being processed
+                // If an action is processing, only a RESET can interrupt it.
+                if (isProcessingActionRef.current && newAction.type !== 'RESET') {
                     return;
                 }
                 processAction(newAction);
             } else {
+                // If there's no action, and we are not in the middle of a message timeout, reset to idle.
                 if (!isProcessingActionRef.current) {
                     resetToIdle();
                 }
@@ -190,13 +191,11 @@ export default function ProjectionPage() {
         document.documentElement.requestFullscreen?.().catch(() => {});
     };
 
-    const processAction = (action: DisputeAction): boolean => {
+    const processAction = (action: DisputeAction) => {
         if (messageTimeoutRef.current) {
             clearTimeout(messageTimeoutRef.current);
             messageTimeoutRef.current = null;
         }
-        
-        isProcessingActionRef.current = true;
         
         const actionType = action.type;
         const payload = action.payload || {};
@@ -206,16 +205,14 @@ export default function ProjectionPage() {
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
         if (isMessage && isMessageDisabled) {
-             isProcessingActionRef.current = false;
-             return false;
+             return; // Do nothing if the message is disabled
         }
         
-        stopAllSounds();
+        isProcessingActionRef.current = true;
         setCurrentAction(action);
         
         switch (actionType) {
             case 'SHUFFLING_PARTICIPANTS':
-                stopShufflingAnimation();
                 setShowContent(true);
                 setShowWord(false);
                 setWords([]);
@@ -225,6 +222,7 @@ export default function ProjectionPage() {
                 break;
             case 'UPDATE_PARTICIPANTS':
                 stopShufflingAnimation();
+                stopAllSounds();
                 setShowContent(true);
                 setShowWord(false);
                 setParticipantA(payload.participantA || null);
@@ -232,56 +230,48 @@ export default function ProjectionPage() {
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
                 setWordsPerRound(payload.wordsPerRound || 1);
                 playSound('sinos.mp3');
+                isProcessingActionRef.current = false;
                 break;
             case 'SHOW_WORD':
                 setShowContent(true);
                 setWords(payload.words || []);
                 setShowWord(true);
                 playSound('premio.mp3');
+                isProcessingActionRef.current = false;
                 break;
             case 'HIDE_WORD':
                 setShowWord(false);
+                isProcessingActionRef.current = false;
                 break;
-            case 'NO_WORD_WINNER':
-                 setShowContent(false);
-                 setShowWord(false);
-                 playSound('erro.mp3');
-                 break;
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
+            case 'NO_WORD_WINNER':
                  setShowContent(false);
                  setShowWord(false);
-                 playSound('vencedor.mp3');
+                 playSound(actionType === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
+                 messageTimeoutRef.current = setTimeout(() => {
+                    resetToIdle();
+                 }, 4000);
                 break;
             case 'RESET':
                 resetToIdle();
                 break;
-             case 'NO_WINNER':
-             case 'SHOW_MESSAGE':
+            case 'NO_WINNER':
+            case 'SHOW_MESSAGE':
                 setShowContent(false);
                 setShowWord(false);
+                 messageTimeoutRef.current = setTimeout(() => {
+                    resetToIdle();
+                 }, 4000);
                 break;
             case 'SHOW_WINNERS':
                 setShowContent(false);
                 setShowWord(false);
+                isProcessingActionRef.current = false; // This is a persistent state
                 break;
         }
-        
-        const isPersistentAction = actionType === 'SHOW_WINNERS' || actionType === 'UPDATE_PARTICIPANTS' || actionType === 'SHUFFLING_PARTICIPANTS';
-
-        if (isMessage) {
-            messageTimeoutRef.current = setTimeout(() => {
-                resetToIdle();
-            }, 4000);
-        } else if (!isPersistentAction) {
-            // For non-message actions that aren't persistent, release the lock
-             isProcessingActionRef.current = false;
-        }
-
-
-        return true;
     };
 
 
@@ -416,10 +406,19 @@ export default function ProjectionPage() {
         if (currentAction?.type !== 'SHOW_WINNERS' || !currentAction.payload?.winners) return null;
     
         const winners: AggregatedWinner[] = currentAction.payload.winners;
-    
+        
+        const containerStyle: React.CSSProperties = {
+            position: 'absolute',
+            top: '300px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: '64rem', // max-w-6xl
+        };
+
         return (
-            <div className={cn(
-                "relative text-center text-white w-full max-w-6xl transition-opacity duration-500",
+            <div style={containerStyle} className={cn(
+                "text-center text-white transition-opacity duration-500",
                  !showContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 )}>
                  <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full">
