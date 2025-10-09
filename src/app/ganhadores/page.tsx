@@ -1,187 +1,190 @@
-'use client';
 
-import { useState, useEffect } from 'react';
-import { AppHeader } from '@/components/app/header';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Star, Trash2, Download, Trophy, Projector } from 'lucide-react';
-import { database } from '@/lib/firebase';
-import { ref, onValue, remove, set } from 'firebase/database';
-import { utils, writeFile } from 'xlsx';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useToast } from '@/hooks/use-toast';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
-
-type Winner = {
-  name: string;
-  word: string;
-  stars: number;
-};
-
-export type AggregatedWinner = {
-    name: string;
-    words: { [key: string]: number };
-    totalStars: number;
-}
-
-const setDisputeState = (state: any) => {
-    set(ref(database, 'dispute/state'), state);
-}
-
-
-function WinnersPageContent() {
-  const [winners, setWinners] = useState<AggregatedWinner[]>([]);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const winnersRef = ref(database, 'winners');
-    const unsubscribe = onValue(winnersRef, (snapshot) => {
-      const data: Winner[] = snapshot.val() ? Object.values(snapshot.val()) : [];
+      'use client';
       
-      const aggregated: { [key: string]: AggregatedWinner } = {};
-
-      data.forEach(winner => {
-        if (!aggregated[winner.name]) {
-          aggregated[winner.name] = { name: winner.name, words: {}, totalStars: 0 };
+      import { useState, useEffect } from 'react';
+      import { AppHeader } from '@/components/app/header';
+      import { Button } from '@/components/ui/button';
+      import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+      import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+      import { Star, Trash2, Download, Trophy, Projector } from 'lucide-react';
+      import { database } from '@/lib/firebase';
+      import { ref, onValue, remove, set } from 'firebase/database';
+      import { utils, writeFile } from 'xlsx';
+      import {
+        AlertDialog,
+        AlertDialogAction,
+        AlertDialogCancel,
+        AlertDialogContent,
+        AlertDialogDescription,
+        AlertDialogFooter,
+        AlertDialogHeader,
+        AlertDialogTitle,
+        AlertDialogTrigger,
+      } from "@/components/ui/alert-dialog";
+      import { useToast } from '@/hooks/use-toast';
+      import ProtectedRoute from '@/components/auth/ProtectedRoute';
+      
+      type Winner = {
+        name: string;
+        word: string;
+        stars: number;
+      };
+      
+      export type AggregatedWinner = {
+          name: string;
+          words: { [key: string]: number };
+          totalStars: number;
+      }
+      
+      const setDisputeState = (state: any) => {
+          set(ref(database, 'dispute/state'), state);
+      }
+      
+      
+      function WinnersPageContent() {
+        const [winners, setWinners] = useState<AggregatedWinner[]>([]);
+        const { toast } = useToast();
+      
+        useEffect(() => {
+          const winnersRef = ref(database, 'winners');
+          const unsubscribe = onValue(winnersRef, (snapshot) => {
+            const data: Winner[] = snapshot.val() ? Object.values(snapshot.val()) : [];
+            
+            const aggregated: { [key: string]: AggregatedWinner } = {};
+      
+            data.forEach(winner => {
+              if (!aggregated[winner.name]) {
+                aggregated[winner.name] = { name: winner.name, words: {}, totalStars: 0 };
+              }
+              if (winner.stars === 0) { // Only count words if no star was given
+                  aggregated[winner.name].words[winner.word] = (aggregated[winner.name].words[winner.word] || 0) + 1;
+              }
+              aggregated[winner.name].totalStars += winner.stars;
+            });
+      
+            setWinners(Object.values(aggregated).sort((a, b) => b.totalStars - a.totalStars));
+          });
+      
+          return () => unsubscribe();
+        }, []);
+      
+        const clearWinners = () => {
+          remove(ref(database, 'winners')).then(() => {
+              toast({ title: "Sucesso!", description: "A lista de ganhadores foi zerada."});
+          });
+        };
+      
+        const exportToExcel = () => {
+          const dataToExport = winners.map(w => ({
+              Nome: w.name,
+              Palavras: Object.entries(w.words).map(([word, count]) => `${word} (x${count})`).join(', '),
+              Estrelas: w.totalStars,
+          }));
+      
+          const worksheet = utils.json_to_sheet(dataToExport);
+          const workbook = utils.book_new();
+          utils.book_append_sheet(workbook, worksheet, 'Ganhadores');
+          writeFile(workbook, 'ganhadores.xlsx');
+        };
+      
+        const projectWinners = () => {
+          set(ref(database, 'dispute/state'), { type: 'RESET' }).then(() => {
+              setTimeout(() => {
+                  setDisputeState({ type: 'SHOW_WINNERS', payload: { winners } });
+                  toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
+              }, 200);
+          });
         }
-        if (winner.stars === 0) { // Only count words if no star was given
-            aggregated[winner.name].words[winner.word] = (aggregated[winner.name].words[winner.word] || 0) + 1;
-        }
-        aggregated[winner.name].totalStars += winner.stars;
-      });
-
-      setWinners(Object.values(aggregated).sort((a, b) => b.totalStars - a.totalStars));
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const clearWinners = () => {
-    remove(ref(database, 'winners')).then(() => {
-        toast({ title: "Sucesso!", description: "A lista de ganhadores foi zerada."});
-    });
-  };
-
-  const exportToExcel = () => {
-    const dataToExport = winners.map(w => ({
-        Nome: w.name,
-        Palavras: Object.entries(w.words).map(([word, count]) => `${word} (x${count})`).join(', '),
-        Estrelas: w.totalStars,
-    }));
-
-    const worksheet = utils.json_to_sheet(dataToExport);
-    const workbook = utils.book_new();
-    utils.book_append_sheet(workbook, worksheet, 'Ganhadores');
-    writeFile(workbook, 'ganhadores.xlsx');
-  };
-
-  const projectWinners = () => {
-    set(ref(database, 'dispute/state'), { type: 'RESET' }).then(() => {
-        setTimeout(() => {
-            setDisputeState({ type: 'SHOW_WINNERS', payload: { winners } });
-            toast({ title: 'Projetando Ganhadores!', description: 'A tabela de ganhadores está sendo exibida na tela de projeção.' });
-        }, 200);
-    });
-  }
-
-  return (
-    <div className="flex flex-col w-full bg-background text-foreground">
-      <AppHeader />
-      <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
-          <CardHeader className="bg-accent p-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <CardTitle className="text-accent-foreground font-melison text-2xl sm:text-3xl lg:text-4xl flex items-center gap-3">
-                    <Trophy className="w-8 h-8 sm:w-10 sm:h-10" /> Classificação dos Ganhadores Spelling Bee
-                </CardTitle>
-                <div className="flex gap-2">
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                           <Button variant="destructive" disabled={winners.length === 0}><Trash2 className="mr-2" /> Zerar</Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                Essa ação não pode ser desfeita. Todos os registros de ganhadores serão removidos permanentemente.
-                            </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={clearWinners}>Apagar Tudo</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                    <Button onClick={exportToExcel} disabled={winners.length === 0}><Download className="mr-2" /> Exportar</Button>
-                    <Button onClick={projectWinners} disabled={winners.length === 0}><Projector className="mr-2" /> Projetar</Button>
-                </div>
+      
+        return (
+          <div className="flex flex-col w-full bg-background text-foreground">
+            <AppHeader />
+            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
+                <CardHeader className="bg-accent p-4">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                      <CardTitle className="text-accent-foreground font-melison text-2xl sm:text-3xl lg:text-4xl flex items-center gap-3">
+                          <Trophy className="w-8 h-8 sm:w-10 sm:h-10" /> Classificação dos Ganhadores Spelling Bee
+                      </CardTitle>
+                      <div className="flex gap-2">
+                           <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                 <Button variant="destructive" disabled={winners.length === 0}><Trash2 className="mr-2" /> Zerar</Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                  <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                      Essa ação não pode ser desfeita. Todos os registros de ganhadores serão removidos permanentemente.
+                                  </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={clearWinners}>Apagar Tudo</AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                          </AlertDialog>
+                          <Button onClick={exportToExcel} disabled={winners.length === 0}><Download className="mr-2" /> Exportar</Button>
+                          <Button onClick={projectWinners} disabled={winners.length === 0}><Projector className="mr-2" /> Projetar</Button>
+                      </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-0 hover:bg-transparent">
+                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Nome</TableHead>
+                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Palavras</TableHead>
+                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Estrelas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {winners.length > 0 ? (
+                        winners.map((winner, index) => (
+                          <TableRow key={winner.name} className="border-t-2 border-amber-300">
+                            <TableCell className="font-bold text-accent-foreground text-center text-base p-4">
+                              {winner.name}
+                            </TableCell>
+                            <TableCell className="text-center p-4">
+                              <div className="flex flex-wrap gap-2 justify-center">
+                                  {Object.entries(winner.words).map(([word, count]) => (
+                                      <span key={word} className="text-accent-foreground text-base font-subjectivity font-bold">
+                                          {word} <b className="text-red-600/80">x{count}</b>
+                                      </span>
+                                  ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center p-4">
+                              <div className="flex items-center justify-center gap-1">
+                                 {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                     <Star key={i} className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                                 ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                            Nenhum ganhador registrado ainda.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-0 hover:bg-transparent">
-                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Nome</TableHead>
-                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Palavras</TableHead>
-                  <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Estrelas</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {winners.length > 0 ? (
-                  winners.map((winner, index) => (
-                    <TableRow key={winner.name} className="border-t-2 border-amber-300">
-                      <TableCell className="font-bold text-accent-foreground text-center text-base p-4">
-                        {winner.name}
-                      </TableCell>
-                      <TableCell className="text-center p-4">
-                        <div className="flex flex-wrap gap-2 justify-center">
-                            {Object.entries(winner.words).map(([word, count]) => (
-                                <span key={word} className="text-accent-foreground text-base font-subjectivity font-bold">
-                                    {word} <b className="text-red-600/80">x{count}</b>
-                                </span>
-                            ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center p-4">
-                        <div className="flex items-center justify-center gap-1">
-                           {Array.from({ length: winner.totalStars }).map((_, i) => (
-                               <Star key={i} className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-                           ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                      Nenhum ganhador registrado ainda.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-export default function WinnersPage() {
-    return (
-        <ProtectedRoute page="ganhadores">
-            <WinnersPageContent />
-        </ProtectedRoute>
-    )
-}
+          </div>
+        );
+      }
+      
+      export default function WinnersPage() {
+          return (
+              <ProtectedRoute page="ganhadores">
+                  <WinnersPageContent />
+              </ProtectedRoute>
+          )
+      }
+      
+    
