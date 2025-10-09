@@ -190,6 +190,7 @@ export default function ProjectionPage() {
             clearTimeout(messageTimeoutRef.current);
             messageTimeoutRef.current = null;
         }
+        stopAllSounds();
 
         const actionType = action.type;
         const payload = action.payload || {};
@@ -202,7 +203,6 @@ export default function ProjectionPage() {
              return false;
         }
         
-        stopAllSounds();
         setCurrentAction(action);
         
         switch (actionType) {
@@ -401,10 +401,13 @@ export default function ProjectionPage() {
         const winners: AggregatedWinner[] = currentAction.payload.winners;
     
         return (
-            <div className={cn(
-                "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8",
-                 showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
-            )}>
+            <div
+                className={cn(
+                    "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8",
+                    showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                )}
+                style={{ transform: 'translateY(-350px)' }}
+            >
                  <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-6xl">
                     <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
                     <table className="w-full text-2xl">
