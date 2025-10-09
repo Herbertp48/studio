@@ -459,7 +459,7 @@ export default function ProjectionPage() {
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            <main className='flex-grow w-full flex flex-col justify-center items-center'>
+            <main className='flex-1 w-full flex flex-col justify-center items-center'>
                 {renderDuelContent()}
                 {renderWinnersTable()}
             </main>
@@ -509,3 +509,5 @@ const GlobalStyle = () => (
     }
   `}</style>
 );
+
+    
