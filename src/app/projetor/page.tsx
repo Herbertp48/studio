@@ -402,10 +402,7 @@ export default function ProjectionPage() {
     
         return (
             <div
-                className={cn(
-                    "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8",
-                    showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                )}
+                className="relative text-center text-white w-full flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8"
                 style={{ transform: 'translateY(-350px)' }}
             >
                  <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-6xl">
