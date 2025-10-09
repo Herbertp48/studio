@@ -205,9 +205,6 @@ export default function ProjectionPage() {
         stopAllSounds();
         setCurrentAction(action);
         
-        let soundToPlay: string | null = null;
-        let loopSound = false;
-
         switch (actionType) {
             case 'SHUFFLING_PARTICIPANTS':
                 stopShufflingAnimation();
@@ -226,7 +223,7 @@ export default function ProjectionPage() {
                 setParticipantB(payload.participantB || null);
                 setDuelScore(payload.duelScore || { a: 0, b: 0 });
                 setWordsPerRound(payload.wordsPerRound || 1);
-                playSound('sinos.mp3', false);
+                playSound('sinos.mp3');
                 break;
             case 'SHOW_WORD':
                 setShowContent(true);
