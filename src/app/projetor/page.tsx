@@ -418,8 +418,11 @@ export default function ProjectionPage() {
         const winners: AggregatedWinner[] = currentAction.payload.winners;
     
         return (
-            <div className="relative text-center text-white w-full flex flex-col justify-center items-center overflow-hidden p-8">
-                 <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-6xl">
+            <div className={cn(
+                "relative text-center text-white w-full max-w-6xl transition-opacity duration-500",
+                 !showContent ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                )}>
+                 <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full">
                     <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
                     <table className="w-full text-2xl">
                         <thead>
@@ -467,13 +470,13 @@ export default function ProjectionPage() {
     }
 
     return (
-        <div className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-center">
+        <div className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-start">
             <GlobalStyle />
-            <header className="flex items-center gap-4 text-accent py-4">
+            <header className="flex flex-shrink-0 items-center gap-4 text-accent py-4">
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            <main className='flex-1 w-full flex flex-col justify-center items-center'>
+            <main className='w-full flex-1 flex flex-col justify-start items-center pt-16 px-8'>
                 {renderDuelContent()}
                 {renderWinnersTable()}
             </main>
