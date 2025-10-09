@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -136,9 +135,15 @@ export default function ProjectionPage() {
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
              if (newAction) {
+                if (isProcessingActionRef.current && newAction.type === 'RESET') {
+                    // Ignore reset actions while another action is being processed
+                    return;
+                }
                 processAction(newAction);
             } else {
-                resetToIdle();
+                if (!isProcessingActionRef.current) {
+                    resetToIdle();
+                }
             }
         });
 
@@ -190,8 +195,9 @@ export default function ProjectionPage() {
             clearTimeout(messageTimeoutRef.current);
             messageTimeoutRef.current = null;
         }
-        stopAllSounds();
-
+        
+        isProcessingActionRef.current = true;
+        
         const actionType = action.type;
         const payload = action.payload || {};
         
@@ -200,9 +206,11 @@ export default function ProjectionPage() {
         const isMessageDisabled = isMessage && templates[templateKey] && !templates[templateKey].enabled;
 
         if (isMessage && isMessageDisabled) {
+             isProcessingActionRef.current = false;
              return false;
         }
         
+        stopAllSounds();
         setCurrentAction(action);
         
         switch (actionType) {
@@ -261,11 +269,17 @@ export default function ProjectionPage() {
                 break;
         }
         
+        const isPersistentAction = actionType === 'SHOW_WINNERS' || actionType === 'UPDATE_PARTICIPANTS' || actionType === 'SHUFFLING_PARTICIPANTS';
+
         if (isMessage) {
             messageTimeoutRef.current = setTimeout(() => {
                 resetToIdle();
             }, 4000);
+        } else if (!isPersistentAction) {
+            // For non-message actions that aren't persistent, release the lock
+             isProcessingActionRef.current = false;
         }
+
 
         return true;
     };
@@ -281,6 +295,7 @@ export default function ProjectionPage() {
         setWords([]);
         setDuelScore({ a: 0, b: 0 });
         setShowContent(true);
+        isProcessingActionRef.current = false;
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
@@ -294,6 +309,8 @@ export default function ProjectionPage() {
     };
 
     const shouldShowMessage = currentAction && messageActionTypes.includes(currentAction.type) && templates[currentAction.type.toLowerCase()]?.enabled;
+    const shouldShowDuel = showContent && !shouldShowMessage && currentAction?.type !== 'SHOW_WINNERS';
+
 
     const DynamicMessageContent = ({ template, payload }: { template: MessageTemplate; payload: any; }) => {
         const { text, styles } = template;
@@ -364,7 +381,7 @@ export default function ProjectionPage() {
     const renderDuelContent = () => (
         <div className={cn(
             "relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500",
-            !showContent ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            !shouldShowDuel ? 'opacity-0 pointer-events-none' : 'opacity-100'
         )}>
             <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
                 <h2 className="text-6xl font-bold text-accent font-melison">A Palavra é</h2>
@@ -401,10 +418,7 @@ export default function ProjectionPage() {
         const winners: AggregatedWinner[] = currentAction.payload.winners;
     
         return (
-            <div
-                className="relative text-center text-white w-full flex flex-col justify-center items-center overflow-hidden transition-opacity duration-500 p-8"
-                style={{ transform: 'translateY(-350px)' }}
-            >
+            <div className="relative text-center text-white w-full flex flex-col justify-center items-center overflow-hidden p-8">
                  <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-6xl">
                     <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
                     <table className="w-full text-2xl">
@@ -509,5 +523,3 @@ const GlobalStyle = () => (
     }
   `}</style>
 );
-
-    
