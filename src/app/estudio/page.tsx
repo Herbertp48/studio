@@ -241,7 +241,7 @@ function StudioPageContent() {
 
         update(ref(database), updates)
             .then(() => {
-                toast({ title: "Sucesso!", description: `Template "${templateLabels[templateKey].title}" salvo com sucesso.` });
+                toast({ title: "Sucesso!", description: `Template "${templateLabels[key].title}" salvo com sucesso.` });
             })
             .catch((error) => {
                 toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
@@ -461,3 +461,5 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
+
+    
