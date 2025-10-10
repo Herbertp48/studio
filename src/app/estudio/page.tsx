@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { AppHeader } from '@/components/app/header';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { database } from '@/lib/firebase';
@@ -23,6 +24,8 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import 'react-quill/dist/quill.snow.css';
+
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -45,6 +48,8 @@ type MessageTemplate = {
 type MessageTemplates = {
     [key: string]: MessageTemplate;
 };
+
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
 const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
     word_winner: {
@@ -164,8 +169,10 @@ const initialTemplates: MessageTemplates = {
 function StudioPageContent() {
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
     const { toast } = useToast();
+    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
+        setIsClient(true);
         const templatesRef = ref(database, 'message_templates');
         const unsubscribe = onValue(templatesRef, (snapshot) => {
             const data = snapshot.val();
@@ -286,11 +293,13 @@ function StudioPageContent() {
                                                 </TooltipProvider>
                                             </div>
                                               <div className="bg-white text-black rounded-md">
-                                                <Textarea
-                                                    className="min-h-[150px] bg-white text-black"
-                                                    value={template.text}
-                                                    onChange={(e) => handleTextChange(key, e.target.value)}
-                                                />
+                                                {isClient && (
+                                                    <ReactQuill
+                                                      theme="snow"
+                                                      value={template.text}
+                                                      onChange={(value) => handleTextChange(key, value)}
+                                                    />
+                                                )}
                                               </div>
                                             <p className="text-xs text-muted-foreground mt-1">{templateLabels[key as keyof typeof templateLabels]?.description}</p>
                                         </div>
@@ -450,5 +459,3 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
-
-    
