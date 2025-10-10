@@ -450,3 +450,5 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
+
+    
