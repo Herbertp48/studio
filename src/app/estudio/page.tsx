@@ -47,6 +47,8 @@
       type MessageTemplates = {
           [key: string]: MessageTemplate;
       };
+
+      const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
       
       const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
           word_winner: {
@@ -166,8 +168,6 @@
       function StudioPageContent() {
           const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
           const { toast } = useToast();
-
-          const ReactQuill = useMemo(() => dynamic(() => import('react-quill'), { ssr: false }),[]);
       
           useEffect(() => {
               const templatesRef = ref(database, 'message_templates');
