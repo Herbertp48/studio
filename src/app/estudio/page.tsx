@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { AppHeader } from '@/components/app/header';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -27,6 +27,8 @@ import { Textarea } from '@/components/ui/textarea';
 import 'react-quill/dist/quill.snow.css';
 
 
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
 type TemplateStyle = {
     backgroundColor: string;
     textColor: string;
@@ -48,8 +50,6 @@ type MessageTemplate = {
 type MessageTemplates = {
     [key: string]: MessageTemplate;
 };
-
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
 const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
     word_winner: {
