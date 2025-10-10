@@ -156,8 +156,7 @@ function StudioPageContent() {
 
   const currentTemplateData = designs[activeTemplate];
 
-  return (
-    <div className="flex flex-col w-full h-screen bg-muted/40 text-foreground overflow-hidden">
+  return <div className="flex flex-col w-full h-screen bg-muted/40 text-foreground overflow-hidden">
       <AppHeader />
       <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
@@ -255,8 +254,7 @@ function StudioPageContent() {
             </CardContent>
         </Card>
       </main>
-    </div>
-    );
+    </div>;
 }
 
 
