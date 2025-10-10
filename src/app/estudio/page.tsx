@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import 'react-quill/dist/quill.snow.css';
 import { AppHeader } from '@/components/app/header';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { database } from '@/lib/firebase';
@@ -23,7 +24,6 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import 'react-quill/dist/quill.snow.css';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
