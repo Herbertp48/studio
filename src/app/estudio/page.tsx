@@ -128,7 +128,18 @@ function StudioPageContent() {
     const unsubscribe = onValue(designsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            setDesigns(prev => ({...getInitialDesigns(), ...data}));
+            // Merge database data with initial designs, ensuring DB data takes precedence
+            const newDesigns = getInitialDesigns();
+            for (const key in data) {
+                if (Object.prototype.hasOwnProperty.call(data, key) && newDesigns[key]) {
+                    newDesigns[key] = { ...newDesigns[key], ...data[key] };
+                } else if (Object.prototype.hasOwnProperty.call(data, key)) {
+                    newDesigns[key] = data[key];
+                }
+            }
+            setDesigns(newDesigns);
+        } else {
+            setDesigns(getInitialDesigns());
         }
     });
     return () => unsubscribe();
@@ -457,5 +468,3 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
-
-    
