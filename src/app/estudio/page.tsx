@@ -22,10 +22,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import dynamic from 'next/dynamic';
-import 'react-quill/dist/quill.snow.css';
-
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+import { Textarea } from '@/components/ui/textarea';
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -288,13 +285,11 @@ function StudioPageContent() {
                                                     </Tooltip>
                                                 </TooltipProvider>
                                             </div>
-                                              <div className="bg-white text-black rounded-md">
-                                                  <ReactQuill
-                                                    theme="snow"
-                                                    value={template.text}
-                                                    onChange={(value) => handleTextChange(key, value)}
-                                                  />
-                                              </div>
+                                              <Textarea
+                                                value={template.text}
+                                                onChange={(e) => handleTextChange(key, e.target.value)}
+                                                className="min-h-[120px]"
+                                              />
                                             <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
                                         </div>
 
@@ -453,5 +448,3 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
-
-    

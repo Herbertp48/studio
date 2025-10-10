@@ -90,19 +90,4 @@
     @apply font-['Subjectivity',_Arial,_sans-serif];
   }
 
-  /* React Quill Overrides */
-  .ql-editor {
-    min-height: 120px;
-    font-size: 1rem;
-  }
-  .ql-snow .ql-stroke {
-    stroke: hsl(var(--foreground) / 0.8);
-  }
-  .ql-snow .ql-fill {
-      fill: hsl(var(--foreground) / 0.8);
-  }
-  .ql-snow .ql-picker-label {
-      color: hsl(var(--foreground) / 0.8);
-  }
-
 }
