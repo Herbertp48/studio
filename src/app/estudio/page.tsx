@@ -67,9 +67,9 @@ const getInitialDesigns = (): { [key: string]: Design } => ({
     name: 'Vencedor da Palavra',
     canvas: { width: 1200, height: 600, background: '#fffbe6' },
     elements: [
-      { id: uuidv4(), type: 'text', content: '{{name}}', x: 50, y: 150, width: 1100, height: 120, rotation: 0, z: 1, fontSize: 100, fontFamily: 'Melison', fontWeight: '700', color: '#6d21db' },
-      { id: uuidv4(), type: 'text', content: 'acertou a palavra', x: 50, y: 280, width: 1100, height: 60, rotation: 0, z: 2, fontSize: 50, fontFamily: 'Subjectivity', fontWeight: '700', color: '#6d21db' },
-      { id: uuidv4(), type: 'text', content: '"{{words.0}}"', x: 50, y: 350, width: 1100, height: 100, rotation: 0, z: 3, fontSize: 80, fontFamily: 'Subjectivity', fontWeight: '900', color: '#000000' },
+      { id: 'ww-el-1', type: 'text', content: '{{name}}', x: 50, y: 150, width: 1100, height: 120, rotation: 0, z: 1, fontSize: 100, fontFamily: 'Melison', fontWeight: '700', color: '#6d21db' },
+      { id: 'ww-el-2', type: 'text', content: 'acertou a palavra', x: 50, y: 280, width: 1100, height: 60, rotation: 0, z: 2, fontSize: 50, fontFamily: 'Subjectivity', fontWeight: '700', color: '#6d21db' },
+      { id: 'ww-el-3', type: 'text', content: '"{{words.0}}"', x: 50, y: 350, width: 1100, height: 100, rotation: 0, z: 3, fontSize: 80, fontFamily: 'Subjectivity', fontWeight: '900', color: '#000000' },
     ],
   },
   duel_winner: {
@@ -77,9 +77,9 @@ const getInitialDesigns = (): { [key: string]: Design } => ({
     name: 'Vencedor do Duelo',
     canvas: { width: 1200, height: 600, background: '#fffbe6' },
     elements: [
-        { id: uuidv4(), type: 'text', content: '⭐', x: 50, y: 50, width: 100, height: 100, rotation: -15, z: 1, fontSize: 100, color: '#FACC15' },
-        { id: uuidv4(), type: 'text', content: '{{name}}', x: 50, y: 150, width: 1100, height: 120, rotation: 0, z: 2, fontSize: 100, fontFamily: 'Melison', fontWeight: '700', color: '#6d21db' },
-        { id: uuidv4(), type: 'text', content: 'venceu o duelo!', x: 50, y: 280, width: 1100, height: 60, rotation: 0, z: 3, fontSize: 50, fontFamily: 'Subjectivity', fontWeight: '700', color: '#6d21db' },
+        { id: 'dw-el-1', type: 'text', content: '⭐', x: 50, y: 50, width: 100, height: 100, rotation: -15, z: 1, fontSize: 100, color: '#FACC15' },
+        { id: 'dw-el-2', type: 'text', content: '{{name}}', x: 50, y: 150, width: 1100, height: 120, rotation: 0, z: 2, fontSize: 100, fontFamily: 'Melison', fontWeight: '700', color: '#6d21db' },
+        { id: 'dw-el-3', type: 'text', content: 'venceu o duelo!', x: 50, y: 280, width: 1100, height: 60, rotation: 0, z: 3, fontSize: 50, fontFamily: 'Subjectivity', fontWeight: '700', color: '#6d21db' },
     ],
   },
    no_word_winner: {
@@ -87,7 +87,7 @@ const getInitialDesigns = (): { [key: string]: Design } => ({
     name: 'Rodada sem Vencedor',
     canvas: { width: 1200, height: 600, background: '#fecaca' },
     elements: [
-        { id: uuidv4(), type: 'text', content: 'Ninguém acertou a palavra "{{words.0}}"', x: 50, y: 250, width: 1100, height: 100, rotation: 0, z: 1, fontSize: 60, fontFamily: 'Subjectivity', fontWeight: '700', color: '#b91c1c' },
+        { id: 'nww-el-1', type: 'text', content: 'Ninguém acertou a palavra "{{words.0}}"', x: 50, y: 250, width: 1100, height: 100, rotation: 0, z: 1, fontSize: 60, fontFamily: 'Subjectivity', fontWeight: '700', color: '#b91c1c' },
     ],
   },
    final_winner: {
@@ -95,10 +95,10 @@ const getInitialDesigns = (): { [key: string]: Design } => ({
     name: 'Vencedor Final',
     canvas: { width: 1200, height: 700, background: 'linear-gradient(to bottom right, #fde047, #f59e0b)' },
     elements: [
-        { id: uuidv4(), type: 'text', content: '👑', x: 50, y: 50, width: 200, height: 200, rotation: 0, z: 1, fontSize: 150 },
-        { id: uuidv4(), type: 'text', content: 'O Grande Campeão é', x: 50, y: 250, width: 1100, height: 80, rotation: 0, z: 2, fontSize: 60, fontFamily: 'Subjectivity', color: '#4c1d95' },
-        { id: uuidv4(), type: 'text', content: '{{name}}', x: 50, y: 330, width: 1100, height: 150, rotation: 0, z: 3, fontSize: 130, fontFamily: 'Melison', fontWeight: '700', color: '#ffffff' },
-        { id: uuidv4(), type: 'text', content: 'Com {{stars}} ⭐', x: 50, y: 500, width: 1100, height: 80, rotation: 0, z: 4, fontSize: 50, fontFamily: 'Subjectivity', color: '#4c1d95' },
+        { id: 'fw-el-1', type: 'text', content: '👑', x: 50, y: 50, width: 200, height: 200, rotation: 0, z: 1, fontSize: 150 },
+        { id: 'fw-el-2', type: 'text', content: 'O Grande Campeão é', x: 50, y: 250, width: 1100, height: 80, rotation: 0, z: 2, fontSize: 60, fontFamily: 'Subjectivity', color: '#4c1d95' },
+        { id: 'fw-el-3', type: 'text', content: '{{name}}', x: 50, y: 330, width: 1100, height: 150, rotation: 0, z: 3, fontSize: 130, fontFamily: 'Melison', fontWeight: '700', color: '#ffffff' },
+        { id: 'fw-el-4', type: 'text', content: 'Com {{stars}} ⭐', x: 50, y: 500, width: 1100, height: 80, rotation: 0, z: 4, fontSize: 50, fontFamily: 'Subjectivity', color: '#4c1d95' },
     ],
   },
    tie_announcement: {
@@ -106,8 +106,8 @@ const getInitialDesigns = (): { [key: string]: Design } => ({
     name: 'Anúncio de Empate',
     canvas: { width: 1200, height: 600, background: '#e0e7ff' },
     elements: [
-        { id: uuidv4(), type: 'text', content: '🛡️ EMPATE! 🛡️', x: 50, y: 100, width: 1100, height: 100, rotation: 0, z: 1, fontSize: 90, fontFamily: 'Melison', color: '#4338ca' },
-        { id: uuidv4(), type: 'text', content: 'Rodada de desempate entre: {{{participantsList}}}', x: 50, y: 250, width: 1100, height: 200, rotation: 0, z: 2, fontSize: 50, fontFamily: 'Subjectivity', color: '#3730a3' },
+        { id: 'ta-el-1', type: 'text', content: '🛡️ EMPATE! 🛡️', x: 50, y: 100, width: 1100, height: 100, rotation: 0, z: 1, fontSize: 90, fontFamily: 'Melison', color: '#4338ca' },
+        { id: 'ta-el-2', type: 'text', content: 'Rodada de desempate entre: {{{participantsList}}}', x: 50, y: 250, width: 1100, height: 200, rotation: 0, z: 2, fontSize: 50, fontFamily: 'Subjectivity', color: '#3730a3' },
     ],
   },
 });
@@ -457,3 +457,5 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
+
+    
