@@ -22,8 +22,8 @@
       import { Separator } from '@/components/ui/separator';
       import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
       import { Switch } from '@/components/ui/switch';
-      import 'react-quill/dist/quill.snow.css';
       import dynamic from 'next/dynamic';
+      import 'react-quill/dist/quill.snow.css';
 
       const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
       
@@ -369,7 +369,7 @@
                                                               onChange={(e) => handleStyleChange(key, 'highlightTextColor', e.target.value)}
                                                           />
                                                       </div>
-      d                                            </div>
+                                                  </div>
                                                   <div className="space-y-2">
                                                       <Label htmlFor={`borderColor-${key}`}>Cor da Borda</Label>
                                                       <div className="flex items-center gap-2">
