@@ -58,7 +58,7 @@ const templateLabels: { [key: string]: { title: string, description: string, var
     duel_winner: {
         title: "Vencedor do Duelo",
         description: "Exibida quando um participante vence o duelo completo e ganha uma estrela.",
-        variables: ["{{name}}", "{{words}}"]
+        variables: ["{{words}}"]
     },
     no_word_winner: {
         title: "Rodada sem Vencedor",
