@@ -293,7 +293,6 @@ function StudioPageContent() {
                                                     theme="snow"
                                                     value={template.text}
                                                     onChange={(value) => handleTextChange(key, value)}
-                                                    className="w-full min-h-[100px]"
                                                   />
                                               </div>
                                             <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
