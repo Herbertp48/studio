@@ -150,7 +150,7 @@ function StudioPageContent() {
 
   const handleSaveDesigns = () => {
     set(ref(database, 'designs'), designs)
-        .then(() => toast({ title: 'Sucesso!', description: `Designs salvos com sucesso.` }))
+        .then(() => toast({ title: 'Sucesso!', description: 'Designs salvos com sucesso.' }))
         .catch(err => toast({ variant: 'destructive', title: 'Erro', description: err.message }));
   };
 
@@ -267,5 +267,3 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
-
-    
