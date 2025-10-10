@@ -256,7 +256,7 @@ function StudioPageContent() {
         </Card>
       </main>
     </div>
-  );
+    );
 }
 
 
