@@ -285,11 +285,11 @@ function StudioPageContent() {
                     
                     {selectedElement.type === 'text' && (
                         <>
-                            <div><Label>Texto</Label><Input value={selectedElement.content} onChange={e => updateElement(selectedElementId!, { content: e.target.value })}/></div>
-                            <div><Label>Tam. Fonte</Label><Input type="number" value={selectedElement.fontSize} onChange={e => updateElement(selectedElementId!, { fontSize: Number(e.target.value) })}/></div>
-                            <div><Label>Cor da Fonte</Label><Input type="color" value={selectedElement.color} onChange={e => updateElement(selectedElementId!, { color: e.target.value })} className="h-10"/></div>
+                            <div><Label>Texto</Label><Input value={selectedElement.content || ''} onChange={e => updateElement(selectedElementId!, { content: e.target.value })}/></div>
+                            <div><Label>Tam. Fonte</Label><Input type="number" value={selectedElement.fontSize || 16} onChange={e => updateElement(selectedElementId!, { fontSize: Number(e.target.value) })}/></div>
+                            <div><Label>Cor da Fonte</Label><Input type="color" value={selectedElement.color || '#000000'} onChange={e => updateElement(selectedElementId!, { color: e.target.value })} className="h-10"/></div>
                             <div><Label>Fonte</Label>
-                                <Select value={selectedElement.fontFamily} onValueChange={v => updateElement(selectedElementId!, { fontFamily: v })}>
+                                <Select value={selectedElement.fontFamily || 'sans-serif'} onValueChange={v => updateElement(selectedElementId!, { fontFamily: v })}>
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Melison">Melison</SelectItem>
@@ -299,7 +299,7 @@ function StudioPageContent() {
                                 </Select>
                             </div>
                             <div><Label>Peso Fonte</Label>
-                                <Select value={selectedElement.fontWeight} onValueChange={v => updateElement(selectedElementId!, { fontWeight: v as any })}>
+                                <Select value={selectedElement.fontWeight || '400'} onValueChange={v => updateElement(selectedElementId!, { fontWeight: v as any })}>
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="400">Normal</SelectItem>
@@ -311,12 +311,12 @@ function StudioPageContent() {
                         </>
                     )}
                      {selectedElement.type === 'image' && (
-                        <div><Label>URL da Imagem</Label><Input value={selectedElement.src} onChange={e => updateElement(selectedElementId!, { src: e.target.value })}/></div>
+                        <div><Label>URL da Imagem</Label><Input value={selectedElement.src || ''} onChange={e => updateElement(selectedElementId!, { src: e.target.value })}/></div>
                     )}
                      {selectedElement.type === 'shape' && (
                         <>
                            <div><Label>Forma</Label>
-                                <Select value={selectedElement.shape} onValueChange={v => updateElement(selectedElementId!, { shape: v as any })}>
+                                <Select value={selectedElement.shape || 'rect'} onValueChange={v => updateElement(selectedElementId!, { shape: v as any })}>
                                     <SelectTrigger><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="rect">Retângulo</SelectItem>
@@ -324,7 +324,7 @@ function StudioPageContent() {
                                     </SelectContent>
                                 </Select>
                            </div>
-                           <div><Label>Cor de Fundo</Label><Input type="color" value={selectedElement.background} onChange={e => updateElement(selectedElementId!, { background: e.target.value })} className="h-10"/></div>
+                           <div><Label>Cor de Fundo</Label><Input type="color" value={selectedElement.background || '#ffffff'} onChange={e => updateElement(selectedElementId!, { background: e.target.value })} className="h-10"/></div>
                         </>
                     )}
                 </div>
