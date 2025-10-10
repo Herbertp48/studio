@@ -127,23 +127,36 @@ function StudioPageContent() {
     const designsRef = ref(database, 'designs');
     const unsubscribe = onValue(designsRef, (snapshot) => {
         const data = snapshot.val();
+        let newDesigns = getInitialDesigns();
+
         if (data) {
-            // Merge database data with initial designs, ensuring DB data takes precedence
-            const newDesigns = getInitialDesigns();
-            for (const key in data) {
-                if (Object.prototype.hasOwnProperty.call(data, key) && newDesigns[key]) {
+            // Helper function to ensure elements have unique IDs
+            const sanitizeElements = (elements: EditorElement[]): EditorElement[] => {
+                const seenIds = new Set<string>();
+                return elements.map(el => {
+                    if (seenIds.has(el.id)) {
+                        return { ...el, id: uuidv4() };
+                    }
+                    seenIds.add(el.id);
+                    return el;
+                });
+            };
+
+            for (const key in newDesigns) {
+                if (data[key]) {
+                    // Merge DB data with initial designs, ensuring DB data takes precedence
                     newDesigns[key] = { ...newDesigns[key], ...data[key] };
-                } else if (Object.prototype.hasOwnProperty.call(data, key)) {
-                    newDesigns[key] = data[key];
+                    if (data[key].elements) {
+                       newDesigns[key].elements = sanitizeElements(data[key].elements);
+                    }
                 }
             }
-            setDesigns(newDesigns);
-        } else {
-            setDesigns(getInitialDesigns());
         }
+        setDesigns(newDesigns);
     });
     return () => unsubscribe();
-  }, []);
+}, []);
+
 
   const updateElement = (elementId: string, patch: Partial<EditorElement>) => {
     setDesigns(prev => {
