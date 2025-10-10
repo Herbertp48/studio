@@ -1,7 +1,7 @@
 
       'use client';
       
-      import { useState, useEffect, useMemo } from 'react';
+      import { useState, useEffect } from 'react';
       import { AppHeader } from '@/components/app/header';
       import ProtectedRoute from '@/components/auth/ProtectedRoute';
       import { database } from '@/lib/firebase';
@@ -25,6 +25,7 @@
       import 'react-quill/dist/quill.snow.css';
       import dynamic from 'next/dynamic';
 
+      const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
       
       type TemplateStyle = {
           backgroundColor: string;
@@ -47,8 +48,6 @@
       type MessageTemplates = {
           [key: string]: MessageTemplate;
       };
-
-      const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
       
       const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
           word_winner: {
@@ -456,4 +455,5 @@
           );
       }
       
+    
     
