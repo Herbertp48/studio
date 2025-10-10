@@ -2,8 +2,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import 'react-quill/dist/quill.snow.css';
 import { AppHeader } from '@/components/app/header';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { database } from '@/lib/firebase';
@@ -24,8 +22,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+import { Textarea } from '@/components/ui/textarea';
 
 type TemplateStyle = {
     backgroundColor: string;
@@ -167,11 +164,6 @@ const initialTemplates: MessageTemplates = {
 function StudioPageContent() {
     const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
     const { toast } = useToast();
-    const [isClient, setIsClient] = useState(false);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
 
     useEffect(() => {
         const templatesRef = ref(database, 'message_templates');
@@ -294,13 +286,11 @@ function StudioPageContent() {
                                                 </TooltipProvider>
                                             </div>
                                               <div className="bg-white text-black rounded-md">
-                                                  {isClient && (
-                                                      <ReactQuill
-                                                        theme="snow"
-                                                        value={template.text}
-                                                        onChange={(value) => handleTextChange(key, value)}
-                                                      />
-                                                  )}
+                                                <Textarea
+                                                    className="min-h-[150px] bg-white text-black"
+                                                    value={template.text}
+                                                    onChange={(e) => handleTextChange(key, e.target.value)}
+                                                />
                                               </div>
                                             <p className="text-xs text-muted-foreground mt-1">{templateLabels[key as keyof typeof templateLabels]?.description}</p>
                                         </div>
