@@ -125,37 +125,43 @@ function StudioPageContent() {
 
   useEffect(() => {
     const designsRef = ref(database, 'designs');
+    
+    // Helper function to ensure elements have unique IDs within a single design
+    const sanitizeElements = (elements: EditorElement[] = []): EditorElement[] => {
+        const seenIds = new Set<string>();
+        return elements.map(el => {
+            if (!el || !el.id || seenIds.has(el.id)) {
+                return { ...el, id: uuidv4() };
+            }
+            seenIds.add(el.id);
+            return el;
+        });
+    };
+
     const unsubscribe = onValue(designsRef, (snapshot) => {
-        const data = snapshot.val();
-        let newDesigns = getInitialDesigns();
-
-        if (data) {
-            // Helper function to ensure elements have unique IDs
-            const sanitizeElements = (elements: EditorElement[]): EditorElement[] => {
-                const seenIds = new Set<string>();
-                return elements.map(el => {
-                    if (seenIds.has(el.id)) {
-                        return { ...el, id: uuidv4() };
-                    }
-                    seenIds.add(el.id);
-                    return el;
-                });
-            };
-
-            for (const key in newDesigns) {
-                if (data[key]) {
-                    // Merge DB data with initial designs, ensuring DB data takes precedence
-                    newDesigns[key] = { ...newDesigns[key], ...data[key] };
-                    if (data[key].elements) {
-                       newDesigns[key].elements = sanitizeElements(data[key].elements);
+        const dataFromDb = snapshot.val();
+        if (dataFromDb) {
+            setDesigns(prevDesigns => {
+                const updatedDesigns = { ...prevDesigns };
+                for (const key in dataFromDb) {
+                    if (updatedDesigns[key]) {
+                        // Merge DB data with existing state, with DB data taking precedence
+                        updatedDesigns[key] = { 
+                            ...updatedDesigns[key], 
+                            ...dataFromDb[key],
+                            // Sanitize elements after merging
+                            elements: sanitizeElements(dataFromDb[key].elements || updatedDesigns[key].elements)
+                        };
                     }
                 }
-            }
+                return updatedDesigns;
+            });
         }
-        setDesigns(newDesigns);
     });
+
     return () => unsubscribe();
 }, []);
+
 
 
   const updateElement = (elementId: string, patch: Partial<EditorElement>) => {
