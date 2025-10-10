@@ -9,10 +9,10 @@ import type { Participant } from '@/app/(app)/page';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
-import type { Design, EditorElement } from '@/app/estudio/page';
-import { motion } from 'framer-motion';
+import type { AllDesigns } from '@/app/estudio/page';
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- Tipos de Dados ---
+
 type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS' | 'SHOW_MESSAGE';
     payload?: any;
@@ -20,10 +20,10 @@ type DisputeAction = {
 
 const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'];
 
-// --- Componente Principal ---
+
 export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
-    const [designs, setDesigns] = useState<{ [key: string]: Design }>({});
+    const [designs, setDesigns] = useState<AllDesigns | null>(null);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
     const [showContent, setShowContent] = useState(true);
     const [wordsPerRound, setWordsPerRound] = useState(1);
@@ -39,9 +39,6 @@ export default function ProjectionPage() {
     const isProcessingActionRef = useRef(false);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
-    // --- Efeitos ---
-
-    // Carregamento de sons e tela cheia
     useEffect(() => {
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
         soundFiles.forEach(file => {
@@ -58,7 +55,6 @@ export default function ProjectionPage() {
         };
     }, []);
 
-    // Conexão com Firebase
     useEffect(() => {
         if (!isReady) return;
 
@@ -92,8 +88,6 @@ export default function ProjectionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isReady]);
 
-    // --- Funções de Controle ---
-    
     const stopAllSounds = () => {
         Object.values(sounds.current).forEach(sound => {
             if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
@@ -232,74 +226,48 @@ export default function ProjectionPage() {
 
 
     const renderMessage = () => {
-        if (!shouldShowMessage || !currentAction) return null;
+        if (!shouldShowMessage || !currentAction || !designs) return null;
     
-        const templateKey = currentAction.type.toLowerCase();
-        const design = designs[templateKey];
+        const templateKey = currentAction.type.toLowerCase() as keyof AllDesigns;
+        const template = designs[templateKey];
         const payload = currentAction.payload || {};
     
-        if (!design) return null;
+        if (!template) return null;
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
             'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-            participants: payload.participants,
+            participantsList: Array.isArray(payload.participants) ? payload.participants.map(p => p.name).join(', ') : '',
             ...payload
         };
 
-        const renderElement = (el: EditorElement) => {
-            let content = el.content || '';
-            
-            content = content.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, Array.isArray(data.participants) ? data.participants.map(p => p.name).join(', ') : '');
-            content = content.replace(/\{\{\s*name\s*\}\}/g, data.name);
-            content = content.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
-            content = content.replace(/\{\{\s*words\s*\}\}/g, data.words);
-            content = content.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-            
-            const style: React.CSSProperties = {
-                position: 'absolute',
-                left: el.x,
-                top: el.y,
-                width: el.width,
-                height: el.height,
-                transform: `rotate(${el.rotation}deg)`,
-                zIndex: el.z,
-                color: el.color,
-                fontFamily: el.fontFamily,
-                fontWeight: el.fontWeight,
-                fontSize: el.fontSize,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                lineHeight: 1.1,
-            };
-
-            if (el.type === 'text') return <div style={style}>{content}</div>;
-            if (el.type === 'image') return <img src={el.src} style={{ ...style, objectFit: 'cover' }} alt="" />;
-            if (el.type === 'shape') return <div style={{ ...style, background: el.background, borderRadius: el.shape === 'circle' ? '50%' : 0 }} />;
-            return null;
+        const interpolate = (text: string) => {
+            if (!text) return '';
+            return text
+                .replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList)
+                .replace(/\{\{\s*name\s*\}\}/g, data.name)
+                .replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0'])
+                .replace(/\{\{\s*words\s*\}\}/g, data.words)
+                .replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
         }
 
         return (
-            <div className="fixed inset-0 flex items-center justify-center p-8 z-20 animate-in fade-in zoom-in-95 duration-500">
+            <AnimatePresence>
                 <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
-                    className="relative shadow-2xl"
-                    style={{
-                        width: design.canvas.width,
-                        height: design.canvas.height,
-                        background: design.canvas.background,
-                        overflow: 'hidden',
-                    }}
+                    className="fixed inset-0 z-20 flex flex-col items-center justify-center p-8 gap-4"
+                    style={{ backgroundColor: template.backgroundColor }}
                 >
-                    {design.elements.map(el => <React.Fragment key={el.id}>{renderElement(el)}</React.Fragment>)}
+                    {template.text1 && <h1 style={{ fontSize: template.text1FontSize, color: template.text1Color }} className="font-bold font-melison text-center">{interpolate(template.text1)}</h1>}
+                    {template.text2 && <h2 style={{ fontSize: template.text2FontSize, color: template.text2Color }} className="font-bold font-subjectivity text-center">{interpolate(template.text2)}</h2>}
+                    {template.text3 && <h3 style={{ fontSize: template.text3FontSize, color: template.text3Color }} className="font-bold font-subjectivity text-center">{interpolate(template.text3)}</h3>}
                 </motion.div>
-            </div>
+            </AnimatePresence>
         );
     };
 
@@ -413,7 +381,11 @@ export default function ProjectionPage() {
                 {renderDuelContent()}
                 {renderWinnersTable()}
             </main>
-            {renderMessage()}
+            <AnimatePresence>
+                {shouldShowMessage && renderMessage()}
+            </AnimatePresence>
         </div>
     );
 }
+
+    
