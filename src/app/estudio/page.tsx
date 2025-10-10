@@ -61,7 +61,7 @@ const TEMPLATE_LABELS: { [key: string]: string } = {
   tie_announcement: 'Anúncio de Empate',
 };
 
-const initialDesigns: { [key: string]: Design } = {
+const getInitialDesigns = (): { [key: string]: Design } => ({
   word_winner: {
     id: 'word_winner',
     name: 'Vencedor da Palavra',
@@ -110,11 +110,11 @@ const initialDesigns: { [key: string]: Design } = {
         { id: uuidv4(), type: 'text', content: 'Rodada de desempate entre: {{{participantsList}}}', x: 50, y: 250, width: 1100, height: 200, rotation: 0, z: 2, fontSize: 50, fontFamily: 'Subjectivity', color: '#3730a3' },
     ],
   },
-};
+});
 
 
 function StudioPageContent() {
-  const [designs, setDesigns] = useState<{ [key: string]: Design }>(initialDesigns);
+  const [designs, setDesigns] = useState<{ [key: string]: Design }>(getInitialDesigns);
   const [selectedDesignId, setSelectedDesignId] = useState<string>('word_winner');
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -128,7 +128,7 @@ function StudioPageContent() {
     const unsubscribe = onValue(designsRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            setDesigns(prev => ({...prev, ...data}));
+            setDesigns(prev => ({...getInitialDesigns(), ...data}));
         }
     });
     return () => unsubscribe();
