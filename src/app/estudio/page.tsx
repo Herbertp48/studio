@@ -240,7 +240,7 @@ function StudioPageContent() {
 
         update(ref(database), updates)
             .then(() => {
-                toast({ title: "Sucesso!", description: `Template "${templateLabels[key].title}" salvo com sucesso.` });
+                toast({ title: "Sucesso!", description: `Template "${templateLabels[key as keyof typeof templateLabels]?.title}" salvo com sucesso.` });
             })
             .catch((error) => {
                 toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
@@ -259,11 +259,11 @@ function StudioPageContent() {
                     <CardContent>
                         <Accordion type="single" collapsible className="w-full">
                             {Object.keys(templates).map((key) => {
-                                const template = templates[key];
+                                const template = templates[key as keyof typeof templates];
                                 if (!template) return null; // Safety check
                                 return (
                                 <AccordionItem key={key} value={key}>
-                                    <AccordionTrigger className="text-lg font-semibold">{templateLabels[key]?.title || key}</AccordionTrigger>
+                                    <AccordionTrigger className="text-lg font-semibold">{templateLabels[key as keyof typeof templateLabels]?.title || key}</AccordionTrigger>
                                     <AccordionContent className="space-y-6 pt-4">
                                         <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
                                             <div className="space-y-0.5">
@@ -288,7 +288,7 @@ function StudioPageContent() {
                                                             <HelpCircle className="h-4 w-4 text-muted-foreground cursor-pointer" />
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p>Variáveis disponíveis: {templateLabels[key]?.variables.join(', ')}</p>
+                                                            <p>Variáveis disponíveis: {templateLabels[key as keyof typeof templateLabels]?.variables.join(', ')}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 </TooltipProvider>
@@ -302,7 +302,7 @@ function StudioPageContent() {
                                                       />
                                                   )}
                                               </div>
-                                            <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">{templateLabels[key as keyof typeof templateLabels]?.description}</p>
                                         </div>
 
                                         <Separator/>
@@ -460,5 +460,3 @@ export default function StudioPage() {
         </ProtectedRoute>
     );
 }
-
-    
