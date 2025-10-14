@@ -1,483 +1,412 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Maximize } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import type { Participant } from '@/app/page';
+import { Crown, Star, Trophy, ShieldAlert } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import Image from 'next/image';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
-import type { Participant } from '@/app/(app)/page';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
-import { motion, AnimatePresence } from 'framer-motion';
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS' | 'SHOW_MESSAGE';
-    payload?: any;
-};
-
-type TemplateStyle = {
-    backgroundColor: string;
-    textColor: string;
-    highlightColor: string;
-    highlightTextColor: string;
-    borderColor: string;
-    borderWidth: string;
-    borderRadius: string;
-    fontFamily: string;
-    fontSize: string;
-};
-
-type MessageTemplate = {
-    text: string;
-    styles: TemplateStyle;
-    enabled: boolean;
-};
-
-type MessageTemplates = {
-    [key: string]: MessageTemplate;
-};
-
-type AppSettings = {
-    messageDisplayTime: number;
-    shufflingSpeed: number;
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT';
+    participantA?: Participant | null;
+    participantB?: Participant | null;
+    word?: string | null;
+    winner?: Participant | null;
+    loser?: Participant | null;
+    finalWinner?: Participant | null;
+    activeParticipants?: Participant[];
+    winners?: AggregatedWinner[];
+    tieWinners?: Participant[];
 }
 
-type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
-
-type DuelState = {
-    participantA: Participant | null,
-    participantB: Participant | null,
-    showWord: boolean,
-    words: string[],
-    duelScore: { a: number, b: number },
-    wordsPerRound: number,
-}
-
-// --- Sub-components for different views ---
-
-const DuelContent = ({
-  participantA,
-  participantB,
-  showWord,
-  words,
-  duelScore,
-  wordsPerRound
-}: {
-  participantA: Participant | null,
-  participantB: Participant | null,
-  showWord: boolean,
-  words: string[],
-  duelScore: { a: number, b: number },
-  wordsPerRound: number
-}) => (
-    <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden"
-    >
-        <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
-            <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4" style={{minWidth: 'min-content', minHeight: 'min-content', padding: 'calc(0.8em + 10%) calc(1.6em + 10%)'}}>
-                 {words.map(word => (
-                    <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] whitespace-nowrap px-4 font-subjectivity text-center">
-                        {word}
-                    </p>
-                ))}
-            </div>
-        </div>
-        
-        <div className="relative w-full flex-1 flex items-center justify-center">
-            <div className="flex items-start justify-around w-full">
-                <div className="flex-1 text-center">
-                    <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
-                    {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>}
-                </div>
-                <div className="flex-shrink-0 text-center px-4">
-                    <h3 className="text-8xl font-bold font-melison">Vs.</h3>
-                </div>
-                <div className="flex-1 text-center">
-                    <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
-                     {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>}
-                </div>
-            </div>
-        </div>
-    </motion.div>
-);
-
-const MessageView = ({ action, templates }: { action: DisputeAction, templates: MessageTemplates }) => {
-    const templateKey = action.type.toLowerCase();
-    const template = templates[templateKey];
-    const payload = action.payload || {};
-    
-    if (!template || !template.enabled) return null;
-
-    const getWinnerName = () => {
-        if (action.type === 'DUEL_WINNER' && payload.winner) return payload.winner.name;
-        if (action.type === 'WORD_WINNER' && payload.winner) return payload.winner.name;
-        if (action.type === 'FINAL_WINNER' && payload.finalWinner) return payload.finalWinner.name;
-        return '';
-    }
-    
-    const getWinnerStars = () => {
-      if (action.type === 'DUEL_WINNER' && payload.winner) return payload.winner.stars;
-      if (action.type === 'FINAL_WINNER' && payload.finalWinner) return payload.finalWinner.stars;
-      return 0;
-    }
-
-    const data = {
-        name: getWinnerName(),
-        words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
-        'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
-        stars: getWinnerStars(),
-        participantsList: Array.isArray(payload.participants) ? `<div class="participants">${payload.participants.map((p: any) => `<div>${p.name}</div>`).join('')}</div>` : '',
-        ...payload
-    };
-
-    let renderedText = template.text || '';
-    renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList);
-    renderedText = renderedText.replace(/<b>(.*?)<\/b>/g, '$1');
-    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, `<b>${data.name}</b>`);
-    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, `<b>${data['words.0']}</b>`);
-    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, `<b>${data.words}</b>`);
-    renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-
-    const style: React.CSSProperties = {
-        background: template.styles.backgroundColor,
-        color: template.styles.textColor,
-        border: `${template.styles.borderWidth} solid ${template.styles.borderColor}`,
-        borderRadius: template.styles.borderRadius,
-        fontFamily: template.styles.fontFamily,
-        fontSize: template.styles.fontSize,
-        padding: '4rem',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-        textAlign: 'center',
-        maxWidth: '60rem',
-        transition: 'all 0.5s ease'
-    } as React.CSSProperties;
-
-    const highlightStyle = `background-color: ${template.styles.highlightColor}; color: ${template.styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
-    renderedText = renderedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
-
-    return (
-        <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.8, opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="fixed inset-0 z-20 flex flex-col items-center justify-center p-8 gap-4"
-        >
-            <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
-                <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
-            </div>
-        </motion.div>
-    );
-}
-
-const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            transition={{ duration: 0.7, ease: 'easeOut' }}
-            className="w-full flex-1 flex flex-col justify-center items-center"
-        >
-             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-4xl">
-                <h2 className="text-6xl font-bold text-accent font-melison mb-8 text-center">Classificação Final</h2>
-                <table className="w-full text-2xl">
-                    <thead>
-                        <tr className="border-b-4 border-accent">
-                            <th className="p-4 text-left font-melison text-4xl">Nome</th>
-                            <th className="p-4 text-left font-melison text-4xl">Palavras Acertadas</th>
-                            <th className="p-4 text-center font-melison text-4xl">Estrelas</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {winners.map((winner, index) => (
-                            <tr key={index} className="border-b-2 border-accent/50">
-                                <td className="p-4 text-left font-subjectivity font-bold">{winner.name}</td>
-                                <td className="p-4 text-left font-subjectivity text-xl">
-                                    {Object.entries(winner.words).map(([word, count]) => `${word} (x${count})`).join(', ')}
-                                </td>
-                                <td className="p-4 text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        {Array.from({ length: winner.totalStars }).map((_, i) => (
-                                            <span key={i} className="text-yellow-400 text-4xl">⭐</span>
-                                        ))}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-             </div>
-        </motion.div>
-    );
+type DisplayState = {
+    view: 'main' | 'round_winner' | 'final_winner' | 'winners_table' | 'tie_announcement';
+    participantA: Participant | null;
+    participantB: Participant | null;
+    word: string | null;
+    showWord: boolean;
+    roundWinner?: { winner: Participant, loser: Participant, word: string };
+    finalWinner?: Participant;
+    winners?: AggregatedWinner[];
+    tieWinners?: Participant[];
 };
 
+const initialDisplayState: DisplayState = {
+    view: 'main',
+    participantA: null,
+    participantB: null,
+    word: null,
+    showWord: false,
+};
 
 export default function ProjectionPage() {
-    const [isReady, setIsReady] = useState(false);
-    const [view, setView] = useState<ViewState>('idle');
-    const [templates, setTemplates] = useState<MessageTemplates | null>(null);
-    const [lastReceivedAction, setLastReceivedAction] = useState<DisputeAction | null>(null);
-    const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
-    const settingsRef = useRef(settings);
-    useEffect(() => {
-        settingsRef.current = settings;
-    }, [settings]);
-
-    const currentActionRef = useRef<DisputeAction | null>(null);
-
-    // State for Duel View
-    const [duelState, setDuelState] = useState<DuelState>({
-        participantA: null,
-        participantB: null,
-        showWord: false,
-        words: [],
-        duelScore: { a: 0, b: 0 },
-        wordsPerRound: 1,
-    });
-    const currentDuelStateRef = useRef(duelState);
-    useEffect(() => {
-        currentDuelStateRef.current = duelState;
-    }, [duelState]);
-    
-    // State for Shuffling Animation
-    const [shufflingParticipants, setShufflingParticipants] = useState<{a: Participant | null, b: Participant | null}>({ a: null, b: null });
-
-    const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const [isMounted, setIsMounted] = useState(false);
+    const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
-    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const isProcessingActionRef = useRef(false);
+    const [animationKey, setAnimationKey] = useState(0);
+    const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const messageActionTypes: DisputeAction['type'][] = useMemo(() => ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'], []);
-    
-    const stopShufflingAnimation = () => {
-        if (shufflingIntervalRef.current) {
-            clearInterval(shufflingIntervalRef.current);
-            shufflingIntervalRef.current = null;
-        }
-    };
-
-    const resetToIdle = () => {
-        stopShufflingAnimation();
-        Object.values(sounds.current).forEach(s => { if(s) {s.pause(); s.currentTime = 0;} });
-        setView('idle');
-        currentActionRef.current = null;
-        setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
-        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
-        isProcessingActionRef.current = false;
-    };
-    
+    // Efeito para garantir que o código só rode no cliente.
     useEffect(() => {
-        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
+        setIsMounted(true);
+
+        // Pré-carregamento dos sons em um local seguro
+        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3'];
         soundFiles.forEach(file => {
             if (!sounds.current[file]) {
-                sounds.current[file] = new Audio(`/som/${file}`);
-                sounds.current[file].load();
+                const audio = new Audio(`/som/${file}`);
+                audio.load();
+                sounds.current[file] = audio;
             }
         });
+        
         return () => {
-            Object.values(sounds.current).forEach(sound => {
-                if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
+             Object.values(sounds.current).forEach(sound => {
+                if (sound && !sound.paused) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
             });
-            if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
-            if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         };
     }, []);
 
+    // Efeito para o Firebase, depende do isMounted.
     useEffect(() => {
-        if (!isReady) return;
+        if (!isMounted) return;
 
-        const templatesRef = ref(database, 'message_templates');
-        const settingsDbRef = ref(database, 'settings');
-        const disputeStateRef = ref(database, 'dispute/state');
+        const stopAllSounds = () => {
+            Object.values(sounds.current).forEach(sound => {
+                if (sound && !sound.paused) {
+                    sound.pause();
+                    sound.currentTime = 0;
+                }
+            });
+        };
 
-        const unsubTemplates = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
-        const unsubSettings = onValue(settingsDbRef, (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                setSettings(prev => ({ ...prev, ...data }));
+        const playSound = (soundFile: string, loop = false) => {
+            stopAllSounds();
+            
+            const soundToPlay = sounds.current[soundFile];
+            if (soundToPlay) {
+                soundToPlay.loop = loop;
+                soundToPlay.play().catch(e => {
+                  // Ignore AbortError which is common when sounds are interrupted quickly
+                  if (e.name !== 'AbortError') {
+                    console.error("Erro ao tocar áudio:", e)
+                  }
+                });
             }
-        });
-        const unsubDispute = onValue(disputeStateRef, (snapshot) => {
-            const newAction = snapshot.val();
-            if(newAction) {
-                setLastReceivedAction(newAction);
-            } else {
-                resetToIdle();
+        };
+
+         const stopShufflingAnimation = () => {
+            if (shufflingIntervalRef.current) {
+                clearInterval(shufflingIntervalRef.current);
+                shufflingIntervalRef.current = null;
+            }
+        };
+
+        const startShufflingAnimation = (participants: Participant[]) => {
+            stopShufflingAnimation();
+            playSound('tambor.mp3', true);
+            shufflingIntervalRef.current = setInterval(() => {
+                const shuffled = [...participants].sort(() => 0.5 - Math.random());
+                 setDisplayState(prevState => ({
+                    ...prevState,
+                    participantA: shuffled[0] || null,
+                    participantB: shuffled[1] || null,
+                 }));
+            }, 150);
+        };
+
+        const disputeStateRef = ref(database, 'dispute/state');
+        const unsubscribe = onValue(disputeStateRef, (snapshot) => {
+            const action: DisputeAction | null = snapshot.val();
+            if (!action) {
+                stopAllSounds();
+                stopShufflingAnimation();
+                setDisplayState(initialDisplayState);
+                return;
+            }
+
+            switch (action.type) {
+                case 'RESET':
+                    stopAllSounds();
+                    stopShufflingAnimation();
+                    setDisplayState(initialDisplayState);
+                    break;
+                
+                 case 'SHUFFLING_PARTICIPANTS':
+                    if (!shufflingIntervalRef.current) {
+                        startShufflingAnimation(action.activeParticipants || []);
+                    }
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'main',
+                        showWord: false,
+                        word: null
+                    }));
+                    break;
+
+                case 'UPDATE_PARTICIPANTS':
+                    stopShufflingAnimation();
+                    stopAllSounds();
+                    playSound('sinos.mp3');
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'main',
+                        participantA: action.participantA || null,
+                        participantB: action.participantB || null,
+                    });
+                    break;
+
+                case 'SHOW_WORD':
+                    playSound('premio.mp3');
+                    setDisplayState(prevState => ({
+                        ...prevState,
+                        word: action.word || null,
+                        showWord: true,
+                    }));
+                    break;
+
+                case 'HIDE_WORD':
+                     setDisplayState(prevState => ({ ...prevState, showWord: false, word: null }));
+                     break;
+
+                case 'ROUND_WINNER':
+                    stopShufflingAnimation();
+                    stopAllSounds();
+                    playSound('vencedor.mp3');
+                    setAnimationKey(prev => prev + 1);
+                    if (action.winner && action.loser && action.word) {
+                       setDisplayState({
+                           ...initialDisplayState,
+                           view: 'round_winner',
+                           roundWinner: { winner: action.winner, loser: action.loser, word: action.word }
+                       });
+                    }
+                    break;
+
+                case 'FINAL_WINNER':
+                    stopShufflingAnimation();
+                    stopAllSounds();
+                    playSound('vencedor.mp3');
+                    setAnimationKey(prev => prev + 1);
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'final_winner',
+                        finalWinner: action.finalWinner
+                    });
+                    break;
+                
+                case 'TIE_ANNOUNCEMENT':
+                    stopShufflingAnimation();
+                    playSound('sinos.mp3');
+                    setAnimationKey(prev => prev + 1);
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'tie_announcement',
+                        tieWinners: action.tieWinners
+                    });
+                    break;
+
+                case 'SHOW_WINNERS':
+                    stopShufflingAnimation();
+                    stopAllSounds();
+                    setDisplayState({
+                        ...initialDisplayState,
+                        view: 'winners_table',
+                        winners: (action.winners || []).sort((a,b) => b.totalStars - a.totalStars)
+                    });
+                    break;
             }
         });
 
         return () => {
-            unsubTemplates();
-            unsubSettings();
-            unsubDispute();
+            unsubscribe();
+            stopAllSounds();
+            stopShufflingAnimation();
         };
-    }, [isReady]);
-
-    useEffect(() => {
-        if (lastReceivedAction) {
-             if (isProcessingActionRef.current && lastReceivedAction.type !== 'RESET') {
-                return;
-            }
-            processAction(lastReceivedAction);
-        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lastReceivedAction]);
+    }, [isMounted]);
 
-    const playSound = (soundFile: string, loop = false) => {
-        Object.values(sounds.current).forEach(sound => {
-            if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
-        });
-        const soundToPlay = sounds.current[soundFile];
-        if (soundToPlay) {
-            soundToPlay.loop = loop;
-            soundToPlay.currentTime = 0;
-            soundToPlay.play().catch(e => {
-              if (e.name !== 'AbortError') console.error("Erro ao tocar áudio:", e);
-            });
-        }
-    };
-    
-    const handleEnterFullscreen = () => {
-        if (isReady) return;
-        Object.values(sounds.current).forEach(sound => {
-            sound.load(); sound.play().then(() => sound.pause()).catch(() => {});
-        });
-        setIsReady(true);
-        document.documentElement.requestFullscreen?.().catch(() => {});
-    };
+    if (!isMounted) {
+      return null;
+    }
 
-    const processAction = (action: DisputeAction) => {
-        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
-        isProcessingActionRef.current = true;
-        currentActionRef.current = action;
-        
-        switch (action.type) {
-            case 'SHUFFLING_PARTICIPANTS':
-                setView('shuffling');
-                startShufflingAnimation(action.payload?.activeParticipants || []);
-                playSound('tambor.mp3', true);
-                isProcessingActionRef.current = false;
-                break;
+    // ------ COMPONENTES DE RENDERIZAÇÃO ------
 
-            case 'UPDATE_PARTICIPANTS':
-                stopShufflingAnimation();
-                setView('duel');
-                setDuelState(prev => ({
-                    ...prev,
-                    participantA: action.payload.participantA || null,
-                    participantB: action.payload.participantB || null,
-                    duelScore: action.payload.duelScore || { a: 0, b: 0 },
-                    wordsPerRound: action.payload.wordsPerRound || 1,
-                    showWord: false,
-                }));
-                playSound('sinos.mp3');
-                isProcessingActionRef.current = false;
-                break;
-
-            case 'SHOW_WORD':
-                setView('duel');
-                setDuelState(prev => ({ ...prev, words: action.payload.words || [], showWord: true }));
-                playSound('premio.mp3');
-                isProcessingActionRef.current = false;
-                break;
-
-            case 'HIDE_WORD':
-                setDuelState(prev => ({ ...prev, showWord: false }));
-                isProcessingActionRef.current = false;
-                break;
+    const MainContent = () => (
+        <div className="flex flex-col items-center justify-start pt-8 w-full h-full">
+            <header className="flex items-center gap-4 text-accent">
+                <h1 className="text-8xl font-melison font-bold tracking-tight">
+                    Spelling Bee
+                </h1>
+                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
+            </header>
             
-            case 'NO_WORD_WINNER':
-            case 'WORD_WINNER':
-                 setView('message');
-                 if (action.payload.duelScore) {
-                    setDuelState(prev => ({ ...prev, duelScore: action.payload.duelScore }));
-                 }
-                 playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(() => {
-                    setView('duel'); 
-                    currentActionRef.current = null;
-                    isProcessingActionRef.current = false;
-                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
-                break;
+            <div className="relative mt-8 text-center text-white w-full flex-1 flex flex-col justify-center items-center">
+                <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", displayState.showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+                    <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
+                    <div className="mt-4 h-32 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-2xl">
+                        <p className="text-5xl font-bold uppercase tracking-[0.2em] whitespace-nowrap px-4 font-subjectivity text-center">
+                            {displayState.word || '...'}
+                        </p>
+                    </div>
+                </div>
+                
+                <div className="relative w-full flex-1 flex items-center justify-center">
+                    <div className="grid grid-cols-12 items-center w-full gap-4">
+                        <div className="col-start-2 col-span-4 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantA?.name || 'Participante A'}</h3>
+                        </div>
+                        <div className="col-span-2 text-center">
+                            <h3 className="text-8xl font-bold font-melison">Vs.</h3>
+                        </div>
+                        <div className="col-span-4 text-center">
+                            <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{displayState.participantB?.name || 'Participante B'}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
 
-            case 'DUEL_WINNER':
-            case 'FINAL_WINNER':
-            case 'TIE_ANNOUNCEMENT':
-            case 'NO_WINNER':
-            case 'SHOW_MESSAGE':
-                 setView('message');
-                 playSound(action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 // This message stays on screen until a RESET action is sent
-                 isProcessingActionRef.current = false;
-                break;
+    const RoundWinnerMessage = () => {
+        if (!displayState.roundWinner) return null;
+        const { winner, word } = displayState.roundWinner;
 
-            case 'SHOW_WINNERS':
-                setView('winners');
-                isProcessingActionRef.current = false;
-                break;
-            
-            case 'RESET':
-                resetToIdle();
-                break;
-        }
-    };
-
-    const startShufflingAnimation = (participants: Participant[]) => {
-        stopShufflingAnimation();
-        if (participants.length > 1) {
-            shufflingIntervalRef.current = setInterval(() => {
-                const shuffled = [...participants].sort(() => 0.5 - Math.random());
-                setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-            }, settingsRef.current.shufflingSpeed || 150);
-        }
-    };
-
-    if (!isReady) {
         return (
-            <div className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer" onClick={handleEnterFullscreen}>
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="text-center text-accent animate-pulse">
-                        <Maximize className="w-24 h-24 mx-auto" />
-                        <h1 className="text-6xl font-melison font-bold mt-4">Clique para Entrar em Tela Cheia</h1>
-                        <p className="text-2xl mt-2 font-subjectivity">Isso irá otimizar a visualização e ativar o som.</p>
+             <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </div>
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                     <div className="text-6xl mb-6 inline-block">
+                        <b className="text-white bg-accent-foreground px-8 py-4 rounded-lg inline-block shadow-lg max-w-full break-words">{winner.name}</b>
+                    </div>
+                     <p className="text-5xl leading-tight font-semibold">
+                        Ganhou a disputa soletrando
+                         <br/> 
+                        corretamente a palavra <b className="text-white bg-accent-foreground px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{word}</b>
+                        <br/> 
+                        e recebeu uma estrela <Star className="inline-block w-16 h-16 text-accent fill-accent" /> !
+                    </p>
+                </div>
+            </div>
+        );
+    }
+    
+    const FinalWinnerMessage = () => {
+         if (!displayState.finalWinner) return null;
+         const { finalWinner } = displayState;
+
+        return (
+             <div key={animationKey} className="animate-in fade-in zoom-in-95 duration-1000 fixed inset-0 z-30">
+                <div className="flex items-center justify-center bg-black/60 w-full h-full">
+                    <div className="bg-gradient-to-br from-yellow-300 to-amber-500 text-purple-900 border-8 border-white rounded-3xl p-20 shadow-2xl text-center max-w-5xl mx-auto relative overflow-hidden font-subjectivity">
+                        <Crown className="absolute -top-16 -left-16 w-64 h-64 text-white/20 -rotate-12" />
+                        <Crown className="absolute -bottom-20 -right-16 w-72 h-72 text-white/20 rotate-12" />
+                        <h2 className="text-6xl font-black uppercase tracking-wider font-melison">Temos um Vencedor!</h2>
+                        <Crown className="w-48 h-48 mx-auto my-8 text-white drop-shadow-lg" />
+                        <p className="text-8xl font-black tracking-wide text-white bg-purple-800/80 px-8 py-4 rounded-xl shadow-inner font-melison">{finalWinner.name}</p>
+                        <p className="mt-8 text-5xl font-bold flex items-center justify-center gap-4">
+                            Com {finalWinner.stars} <Star className="w-12 h-12 text-white" />
+                        </p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    const TieAnnouncement = () => {
+        if (!displayState.tieWinners) return null;
+        const { tieWinners } = displayState;
+    
+        return (
+            <div key={animationKey} className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 bg-accent-foreground/90 p-8 z-20">
+                <div className="absolute top-8 flex items-center gap-4 text-accent">
+                    <h1 className="text-6xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                    <Image src="/images/Bee.gif" alt="Bee Icon" width={60} height={60} unoptimized />
+                </div>
+                <div className="bg-stone-50 text-accent-foreground border-8 border-accent rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <ShieldAlert className="w-32 h-32 mx-auto text-accent mb-6" />
+                    <h2 className="text-7xl font-bold font-melison mb-4">Temos um Empate!</h2>
+                    <p className="text-3xl mb-6">Os seguintes participantes irão para a rodada de desempate:</p>
+                    <div className="text-4xl font-bold space-y-2">
+                        {tieWinners.map(winner => (
+                            <p key={winner.id} className="text-white bg-accent-foreground px-6 py-2 rounded-lg shadow-md max-w-full break-words">{winner.name}</p>
+                        ))}
                     </div>
                 </div>
             </div>
         );
     }
 
+    const WinnersTable = () => {
+        if (!displayState.winners) return null;
+
+        return (
+            <div className="projetado-page fixed inset-0 flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-1000 p-8 z-20">
+                <h1 className="text-8xl font-melison font-bold tracking-tight text-accent mb-8 flex items-center gap-4">
+                    <Trophy className="w-20 h-20" /> Classificação dos Ganhadores
+                </h1>
+                <div className="w-full max-w-6xl bg-stone-50/90 rounded-2xl shadow-2xl p-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="border-0">
+                                <TableHead className="w-1/2 text-center text-accent-foreground font-bold text-5xl font-melison py-4">Nome</TableHead>
+                                <TableHead className="w-1/2 text-center text-accent-foreground font-bold text-5xl font-melison py-4">Estrelas</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {displayState.winners.map((winner) => (
+                                <TableRow key={winner.name} className="border-t-4 border-amber-300">
+                                <TableCell className="font-bold text-accent-foreground text-center text-4xl p-6 font-subjectivity">
+                                    {winner.name}
+                                </TableCell>
+                                <TableCell className="text-center p-6">
+                                    <div className="flex items-center justify-center gap-2">
+                                    {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                        <Star key={i} className="w-10 h-10 text-yellow-400 fill-yellow-400" />
+                                    ))}
+                                    </div>
+                                </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
+        )
+    }
+
+    const renderContent = () => {
+        switch (displayState.view) {
+            case 'round_winner':
+                return <RoundWinnerMessage />;
+            case 'final_winner':
+                return <FinalWinnerMessage />;
+            case 'tie_announcement':
+                return <TieAnnouncement />;
+            case 'winners_table':
+                return <WinnersTable />;
+            case 'main':
+            default:
+                return <MainContent />;
+        }
+    }
+
     return (
-        <div className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-start">
-            <header className="flex flex-shrink-0 items-center gap-4 text-accent py-4">
-                <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
-                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
-            </header>
-            <main className='w-full flex-1 flex flex-col justify-center items-center px-8'>
-                <AnimatePresence mode="wait">
-                    {view === 'duel' && (
-                        <DuelContent {...duelState} />
-                    )}
-                    {view === 'shuffling' && (
-                         <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
-                    )}
-                    {view === 'winners' && lastReceivedAction?.type === 'SHOW_WINNERS' && lastReceivedAction?.payload?.winners && (
-                        <WinnersTable winners={lastReceivedAction.payload.winners} />
-                    )}
-                </AnimatePresence>
-            </main>
-            <AnimatePresence>
-                {view === 'message' && currentActionRef.current && templates && messageActionTypes.includes(currentActionRef.current.type) && (
-                    <MessageView action={currentActionRef.current} templates={templates} />
-                )}
-            </AnimatePresence>
+        <div className="projetado-page h-screen w-screen overflow-hidden relative">
+            {renderContent()}
         </div>
     );
 }
+
+    
