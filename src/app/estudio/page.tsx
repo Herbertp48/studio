@@ -1,7 +1,7 @@
 
       'use client';
       
-      import { useState, useEffect, useMemo } from 'react';
+      import { useState, useEffect } from 'react';
       import { AppHeader } from '@/components/app/header';
       import ProtectedRoute from '@/components/auth/ProtectedRoute';
       import { database } from '@/lib/firebase';
@@ -23,9 +23,8 @@
       import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
       import { Switch } from '@/components/ui/switch';
       import 'react-quill/dist/quill.snow.css';
-      import dynamic from 'next/dynamic';
+      import ReactQuill from '@/components/ui/quill-editor';
 
-      const ReactQuill = dynamic(() => import('@/components/ui/quill-editor'), { ssr: false });
       
       type TemplateStyle = {
           backgroundColor: string;
