@@ -305,7 +305,7 @@
           
           setTimeout(() => {
               handleDuelResult(newScore, newWordsPlayed);
-          }, (4) * 1000);
+          }, 4 * 1000);
       };
         
         const handleNoWinner = async () => {
@@ -319,7 +319,7 @@
           
           setTimeout(() => {
               handleDuelResult(duelScore, newWordsPlayed);
-          }, (4) * 1000);
+          }, 4 * 1000);
         }
       
         const nextRound = async () => {
@@ -334,7 +334,7 @@
             await set(starWinnerEntryRef, {
               name: duelWinner.name,
               word: `Duelo Vencido (+1 Estrela)`,
-              stars: 1,
+              stars: 1, // <<< CORRECTION HERE
             });
             
             await update(ref(database), updates);

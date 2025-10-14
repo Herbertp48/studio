@@ -112,14 +112,27 @@ const MessageView = ({ action, templates }: { action: DisputeAction, templates: 
     const templateKey = action.type.toLowerCase();
     const template = templates[templateKey];
     const payload = action.payload || {};
-
+    
     if (!template || !template.enabled) return null;
 
+    const getWinnerName = () => {
+        if (action.type === 'DUEL_WINNER' && payload.winner) return payload.winner.name;
+        if (action.type === 'WORD_WINNER' && payload.winner) return payload.winner.name;
+        if (action.type === 'FINAL_WINNER' && payload.finalWinner) return payload.finalWinner.name;
+        return '';
+    }
+    
+    const getWinnerStars = () => {
+      if (action.type === 'DUEL_WINNER' && payload.winner) return payload.winner.stars;
+      if (action.type === 'FINAL_WINNER' && payload.finalWinner) return payload.finalWinner.stars;
+      return 0;
+    }
+
     const data = {
-        name: payload.winner?.name || payload.finalWinner?.name || '',
+        name: getWinnerName(),
         words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
         'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
-        stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
+        stars: getWinnerStars(),
         participantsList: Array.isArray(payload.participants) ? `<div class="participants">${payload.participants.map((p: any) => `<div>${p.name}</div>`).join('')}</div>` : '',
         ...payload
     };
@@ -389,7 +402,6 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                     setView('duel'); 
-                    setDuelState(currentDuelStateRef.current);
                     currentActionRef.current = null;
                     isProcessingActionRef.current = false;
                  }, (settingsRef.current.messageDisplayTime || 4) * 1000);
