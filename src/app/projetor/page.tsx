@@ -388,7 +388,7 @@ export default function ProjectionPage() {
                        processAction({ type: 'RESET' });
                     } else {
                        setView('duel');
-                       // Restore duel state to keep names visible
+                       // Restore duel state to keep names visible and update score
                        setDuelState({ ...currentDuelStateRef.current, showWord: false });
                        currentActionRef.current = null;
                     }
