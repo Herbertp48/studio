@@ -9,7 +9,6 @@ import type { Participant } from '@/app/(app)/page';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
-import type { AllDesigns } from '@/app/estudio/page';
 import { motion, AnimatePresence } from 'framer-motion';
 
 
@@ -18,12 +17,35 @@ type DisputeAction = {
     payload?: any;
 };
 
+type TemplateStyle = {
+    backgroundColor: string;
+    textColor: string;
+    highlightColor: string;
+    highlightTextColor: string;
+    borderColor: string;
+    borderWidth: string;
+    borderRadius: string;
+    fontFamily: string;
+    fontSize: string;
+};
+
+type MessageTemplate = {
+    text: string;
+    styles: TemplateStyle;
+    enabled: boolean;
+};
+
+type MessageTemplates = {
+    [key: string]: MessageTemplate;
+};
+
+
 const messageActionTypes: DisputeAction['type'][] = ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'];
 
 
 export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
-    const [designs, setDesigns] = useState<AllDesigns | null>(null);
+    const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
     const [showContent, setShowContent] = useState(true);
     const [wordsPerRound, setWordsPerRound] = useState(1);
@@ -58,11 +80,11 @@ export default function ProjectionPage() {
     useEffect(() => {
         if (!isReady) return;
 
-        const designsRef = ref(database, 'designs');
-        const unsubDesigns = onValue(designsRef, (snapshot) => {
+        const templatesRef = ref(database, 'message_templates');
+        const unsubDesigns = onValue(templatesRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                setDesigns(data);
+                setTemplates(data);
             }
         });
 
@@ -224,34 +246,52 @@ export default function ProjectionPage() {
     const shouldShowMessage = currentAction && messageActionTypes.includes(currentAction.type);
     const shouldShowDuel = showContent && !shouldShowMessage && currentAction?.type !== 'SHOW_WINNERS';
 
-
-    const renderMessage = () => {
-        if (!shouldShowMessage || !currentAction || !designs) return null;
     
-        const templateKey = currentAction.type.toLowerCase() as keyof AllDesigns;
-        const template = designs[templateKey];
+    const renderMessage = () => {
+        if (!shouldShowMessage || !currentAction || !templates) return null;
+    
+        const templateKey = currentAction.type.toLowerCase();
+        const template = templates[templateKey];
         const payload = currentAction.payload || {};
     
-        if (!template) return null;
+        if (!template || !template.enabled) {
+             if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+             resetToIdle();
+             return null;
+        };
 
         const data = {
             name: payload.winner?.name || payload.finalWinner?.name || '',
             words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
             'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
             stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
-            participantsList: Array.isArray(payload.participants) ? payload.participants.map(p => p.name).join(', ') : '',
+            participantsList: Array.isArray(payload.participants) ? `<div class="participants">${payload.participants.map((p: any) => `<div>${p.name}</div>`).join('')}</div>` : '',
             ...payload
         };
 
-        const interpolate = (text: string) => {
-            if (!text) return '';
-            return text
-                .replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList)
-                .replace(/\{\{\s*name\s*\}\}/g, data.name)
-                .replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0'])
-                .replace(/\{\{\s*words\s*\}\}/g, data.words)
-                .replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
-        }
+        let renderedText = template.text || '';
+        renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList);
+        renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
+        renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
+        renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
+        renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
+
+        const style: React.CSSProperties = {
+            background: template.styles.backgroundColor,
+            color: template.styles.textColor,
+            border: `${template.styles.borderWidth} solid ${template.styles.borderColor}`,
+            borderRadius: template.styles.borderRadius,
+            fontFamily: template.styles.fontFamily,
+            fontSize: template.styles.fontSize,
+            padding: '4rem',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+            textAlign: 'center',
+            maxWidth: '60rem',
+            transition: 'all 0.5s ease'
+        } as React.CSSProperties;
+
+        const highlightStyle = `background-color: ${template.styles.highlightColor}; color: ${template.styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
+        renderedText = renderedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
 
         return (
             <AnimatePresence>
@@ -261,11 +301,10 @@ export default function ProjectionPage() {
                     exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                     className="fixed inset-0 z-20 flex flex-col items-center justify-center p-8 gap-4"
-                    style={{ backgroundColor: template.backgroundColor }}
                 >
-                    {template.text1 && <h1 style={{ fontSize: template.text1FontSize, color: template.text1Color }} className="font-bold font-melison text-center">{interpolate(template.text1)}</h1>}
-                    {template.text2 && <h2 style={{ fontSize: template.text2FontSize, color: template.text2Color }} className="font-bold font-subjectivity text-center">{interpolate(template.text2)}</h2>}
-                    {template.text3 && <h3 style={{ fontSize: template.text3FontSize, color: template.text3Color }} className="font-bold font-subjectivity text-center">{interpolate(template.text3)}</h3>}
+                    <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                        <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
+                    </div>
                 </motion.div>
             </AnimatePresence>
         );
