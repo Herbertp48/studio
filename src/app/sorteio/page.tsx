@@ -74,12 +74,13 @@
         
             const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
         
+            // Scenario 1: Only one or zero participants are active.
             if (activeParticipants.length < 2) {
                 const allParticipants = Object.values(currentParticipants);
                 const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
                 
-                // There is a winner if maxStars > 0. If maxStars is 0, there is only a winner if all participants have 0 stars
-                const potentialWinners = allParticipants.filter(p => p.stars === maxStars && (maxStars > 0 || allParticipants.every(p => p.stars === 0)));
+                // There is a potential winner only if at least one participant has stars.
+                const potentialWinners = allParticipants.filter(p => p.stars === maxStars && maxStars > 0);
         
                 if (potentialWinners.length > 1) { // Tie
                     setFinalWinners(potentialWinners);
@@ -89,7 +90,7 @@
                     setFinalWinners(potentialWinners);
                     setIsTie(false);
                     setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
-                } else { // No clear winner (e.g., everyone eliminated with 0 stars)
+                } else { // No winner (e.g., everyone eliminated with 0 stars)
                     setFinalWinners([]);
                     setIsTie(false);
                     setDisputeState({ type: 'NO_WINNER' });
@@ -112,6 +113,7 @@
                     setOriginalWords(data.words);
                   }
                   
+                  // Avoid checking for winner while a duel is active
                   if (raffleState === 'idle' || raffleState === 'duel_finished') {
                       checkForWinner(currentParticipants);
                   }
@@ -201,8 +203,9 @@
               [sortedWord] = currentAvailableWords.splice(wordIndex, 1);
           }
           
+          setAvailableWords(currentAvailableWords); // Persist the change
+      
           const wordsToDraw = [sortedWord];
-          setAvailableWords(currentAvailableWords);
       
           if (wordsToDraw.length > 0) {
             setCurrentWords(wordsToDraw);
