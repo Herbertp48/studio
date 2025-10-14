@@ -41,6 +41,7 @@ type MessageTemplates = {
 
 type AppSettings = {
     messageDisplayTime: number;
+    shufflingSpeed: number;
 }
 
 type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
@@ -202,7 +203,7 @@ export default function ProjectionPage() {
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [lastReceivedAction, setLastReceivedAction] = useState<DisputeAction | null>(null);
     const currentActionRef = useRef<DisputeAction | null>(null);
-    const settingsRef = useRef<AppSettings>({ messageDisplayTime: 4 });
+    const settingsRef = useRef<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
 
     // State for Duel View
     const [duelState, setDuelState] = useState({
@@ -390,7 +391,7 @@ export default function ProjectionPage() {
             shufflingIntervalRef.current = setInterval(() => {
                 const shuffled = [...participants].sort(() => 0.5 - Math.random());
                 setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-            }, 150);
+            }, settingsRef.current.shufflingSpeed || 150);
         }
     };
 
@@ -435,3 +436,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    

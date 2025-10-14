@@ -50,6 +50,7 @@
 
       type AppSettings = {
         messageDisplayTime: number;
+        shufflingSpeed: number;
       }
       
       const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
@@ -169,7 +170,7 @@
       
       function StudioPageContent() {
           const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
-          const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4 });
+          const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
           const { toast } = useToast();
 
       
@@ -284,7 +285,7 @@
                               <CardTitle className="flex items-center gap-2"><Settings /> Configurações Gerais</CardTitle>
                               <CardDescription>Ajustes que afetam o comportamento geral do projetor.</CardDescription>
                           </CardHeader>
-                          <CardContent className="space-y-4">
+                          <CardContent className="space-y-6">
                               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                                   <Label htmlFor="messageDisplayTime" className="text-base flex-1">Tempo de exibição da mensagem (em segundos)</Label>
                                   <Input
@@ -294,6 +295,18 @@
                                       onChange={(e) => handleSettingsChange('messageDisplayTime', Number(e.target.value))}
                                       className="w-full sm:w-32"
                                       min="1"
+                                  />
+                              </div>
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                  <Label htmlFor="shufflingSpeed" className="text-base flex-1">Velocidade do embaralhamento (em milissegundos)</Label>
+                                  <Input
+                                      id="shufflingSpeed"
+                                      type="number"
+                                      value={settings.shufflingSpeed}
+                                      onChange={(e) => handleSettingsChange('shufflingSpeed', Number(e.target.value))}
+                                      className="w-full sm:w-32"
+                                      min="50"
+                                      step="10"
                                   />
                               </div>
                               <Button onClick={handleSaveSettings}>Salvar Configurações</Button>
@@ -509,4 +522,5 @@
           );
       }
 
+    
     
