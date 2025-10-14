@@ -273,14 +273,14 @@ function RafflePageContent() {
         setRaffleState('word_preview');
     } else {
         setRaffleState('word_sorted');
-        setDisputeState({ type: 'SHOW_WORD', payload: { word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB } });
+        setDisputeState({ type: 'SHOW_WORD', payload: { word: sortedWord, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore: {a: currentDuel?.scoreA || 0, b: currentDuel?.scoreB || 0} } });
     }
   };
 
   const revealWord = () => {
     if (!currentWord || !currentDuel) return;
     setRaffleState('word_sorted');
-    setDisputeState({ type: 'SHOW_WORD', payload: { word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB } });
+    setDisputeState({ type: 'SHOW_WORD', payload: { word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: {a: currentDuel.scoreA, b: currentDuel.scoreB} } });
   };
   
   const handleWordWinner = (winnerId: string | null) => {
@@ -477,7 +477,7 @@ function RafflePageContent() {
                  <span className="text-4xl font-bold">{currentDuel.scoreB}</span>
               </div>
           </div>
-           <Progress value={(currentDuel.scoreA + currentDuel.scoreB) / (DUEL_TARGET_SCORE * 2) * 100} className="w-[60%]"/>
+           <Progress value={((currentDuel.scoreA + currentDuel.scoreB) / (DUEL_TARGET_SCORE * 2)) * 100} className="w-[60%]"/>
           <Button size="lg" onClick={sortWord} className="mt-4">
             <PartyPopper className="mr-2"/>Sortear Próxima Palavra
           </Button>
@@ -667,5 +667,6 @@ export default function RafflePage() {
         </ProtectedRoute>
     )
 }
+    
 
     
