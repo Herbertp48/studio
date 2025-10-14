@@ -16,6 +16,7 @@ type DisputeStatePayload = {
     participantA?: Participant | null;
     participantB?: Participant | null;
     word?: string | null;
+    words?: string[];
     winner?: Participant | null;
     loser?: Participant | null;
     duelScore?: { a: number, b: number };
@@ -27,7 +28,7 @@ type DisputeStatePayload = {
 };
 
 type DisputeAction = {
-    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'NO_WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT';
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT' | 'NO_WORD_WINNER' | 'NO_WINNER';
     payload: DisputeStatePayload;
 }
 
@@ -35,7 +36,7 @@ type DisputeAction = {
 type DisplayState = {
     view: 'idle' | 'shuffling' | 'duel' | 'message';
     message: {
-        type: 'word_winner' | 'no_word_winner' | 'duel_winner' | 'final_winner' | 'tie_announcement' | 'winners_table' | null;
+        type: 'word_winner' | 'no_word_winner' | 'duel_winner' | 'final_winner' | 'tie_announcement' | 'winners_table' | 'no_winner' | null;
         data: any;
     };
     duelState: {
@@ -63,7 +64,6 @@ export default function ProjectionPage() {
     const [isMounted, setIsMounted] = useState(false);
     const [displayState, setDisplayState] = useState<DisplayState>(initialDisplayState);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
-    const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const currentDuelStateRef = useRef(initialDisplayState.duelState);
 
@@ -85,7 +85,6 @@ export default function ProjectionPage() {
                     sound.currentTime = 0;
                 }
             });
-            if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
             if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
         };
     }, []);
@@ -110,12 +109,6 @@ export default function ProjectionPage() {
             }
         };
 
-         const stopShufflingAnimation = () => {
-            if (shufflingIntervalRef.current) {
-                clearInterval(shufflingIntervalRef.current);
-                shufflingIntervalRef.current = null;
-            }
-        };
         
         const processAction = (action: DisputeAction) => {
             if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
@@ -123,32 +116,26 @@ export default function ProjectionPage() {
             switch (action.type) {
                 case 'RESET':
                     stopAllSounds();
-                    stopShufflingAnimation();
                     setDisplayState(initialDisplayState);
                     currentDuelStateRef.current = initialDisplayState.duelState;
                     break;
                 
                 case 'SHUFFLING_PARTICIPANTS':
-                    if (displayState.view !== 'shuffling') {
+                     if (displayState.view !== 'shuffling') {
                          playSound('tambor.mp3', true);
-                         const activeParticipants = action.payload.activeParticipants || [];
-                         shufflingIntervalRef.current = setInterval(() => {
-                            const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
-                            setDisplayState(prevState => ({
-                                ...prevState,
-                                view: 'shuffling',
-                                duelState: {
-                                    ...initialDisplayState.duelState,
-                                    participantA: shuffled[0] || null,
-                                    participantB: shuffled[1] || null,
-                                }
-                            }));
-                        }, 150);
-                    }
+                     }
+                     setDisplayState(prevState => ({
+                         ...prevState,
+                         view: 'shuffling',
+                         duelState: {
+                             ...initialDisplayState.duelState,
+                             participantA: action.payload.participantA || null,
+                             participantB: action.payload.participantB || null,
+                         }
+                     }));
                     break;
 
                 case 'UPDATE_PARTICIPANTS':
-                    stopShufflingAnimation();
                     stopAllSounds();
                     playSound('sinos.mp3');
                     const newDuelState = {
@@ -164,7 +151,7 @@ export default function ProjectionPage() {
                 case 'SHOW_WORD':
                     playSound('premio.mp3');
                     setDisplayState(prevState => {
-                        const updatedDuelState = { ...prevState.duelState, word: action.payload.word || null, showWord: true };
+                        const updatedDuelState = { ...prevState.duelState, word: action.payload.word || (action.payload.words ? action.payload.words[0] : null), showWord: true };
                         currentDuelStateRef.current = updatedDuelState;
                         return { ...prevState, duelState: updatedDuelState };
                     });
@@ -172,17 +159,12 @@ export default function ProjectionPage() {
                 
                 case 'WORD_WINNER':
                 case 'NO_WORD_WINNER':
-                case 'DUEL_WINNER':
                     playSound('vencedor.mp3');
-                    const duelScore = action.payload.duelScore;
-                    if (duelScore) {
-                         const updatedState = {
+                     if (action.payload.duelScore) {
+                        currentDuelStateRef.current = {
                             ...currentDuelStateRef.current,
-                            duelScore,
-                            participantA: action.payload.participantA || currentDuelStateRef.current.participantA,
-                            participantB: action.payload.participantB || currentDuelStateRef.current.participantB,
-                         };
-                        currentDuelStateRef.current = updatedState;
+                            duelScore: action.payload.duelScore,
+                        };
                     }
                     setDisplayState(prevState => ({
                         ...prevState,
@@ -192,16 +174,26 @@ export default function ProjectionPage() {
                      messageTimeoutRef.current = setTimeout(() => {
                         setDisplayState({
                            ...initialDisplayState,
-                           view: action.type === 'DUEL_WINNER' ? 'idle' : 'duel',
+                           view: 'duel',
                            duelState: currentDuelStateRef.current
                         });
                     }, 4000);
+                    break;
+                
+                case 'DUEL_WINNER':
+                     playSound('vencedor.mp3');
+                     setDisplayState(prevState => ({
+                        ...prevState,
+                        view: 'message',
+                        message: { type: action.type, data: action.payload }
+                    }));
+                    // Don't set a timeout, wait for a RESET from the controller
                     break;
 
                 case 'FINAL_WINNER':
                 case 'TIE_ANNOUNCEMENT':
                 case 'SHOW_WINNERS':
-                    stopShufflingAnimation();
+                case 'NO_WINNER':
                     stopAllSounds();
                     playSound('vencedor.mp3');
                     setDisplayState({
@@ -288,9 +280,15 @@ export default function ProjectionPage() {
         if (!type || !data) return null;
 
         const getWinnerName = () => {
-             if (type === 'word_winner' || type === 'duel_winner') return data.winner?.name;
-             if (type === 'final_winner') return data.finalWinner?.name;
+             if (data.winner) return data.winner.name;
+             if (data.finalWinner) return data.finalWinner.name;
              return 'Vencedor';
+        }
+
+        const getWord = () => {
+             if(data.word) return data.word;
+             if(data.words && data.words.length > 0) return data.words[0];
+             return '';
         }
         
         if (type === 'word_winner') {
@@ -311,7 +309,7 @@ export default function ProjectionPage() {
                      <p className="text-5xl leading-tight font-semibold">
                         Ninguém acertou a palavra
                          <br/> 
-                        <b className="text-white bg-red-600 px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{data.word}</b>
+                        <b className="text-white bg-red-600 px-4 py-2 rounded-lg shadow-md mx-2 uppercase inline-block max-w-full break-words">{getWord()}</b>
                     </p>
                 </div>
             )
@@ -401,6 +399,19 @@ export default function ProjectionPage() {
                 </div>
             )
         }
+
+        if (type === 'no_winner') {
+             return (
+                <div className="bg-stone-50 text-accent-foreground border-8 border-red-500 rounded-2xl p-12 shadow-2xl text-center max-w-4xl mx-auto font-subjectivity">
+                    <Trophy className="w-32 h-32 mx-auto text-red-500 mb-6" />
+                     <p className="text-5xl leading-tight font-semibold">
+                        Fim da disputa.
+                        <br />
+                        Não houve vencedores.
+                    </p>
+                </div>
+            )
+        }
         
         return null;
     }
@@ -448,5 +459,7 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    
 
     
