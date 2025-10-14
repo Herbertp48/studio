@@ -107,8 +107,10 @@
                   const currentParticipants = data.participants || {};
                   setParticipants(currentParticipants);
                   
+                  // This ensures availableWords is also kept in sync from DB
+                  setAvailableWords(data.words || []);
+                  
                   if (originalWords.length === 0 && data.words.length > 0) {
-                    setAvailableWords(data.words);
                     setOriginalWords(data.words);
                   }
                   
@@ -203,6 +205,7 @@
           
           const wordsToDraw = [sortedWord];
           setAvailableWords(currentAvailableWords);
+          set(ref(database, 'dispute/words'), currentAvailableWords);
       
           if (wordsToDraw.length > 0) {
             setCurrentWords(wordsToDraw);
@@ -653,3 +656,4 @@
               </ProtectedRoute>
           )
       }
+    
