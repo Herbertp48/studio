@@ -70,36 +70,35 @@
         const participantsList = Object.values(participants);
       
         const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-          if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
-      
-          const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
-      
-          if (activeParticipants.length < 2) {
-              const allParticipants = Object.values(currentParticipants);
-              const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
-              
-              // Correctly identify winners, even if maxStars is 0.
-              const winners = allParticipants.filter(p => p.stars === maxStars);
-              
-              if (activeParticipants.length < 2) {
-                  setShowFinalWinnerDialog(true);
-                  if (winners.length > 1) { // Tie
-                      setFinalWinners(winners);
-                      setIsTie(true);
-                      setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: winners } });
-                  } else if (winners.length === 1 && activeParticipants.length === 1 && winners[0].id === activeParticipants[0].id) { // Single winner
-                      setFinalWinners(winners);
-                      setIsTie(false);
-                      setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: winners[0] } });
-                  } else { // No clear winner (e.g., all eliminated with 0 stars)
-                      setFinalWinners([]);
-                      setIsTie(false);
-                      setDisputeState({ type: 'NO_WINNER' });
-                  }
-              }
-          }
-      }
-      
+            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
+        
+            const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
+        
+            // This condition is met when the competition should end.
+            if (activeParticipants.length < 2) {
+                const allParticipants = Object.values(currentParticipants);
+                const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
+                
+                // We must have at least one winner to declare them, and they must have more than 0 stars,
+                // unless all participants have 0 stars.
+                const potentialWinners = allParticipants.filter(p => p.stars === maxStars && (maxStars > 0 || allParticipants.every(p => p.stars === 0)));
+        
+                if (potentialWinners.length > 1) { // Tie
+                    setFinalWinners(potentialWinners);
+                    setIsTie(true);
+                    setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
+                } else if (potentialWinners.length === 1) { // Single Winner
+                    setFinalWinners(potentialWinners);
+                    setIsTie(false);
+                    setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
+                } else { // No clear winner (e.g., everyone eliminated with 0 stars)
+                    setFinalWinners([]);
+                    setIsTie(false);
+                    setDisputeState({ type: 'NO_WINNER' });
+                }
+                setShowFinalWinnerDialog(true);
+            }
+        }
       
         useEffect(() => {
           const disputeRef = ref(database, 'dispute');
@@ -189,7 +188,7 @@
             toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
             setAvailableWords(originalWords);
           }
-           if (availableWords.length === 0) {
+           if (availableWords.length === 0 && originalWords.length === 0) {
               toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio, mesmo após reiniciar a lista." });
               return;
           }
@@ -199,7 +198,7 @@
           
           for (let i = 0; i < 1; i++) { // Always draw one word at a time
               if (remainingWords.length === 0) {
-                  toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
+                  toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
                   remainingWords = [...originalWords];
                   if (remainingWords.length === 0) break;
               }
@@ -253,6 +252,7 @@
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
+          // Wait for the message to be displayed on projector
           setTimeout(async () => {
               await update(ref(database), updates);
       
@@ -268,7 +268,7 @@
               });
               
               setRaffleState('duel_finished');
-          }, 100);
+          }, 4100);
         }
       
         const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
@@ -500,7 +500,7 @@
                   ? currentDuel?.participantA 
                   : currentDuel?.participantB;
               
-              const message = `${winner?.name} venceu o duelo!`;
+              const message = winner ? `${winner.name} venceu o duelo!` : `Duelo encerrado!`;
       
               return (
                   <div className="text-center flex flex-col items-center gap-6">
