@@ -154,23 +154,13 @@ const MessageView = ({ action, templates }: { action: DisputeAction, templates: 
 }
 
 const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
-    const containerStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: '300px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '100%',
-        maxWidth: '64rem',
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ duration: 0.7, ease: 'easeOut' }}
-            style={containerStyle} 
-            className="text-center text-white"
+            className="text-center text-white w-full max-w-4xl"
         >
              <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full">
                 <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
@@ -367,17 +357,20 @@ export default function ProjectionPage() {
                 setDuelState(prev => ({ ...prev, showWord: false }));
                 isProcessingActionRef.current = false;
                 break;
-
+            
+            case 'NO_WORD_WINNER':
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
-            case 'NO_WORD_WINNER':
             case 'NO_WINNER':
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(resetToIdle, (settingsRef.current.messageDisplayTime || 4) * 1000);
+                 messageTimeoutRef.current = setTimeout(() => {
+                    isProcessingActionRef.current = false;
+                    processAction({ type: 'RESET' });
+                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'SHOW_WINNERS':
@@ -421,7 +414,7 @@ export default function ProjectionPage() {
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            <main className='w-full flex-1 flex flex-col justify-start items-center pt-16 px-8'>
+            <main className='w-full flex-1 flex flex-col justify-center items-center pt-16 px-8'>
                 <AnimatePresence mode="wait">
                     {view === 'duel' && (
                         <DuelContent {...duelState} />
