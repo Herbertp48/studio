@@ -370,7 +370,14 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                     isProcessingActionRef.current = false;
-                    processAction({ type: 'RESET' });
+                    // After message, return to duel view instead of full reset
+                    if (action.type === 'DUEL_WINNER' || action.type === 'FINAL_WINNER' || action.type === 'TIE_ANNOUNCEMENT' || action.type === 'NO_WINNER') {
+                       processAction({ type: 'RESET' });
+                    } else {
+                       setView('duel');
+                       setDuelState(prev => ({ ...prev, showWord: false }));
+                       currentActionRef.current = null;
+                    }
                  }, (settingsRef.current.messageDisplayTime || 4) * 1000);
                 break;
 
@@ -436,6 +443,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
-    
