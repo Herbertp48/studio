@@ -72,9 +72,9 @@ const DuelContent = ({
     >
         <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[22rem] min-h-[10rem]" style={{minWidth: 'min-content', minHeight: 'min-content', padding: 'calc(1em + 10%) calc(2em + 10%)'}}>
+            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4" style={{minWidth: 'min-content', minHeight: 'min-content', padding: 'calc(0.8em + 10%) calc(1.6em + 10%)'}}>
                  {words.map(word => (
-                    <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity text-center">
+                    <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] whitespace-nowrap px-4 font-subjectivity text-center">
                         {word}
                     </p>
                 ))}
