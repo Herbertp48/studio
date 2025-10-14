@@ -45,23 +45,26 @@ type DuelState = {
     wordsB: string[];
 };
 
-type DisputeState = {
+type DisputeStatePayload = {
+    participantA?: Participant | null;
+    participantB?: Participant | null;
+    word?: string | null;
+    winner?: Participant | null;
+    loser?: Participant | null;
+    duelScore?: { a: number, b: number };
+    duelWordsWon?: string[];
+    finalWinner?: Participant | null;
+    activeParticipants?: Participant[];
+    tieWinners?: Participant[];
+};
+
+type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'NO_WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT';
-    payload: {
-        participantA?: Participant | null;
-        participantB?: Participant | null;
-        word?: string | null;
-        winner?: Participant | null;
-        loser?: Participant | null;
-        duelScore?: { a: number, b: number };
-        duelWordsWon?: string[];
-        finalWinner?: Participant | null;
-        activeParticipants?: Participant[];
-        tieWinners?: Participant[];
-    }
+    payload: DisputeStatePayload;
 }
 
-const setDisputeState = (state: DisputeState | { type: 'RESET' } | null) => {
+
+const setDisputeState = (state: DisputeAction | { type: 'RESET' } | null) => {
      if (state && state.type !== 'RESET' && !('payload' in state)) {
         set(ref(database, 'dispute/state'), { type: state.type, payload: {} });
     } else {
@@ -284,12 +287,9 @@ function RafflePageContent() {
     if (!currentDuel || !currentWord) return;
 
     if (winnerId === null) {
-        setDisputeState({ type: 'NO_WORD_WINNER', payload: { word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB } });
-        setTimeout(() => {
-            setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: { a: currentDuel.scoreA, b: currentDuel.scoreB } } });
-            setCurrentWord(null);
-            setRaffleState('participants_sorted');
-        }, 4000);
+        setDisputeState({ type: 'NO_WORD_WINNER', payload: { word: currentWord, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: { a: currentDuel.scoreA, b: currentDuel.scoreB } } });
+        setCurrentWord(null);
+        setRaffleState('participants_sorted');
         return;
     }
 
@@ -323,9 +323,7 @@ function RafflePageContent() {
         }
     });
 
-    setTimeout(() => {
-        handleDuelResult(updatedDuelState);
-    }, 4000);
+    handleDuelResult(updatedDuelState);
   };
   
   const handleDuelResult = (duelState: DuelState) => {
@@ -333,7 +331,6 @@ function RafflePageContent() {
         finishDuel(duelState);
      } else {
         setRaffleState('participants_sorted');
-        setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: duelState.participantA, participantB: duelState.participantB, duelScore: { a: duelState.scoreA, b: duelState.scoreB } } });
      }
   }
 
@@ -367,7 +364,7 @@ function RafflePageContent() {
     const newWinnerEntryRef = push(ref(database, 'winners'));
     await set(newWinnerEntryRef, {
         name: duelWinner.name,
-        word: 'Duelo',
+        word: 'Duelo Vencido',
         stars: 1 
     });
 

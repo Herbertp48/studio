@@ -131,8 +131,9 @@ export default function ProjectionPage() {
                 case 'SHUFFLING_PARTICIPANTS':
                     if (displayState.view !== 'shuffling') {
                          playSound('tambor.mp3', true);
+                         const activeParticipants = action.payload.activeParticipants || [];
                          shufflingIntervalRef.current = setInterval(() => {
-                            const shuffled = [...(action.payload.activeParticipants || [])].sort(() => 0.5 - Math.random());
+                            const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
                             setDisplayState(prevState => ({
                                 ...prevState,
                                 view: 'shuffling',
@@ -175,7 +176,13 @@ export default function ProjectionPage() {
                     playSound('vencedor.mp3');
                     const duelScore = action.payload.duelScore;
                     if (duelScore) {
-                        currentDuelStateRef.current = { ...currentDuelStateRef.current, duelScore };
+                         const updatedState = {
+                            ...currentDuelStateRef.current,
+                            duelScore,
+                            participantA: action.payload.participantA || currentDuelStateRef.current.participantA,
+                            participantB: action.payload.participantB || currentDuelStateRef.current.participantB,
+                         };
+                        currentDuelStateRef.current = updatedState;
                     }
                     setDisplayState(prevState => ({
                         ...prevState,
@@ -185,7 +192,7 @@ export default function ProjectionPage() {
                      messageTimeoutRef.current = setTimeout(() => {
                         setDisplayState({
                            ...initialDisplayState,
-                           view: 'duel',
+                           view: action.type === 'DUEL_WINNER' ? 'idle' : 'duel',
                            duelState: currentDuelStateRef.current
                         });
                     }, 4000);
@@ -211,7 +218,7 @@ export default function ProjectionPage() {
             const action: DisputeAction | null = snapshot.val();
             if (action && action.type) {
                 processAction(action);
-            } else {
+            } else if(displayState.view !== 'idle') {
                  processAction({ type: 'RESET', payload: {} });
             }
         });
