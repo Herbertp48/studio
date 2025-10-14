@@ -234,7 +234,6 @@
           const winnerUpdate = { ...winner, stars: (winner.stars || 0) + 1 };
           const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
       
-          // Send DUEL_WINNER message to projector
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
       
           toast({
@@ -242,8 +241,6 @@
             description: `${winner.name} venceu o duelo e ganhou uma estrela!`,
           });
       
-          // Update the local state to show the result on the admin screen.
-          // The actual database update will happen when "Next Round" is clicked.
           setRaffleState('duel_finished');
         };
       
@@ -260,7 +257,7 @@
           } else if (!isTiebreaker) {
               setRaffleState('word_finished');
               setCurrentWords(null);
-          } else { // It's a tie, continue playing
+          } else { 
               setRaffleState('word_finished');
               setCurrentWords(null);
           }
@@ -307,7 +304,7 @@
           
           setTimeout(() => {
               handleDuelResult(newScore, newWordsPlayed);
-          }, 4100);
+          }, (4) * 1000);
       };
         
         const handleNoWinner = async () => {
@@ -321,7 +318,7 @@
           
           setTimeout(() => {
               handleDuelResult(duelScore, newWordsPlayed);
-          }, 4100);
+          }, (4) * 1000);
         }
       
         const nextRound = async () => {
@@ -338,6 +335,7 @@
               word: `Duelo Vencido (+1 Estrela)`,
               stars: 1,
             });
+            
             await update(ref(database), updates);
           }
       
@@ -505,7 +503,7 @@
                   <div className="text-center flex flex-col items-center gap-6">
                       <h2 className="text-3xl font-bold">Duelo Encerrado!</h2>
                       {duelWinner && (
-                          <p className="text-xl font-semibold text-primary">{duelWinner.name} venceu o duelo!</p>
+                          <p className="text-xl font-semibold text-primary">{duelWinner.name} venceu o duelo e ganhou uma estrela!</p>
                       )}
                       <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
                       <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
