@@ -447,9 +447,12 @@
                                   <SelectValue placeholder="Selecione um grupo" />
                               </SelectTrigger>
                               <SelectContent>
-                                  {participantGroups.map(group => (
-                                      <SelectItem key={group.id} value={group.id}>{group.name} ({Object.keys(group.participants || {}).length} participantes)</SelectItem>
-                                  ))}
+                                  {participantGroups.map(group => {
+                                    const activeParticipants = Object.values(group.participants || {}).filter(p => !p.eliminated).length;
+                                    return (
+                                      <SelectItem key={group.id} value={group.id}>{group.name} ({activeParticipants} participantes ativos)</SelectItem>
+                                    )
+                                  })}
                               </SelectContent>
                           </Select>
                       </CardContent>
