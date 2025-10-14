@@ -23,8 +23,9 @@
       import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
       import { Switch } from '@/components/ui/switch';
       import 'react-quill/dist/quill.snow.css';
-      import ReactQuill from '@/components/ui/quill-editor';
+      import dynamic from 'next/dynamic';
 
+      const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
       
       type TemplateStyle = {
           backgroundColor: string;
@@ -360,7 +361,6 @@
                                                           theme="snow"
                                                           value={template.text}
                                                           onChange={(value) => handleTextChange(key, value)}
-                                                          className="w-full min-h-[100px]"
                                                         />
                                                     </div>
                                                   <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
@@ -521,6 +521,3 @@
               </ProtectedRoute>
           );
       }
-
-    
-    
