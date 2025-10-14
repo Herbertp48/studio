@@ -170,10 +170,10 @@ const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ duration: 0.7, ease: 'easeOut' }}
-            className="text-center text-white w-full flex-1 flex flex-col justify-center items-center"
+            className="w-full flex-1 flex flex-col justify-center items-center"
         >
              <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-4xl">
-                <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
+                <h2 className="text-6xl font-bold text-accent font-melison mb-8 text-center">Classificação Final</h2>
                 <table className="w-full text-2xl">
                     <thead>
                         <tr className="border-b-4 border-accent">
@@ -212,6 +212,11 @@ export default function ProjectionPage() {
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [lastReceivedAction, setLastReceivedAction] = useState<DisputeAction | null>(null);
     const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
+    const settingsRef = useRef(settings);
+    useEffect(() => {
+        settingsRef.current = settings;
+    }, [settings]);
+
     const currentActionRef = useRef<DisputeAction | null>(null);
 
     // State for Duel View
@@ -310,7 +315,7 @@ export default function ProjectionPage() {
             processAction(lastReceivedAction);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lastReceivedAction, settings]);
+    }, [lastReceivedAction]);
 
     const playSound = (soundFile: string, loop = false) => {
         Object.values(sounds.current).forEach(sound => {
@@ -388,7 +393,7 @@ export default function ProjectionPage() {
                     setDuelState(currentDuelStateRef.current);
                     currentActionRef.current = null;
                     isProcessingActionRef.current = false;
-                 }, (settings.messageDisplayTime || 4) * 1000);
+                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'DUEL_WINNER':
@@ -398,12 +403,9 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(() => {
-                   // After these final messages, we just wait for a RESET action.
-                   // The local state on the raffle page will trigger the next step (e.g. next round button).
-                   currentActionRef.current = null;
-                   isProcessingActionRef.current = false;
-                 }, (settings.messageDisplayTime || 4) * 1000);
+                 // For these "final" messages of a phase, we just show them and wait for a RESET.
+                 // The timeout is no longer needed as the admin controls the flow.
+                 isProcessingActionRef.current = false;
                 break;
 
             case 'SHOW_WINNERS':
@@ -423,7 +425,7 @@ export default function ProjectionPage() {
             shufflingIntervalRef.current = setInterval(() => {
                 const shuffled = [...participants].sort(() => 0.5 - Math.random());
                 setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-            }, settings.shufflingSpeed || 150);
+            }, settingsRef.current.shufflingSpeed || 150);
         }
     };
 

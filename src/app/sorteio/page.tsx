@@ -56,6 +56,7 @@
         const [finalWinners, setFinalWinners] = useState<Participant[]>([]);
         const [isTie, setIsTie] = useState(false);
         const [duelWinner, setDuelWinner] = useState<Participant | null>(null);
+        const [duelLoser, setDuelLoser] = useState<Participant | null>(null);
       
         const [sortMode, setSortMode] = useState<SortMode>('random');
         const [manualReveal, setManualReveal] = useState(false);
@@ -114,6 +115,7 @@
                     setOriginalWords(data.words);
                   }
                   
+                  // Check for winner only when we are in a state that is not mid-duel
                   if (raffleState === 'idle' || raffleState === 'duel_finished') {
                       checkForWinner(currentParticipants);
                   }
@@ -225,37 +227,24 @@
           setDisputeState({ type: 'SHOW_WORD', payload: { words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore } });
         };
         
-        const finishDuel = async (winner: Participant, loser: Participant) => {
-          setDuelWinner(winner); // Set the duel winner for the admin UI
+        const finishDuel = (winner: Participant, loser: Participant) => {
+          setDuelWinner(winner);
+          setDuelLoser(loser);
       
-          const updates: { [key: string]: any } = {};
-          const newStars = (winner.stars || 0) + 1;
-      
-          updates[`/dispute/participants/${winner.id}/stars`] = newStars;
-          updates[`/dispute/participants/${loser.id}/eliminated`] = true;
-      
-          const starWinnerEntryRef = push(ref(database, 'winners'));
-          await set(starWinnerEntryRef, {
-            name: winner.name,
-            word: `Duelo Vencido (+1 Estrela)`,
-            stars: 1,
-          });
-      
-          const winnerUpdate = { ...winner, stars: newStars };
+          const winnerUpdate = { ...winner, stars: (winner.stars || 0) + 1 };
           const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
       
           // Send DUEL_WINNER message to projector
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
       
-          // Wait for the message to be displayed on projector before updating local state
-          setTimeout(async () => {
-            await update(ref(database), updates);
-            toast({
-              title: "Duelo Encerrado!",
-              description: `${winner.name} venceu o duelo e ganhou uma estrela!`,
-            });
-            setRaffleState('duel_finished');
-          }, 4100);
+          toast({
+            title: "Duelo Encerrado!",
+            description: `${winner.name} venceu o duelo e ganhou uma estrela!`,
+          });
+      
+          // Update the local state to show the result on the admin screen.
+          // The actual database update will happen when "Next Round" is clicked.
+          setRaffleState('duel_finished');
         };
       
         const handleDuelResult = (currentScore: {a: number, b: number}, playedWords: number) => {
@@ -324,7 +313,7 @@
         const handleNoWinner = async () => {
           if (!currentWords || !currentDuel) return;
       
-          setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords } });
+          setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords, duelScore } });
           toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou.' });
           
           const newWordsPlayed = wordsPlayed + 1;
@@ -335,14 +324,31 @@
           }, 4100);
         }
       
-        const nextRound = () => {
+        const nextRound = async () => {
+          if (duelWinner && duelLoser) {
+            const updates: { [key: string]: any } = {};
+            const newStars = (duelWinner.stars || 0) + 1;
+      
+            updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
+            updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
+      
+            const starWinnerEntryRef = push(ref(database, 'winners'));
+            await set(starWinnerEntryRef, {
+              name: duelWinner.name,
+              word: `Duelo Vencido (+1 Estrela)`,
+              stars: 1,
+            });
+            await update(ref(database), updates);
+          }
+      
           setCurrentDuel(null);
           setCurrentWords(null);
           setDuelScore({ a: 0, b: 0 });
           setWordsPlayed(0);
           setDuelWordsWon({ a: [], b: [] });
-          setDisputeState({ type: 'RESET' });
           setDuelWinner(null);
+          setDuelLoser(null);
+          setDisputeState({ type: 'RESET' });
           setRaffleState('idle'); 
           
           setTimeout(() => {
