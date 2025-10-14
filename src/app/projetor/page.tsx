@@ -72,7 +72,7 @@ const DuelContent = ({
     >
         <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[22rem] min-h-[10rem]" style={{minWidth: '22rem', minHeight: '10rem'}}>
+            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[22rem] min-h-[10rem]" style={{minWidth: 'min-content', minHeight: 'min-content', padding: 'calc(1em + 10%) calc(2em + 10%)'}}>
                  {words.map(word => (
                     <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity text-center">
                         {word}
@@ -415,7 +415,7 @@ export default function ProjectionPage() {
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            <main className='w-full flex-1 flex flex-col justify-center items-center pt-16 px-8'>
+            <main className='w-full flex-1 flex flex-col justify-center items-center px-8'>
                 <AnimatePresence mode="wait">
                     {view === 'duel' && (
                         <DuelContent {...duelState} />
@@ -437,4 +437,5 @@ export default function ProjectionPage() {
     );
 }
 
+    
     

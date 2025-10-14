@@ -96,12 +96,12 @@
               enabled: true,
           },
            final_winner: {
-              text: '<h2>Tenemos un Ganador!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Con {{stars}} ⭐</p>',
+              text: '<h2>Tenemos un Ganador!</h2><img src="/images/trophy.png" alt="Troféu" style="width: 1em; height: 1em; display: inline-block; vertical-align: middle; margin-bottom: 0.2em;" /><h1><b>{{name}}</b></h1><p>Con {{stars}} ⭐</p>',
               styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' },
               enabled: true,
           },
            tie_announcement: {
-              text: '<h2>Tenemos un Empate!</h2><p class="icon">🛡️</p><p>Los siguientes participantes irán a la ronda de desempate:</p>{{{participantsList}}}',
+              text: '<h2>Tenemos un Empate!</h2><img src="/images/shield.png" alt="Escudo" style="width: 1em; height: 1em; display: inline-block; vertical-align: middle; margin-bottom: 0.2em;" /><p>Los siguientes participantes irán a la ronda de desempate:</p>{{{participantsList}}}',
               styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
               enabled: true,
           },
@@ -517,4 +517,5 @@
           );
       }
 
+    
     
