@@ -65,9 +65,9 @@ const DuelContent = ({
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden"
     >
-        <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10 w-full", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+        <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl w-full max-w-4xl p-4">
+            <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4">
                  {words.map(word => (
                     <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
                         {word}
