@@ -46,6 +46,15 @@ type AppSettings = {
 
 type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
 
+type DuelState = {
+    participantA: Participant | null,
+    participantB: Participant | null,
+    showWord: boolean,
+    words: string[],
+    duelScore: { a: number, b: number },
+    wordsPerRound: number,
+}
+
 // --- Sub-components for different views ---
 
 const DuelContent = ({
@@ -206,14 +215,18 @@ export default function ProjectionPage() {
     const settingsRef = useRef<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
 
     // State for Duel View
-    const [duelState, setDuelState] = useState({
-        participantA: null as Participant | null,
-        participantB: null as Participant | null,
+    const [duelState, setDuelState] = useState<DuelState>({
+        participantA: null,
+        participantB: null,
         showWord: false,
-        words: [] as string[],
+        words: [],
         duelScore: { a: 0, b: 0 },
         wordsPerRound: 1,
     });
+    const currentDuelStateRef = useRef(duelState);
+    useEffect(() => {
+        currentDuelStateRef.current = duelState;
+    }, [duelState]);
     
     // State for Shuffling Animation
     const [shufflingParticipants, setShufflingParticipants] = useState<{a: Participant | null, b: Participant | null}>({ a: null, b: null });
@@ -375,7 +388,8 @@ export default function ProjectionPage() {
                        processAction({ type: 'RESET' });
                     } else {
                        setView('duel');
-                       setDuelState(prev => ({ ...prev, showWord: false }));
+                       // Restore duel state to keep names visible
+                       setDuelState({ ...currentDuelStateRef.current, showWord: false });
                        currentActionRef.current = null;
                     }
                  }, (settingsRef.current.messageDisplayTime || 4) * 1000);
