@@ -69,9 +69,9 @@ const DuelContent = ({
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden"
     >
-        <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+        <div className={cn("absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[20vw] min-h-[7rem]">
+            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[20vw] min-h-[7rem]" style={{minWidth: '22rem', minHeight: '10rem'}}>
                  {words.map(word => (
                     <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity text-center">
                         {word}
@@ -266,9 +266,10 @@ export default function ProjectionPage() {
         });
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-            if (newAction && (!isProcessingActionRef.current || newAction.type === 'RESET')) {
-                processAction(newAction);
-            } else if (!newAction && view !== 'idle') {
+             if (newAction) {
+                // Defer processing to ensure settings are loaded
+                setTimeout(() => processAction(newAction), 0);
+            } else if (view !== 'idle') {
                 resetToIdle();
             }
         });
@@ -312,7 +313,9 @@ export default function ProjectionPage() {
     };
 
     const processAction = (action: DisputeAction) => {
+        if (action.type !== 'RESET' && isProcessingActionRef.current) return;
         if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+        
         isProcessingActionRef.current = true;
         setCurrentAction(action);
         
@@ -436,4 +439,3 @@ export default function ProjectionPage() {
     );
 }
 
-    
