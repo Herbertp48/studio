@@ -327,7 +327,7 @@ export default function ProjectionPage() {
         switch (action.type) {
             case 'SHUFFLING_PARTICIPANTS':
                 setView('shuffling');
-                startShufflingAnimation(action.payload.activeParticipants || []);
+                startShufflingAnimation(action.payload?.activeParticipants || []);
                 playSound('tambor.mp3', true);
                 isProcessingActionRef.current = false;
                 break;
