@@ -1,13 +1,41 @@
 diff --git a/node_modules/react-quill/lib/index.js b/node_modules/react-quill/lib/index.js
-index 2733a11..81b247f 100644
+index 2715494..d044109 100644
 --- a/node_modules/react-quill/lib/index.js
 +++ b/node_modules/react-quill/lib/index.js
-@@ -1025,7 +1025,7 @@
+@@ -43,7 +43,7 @@
+ 	'see https://github.com/zenoamaro/react-quill#the-unprivileged-editor'
+ );
+ 
+-var findDOMNode = ReactDOM.findDOMNode;
++// var findDOMNode = ReactDOM.findDOMNode;
+ 
+ var Quill = require('quill');
+ 
+@@ -107,6 +107,9 @@
+ 		this.onEditorChangeSelection = this.onEditorChangeSelection.bind(this);
+ 		this.onEditorChange = this.onEditorChange.bind(this);
+ 		this.onEditorFocus = this.onEditorFocus.bind(this);
+ 		this.onEditorBlur = this.onEditorBlur.bind(this);
++
++		this.editingArea = React.createRef()
  	},
  
- 	getEditingArea: function getEditingArea() {
--		return _reactDom2.default.findDOMNode(this.editingArea);
-+		return this.editingArea;
+ 	componentDidMount: function() {
+@@ -370,7 +373,7 @@
  	},
  
- 	getEditor: function getEditor() {
+ 	getEditingArea: function(){
+-		return findDOMNode(this.editingArea);
++		return this.editingArea.current;
+ 	},
+ 
+ 	/*
+@@ -459,7 +462,7 @@
+ 			this.props.children,
+ 			React.createElement('div', {
+ 				key: this.state.generation,
+-				ref: 'editingArea',
++				ref: this.editingArea,
+ 				className: 'ql-container ' + this.props.className,
+ 				dangerouslySetInnerHTML: { __html:this.getEditorContents() }
+ 			})

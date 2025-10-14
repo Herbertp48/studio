@@ -25,6 +25,7 @@
       import 'react-quill/dist/quill.snow.css';
       import dynamic from 'next/dynamic';
 
+      const ReactQuill = dynamic(() => import('@/components/ui/quill-editor'), { ssr: false });
       
       type TemplateStyle = {
           backgroundColor: string;
@@ -167,7 +168,6 @@
           const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
           const { toast } = useToast();
 
-          const ReactQuill = useMemo(() => dynamic(() => import('react-quill'), { ssr: false }),[]);
       
           useEffect(() => {
               const templatesRef = ref(database, 'message_templates');
@@ -455,5 +455,3 @@
               </ProtectedRoute>
           );
       }
-
-    
