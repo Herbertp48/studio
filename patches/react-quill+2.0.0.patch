@@ -1,0 +1,240 @@
+diff --git a/node_modules/react-quill/lib/component.js b/node_modules/react-quill/lib/component.js
+index 95a2503..1f330e7 100644
+--- a/node_modules/react-quill/lib/component.js
++++ b/node_modules/react-quill/lib/component.js
+@@ -1,5 +1,6 @@
+ 'use strict';
+ var React = require('react');
++var ReactDOM = require('react-dom');
+ var PropTypes = require('prop-types');
+ var Quill = require('quill');
+ var deepEqual = require('deep-equal');
+@@ -101,7 +102,7 @@
+ 	},
+ 
+ 	getEditor: function getEditor() {
+-		return this.editor;
++		return this.quill;
+ 	},
+ 
+ 	getEditingArea: function getEditingArea() {
+@@ -112,7 +113,7 @@
+ 	},
+ 
+ 	getEditorContainer: function getEditorContainer() {
+-		return this.editingArea.parentNode;
++		return this.editingArea.parentElement;
+ 	},
+ 
+ 	/*
+@@ -124,7 +125,7 @@
+ 	 */
+ 	setEditorContents: function setEditorContents(value) {
+ 		var sel = this.getEditorSelection();
+-		this.editor.setContents(value, 'api');
++		this.quill.setContents(value, 'api');
+ 		this.setEditorSelection(sel);
+ 	},
+ 
+@@ -134,7 +135,7 @@
+ 	 */
+ 	setEditorSelection: function setEditorSelection(range) {
+ 		if (range) {
+-			this.editor.setSelection(range);
++			this.quill.setSelection(range);
+ 		}
+ 	},
+ 
+@@ -144,7 +145,7 @@
+ 	 * Note that Quill itself only supports HTML as a return value.
+ 	 */
+ 	getEditorContents: function getEditorContents() {
+-		return this.editor.getContents();
++		return this.quill.getContents();
+ 	},
+ 
+ 	/**
+@@ -153,7 +154,7 @@
+ 	 * Note that Quill itself only supports HTML as a return value.
+ 	 */
+ 	getEditorSelection: function getEditorSelection() {
+-		return this.editor.getSelection();
++		return this.quill.getSelection();
+ 	},
+ 
+ 	/**
+@@ -165,7 +166,7 @@
+ 	 */
+ 	focus: function focus() {
+ 		this.setEditorSelection(this.lastSelection);
+-		this.editor.focus();
++		this.quill.focus();
+ 	},
+ 
+ 	/**
+@@ -176,7 +177,7 @@
+ 	 * convenient for testing.
+ 	 */
+ 	blur: function blur() {
+-		this.editor.blur();
++		this.quill.blur();
+ 	},
+ 
+ 	/*
+@@ -189,14 +190,14 @@
+ 	 */
+ 	onEditorChange: function onEditorChange(value, delta, source, editor) {
+ 		if (this.isNotSameValue(value)) {
+-			// Taint this `delta` object, so we can recognize whether the `value`
+-			// property is dirty later, when we are propagating changes up.
+-			this.lastDelta = delta;
++			// Taint this `delta` object, so we can recognize whether the
++			// `value` property is dirty later, when we are propagating
++			// changes up.
++			this.lastDelta = delta; // eslint-disable-line
+ 			this.props.onChange(value, delta, source, editor);
+ 		}
+ 	},
+ 
+-
+ 	onEditorChangeSelection: function onEditorChangeSelection(range, source, editor) {
+ 		var sel = this.getEditorSelection();
+ 		if (!deepEqual(sel, this.lastSelection)) {
+@@ -211,7 +212,7 @@
+ 	render: function render() {
+ 		var _this = this;
+ 
+-		return React.createElement(
++		return React.createElement( // eslint-disable-line
+ 			'div',
+ 			{ id: this.props.id,
+ 				style: this.props.style,
+@@ -221,7 +222,7 @@
+ 						this.editingArea = el;
+ 					}
+ 				},
+-				dangerouslySetInnerHTML: { __html: this.getEditorContents() }
++				dangerouslySetInnerHTML: { __html: this.state.value } // eslint-disable-line
+ 			})
+ 		);
+ 	}
+diff --git a/node_modules/react-quill/lib/index.js b/node_modules/react-quill/lib/index.js
+index 95764d0..2539130 100644
+--- a/node_modules/react-quill/lib/index.js
++++ b/node_modules/react-quill/lib/index.js
+@@ -1,5 +1,6 @@
+ 'use strict';
+ var React = require('react');
++var ReactDOM = require('react-dom');
+ var PropTypes = require('prop-types');
+ var Quill = require('quill');
+ var deepEqual = require('deep-equal');
+@@ -101,7 +102,7 @@
+ 	},
+ 
+ 	getEditor: function getEditor() {
+-		return this.editor;
++		return this.quill;
+ 	},
+ 
+ 	getEditingArea: function getEditingArea() {
+@@ -112,7 +113,7 @@
+ 	},
+ 
+ 	getEditorContainer: function getEditorContainer() {
+-		return this.editingArea.parentNode;
++		return this.editingArea.parentElement;
+ 	},
+ 
+ 	/*
+@@ -124,7 +125,7 @@
+ 	 */
+ 	setEditorContents: function setEditorContents(value) {
+ 		var sel = this.getEditorSelection();
+-		this.editor.setContents(value, 'api');
++		this.quill.setContents(value, 'api');
+ 		this.setEditorSelection(sel);
+ 	},
+ 
+@@ -134,7 +135,7 @@
+ 	 */
+ 	setEditorSelection: function setEditorSelection(range) {
+ 		if (range) {
+-			this.editor.setSelection(range);
++			this.quill.setSelection(range);
+ 		}
+ 	},
+ 
+@@ -144,7 +145,7 @@
+ 	 * Note that Quill itself only supports HTML as a return value.
+ 	 */
+ 	getEditorContents: function getEditorContents() {
+-		return this.editor.getContents();
++		return this.quill.getContents();
+ 	},
+ 
+ 	/**
+@@ -153,7 +154,7 @@
+ 	 * Note that Quill itself only supports HTML as a return value.
+ 	 */
+ 	getEditorSelection: function getEditorSelection() {
+-		return this.editor.getSelection();
++		return this.quill.getSelection();
+ 	},
+ 
+ 	/**
+@@ -165,7 +166,7 @@
+ 	 */
+ 	focus: function focus() {
+ 		this.setEditorSelection(this.lastSelection);
+-		this.editor.focus();
++		this.quill.focus();
+ 	},
+ 
+ 	/**
+@@ -176,7 +177,7 @@
+ 	 * convenient for testing.
+ 	 */
+ 	blur: function blur() {
+-		this.editor.blur();
++		this.quill.blur();
+ 	},
+ 
+ 	/*
+@@ -189,14 +190,14 @@
+ 	 */
+ 	onEditorChange: function onEditorChange(value, delta, source, editor) {
+ 		if (this.isNotSameValue(value)) {
+-			// Taint this `delta` object, so we can recognize whether the `value`
+-			// property is dirty later, when we are propagating changes up.
+-			this.lastDelta = delta;
++			// Taint this `delta` object, so we can recognize whether the
++			// `value` property is dirty later, when we are propagating
++			// changes up.
++			this.lastDelta = delta; // eslint-disable-line
+ 			this.props.onChange(value, delta, source, editor);
+ 		}
+ 	},
+ 
+-
+ 	onEditorChangeSelection: function onEditorChangeSelection(range, source, editor) {
+ 		var sel = this.getEditorSelection();
+ 		if (!deepEqual(sel, this.lastSelection)) {
+@@ -211,7 +212,7 @@
+ 	render: function render() {
+ 		var _this = this;
+ 
+-		return React.createElement(
++		return React.createElement( // eslint-disable-line
+ 			'div',
+ 			{ id: this.props.id,
+ 				style: this.props.style,
+@@ -221,7 +222,7 @@
+ 						this.editingArea = el;
+ 					}
+ 				},
+-				dangerouslySetInnerHTML: { __html: this.getEditorContents() }
++				dangerouslySetInnerHTML: { __html: this.state.value } // eslint-disable-line
+ 			})
+ 		);
+ 	}
