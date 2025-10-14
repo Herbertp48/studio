@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -224,8 +225,6 @@ export default function ProjectionPage() {
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const isProcessingActionRef = useRef(false);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    const messageActionTypes: DisputeAction['type'][] = useMemo(() => ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'], []);
     
     useEffect(() => {
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
