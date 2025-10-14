@@ -13,15 +13,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'ROUND_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'SHOW_WINNERS' | 'TIE_ANNOUNCEMENT';
-    participantA?: Participant | null;
-    participantB?: Participant | null;
-    word?: string | null;
-    winner?: Participant | null;
-    loser?: Participant | null;
-    finalWinner?: Participant | null;
-    activeParticipants?: Participant[];
-    winners?: AggregatedWinner[];
-    tieWinners?: Participant[];
+    payload?: {
+      participantA?: Participant | null;
+      participantB?: Participant | null;
+      word?: string | null;
+      winner?: Participant | null;
+      loser?: Participant | null;
+      finalWinner?: Participant | null;
+      activeParticipants?: Participant[];
+      winners?: AggregatedWinner[];
+      tieWinners?: Participant[];
+    }
 }
 
 type DisplayState = {
@@ -126,12 +128,14 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubscribe = onValue(disputeStateRef, (snapshot) => {
             const action: DisputeAction | null = snapshot.val();
-            if (!action) {
+            if (!action || !action.type) {
                 stopAllSounds();
                 stopShufflingAnimation();
                 setDisplayState(initialDisplayState);
                 return;
             }
+
+            const payload = action.payload || {};
 
             switch (action.type) {
                 case 'RESET':
@@ -142,7 +146,7 @@ export default function ProjectionPage() {
                 
                  case 'SHUFFLING_PARTICIPANTS':
                     if (!shufflingIntervalRef.current) {
-                        startShufflingAnimation(action.activeParticipants || []);
+                        startShufflingAnimation(payload.activeParticipants || []);
                     }
                     setDisplayState(prevState => ({
                         ...prevState,
@@ -158,9 +162,8 @@ export default function ProjectionPage() {
                     playSound('sinos.mp3');
                     setDisplayState({
                         ...initialDisplayState,
-                        view: 'main',
-                        participantA: action.participantA || null,
-                        participantB: action.participantB || null,
+                        participantA: payload.participantA || null,
+                        participantB: payload.participantB || null,
                     });
                     break;
 
@@ -168,7 +171,7 @@ export default function ProjectionPage() {
                     playSound('premio.mp3');
                     setDisplayState(prevState => ({
                         ...prevState,
-                        word: action.word || null,
+                        word: payload.word || null,
                         showWord: true,
                     }));
                     break;
@@ -182,11 +185,11 @@ export default function ProjectionPage() {
                     stopAllSounds();
                     playSound('vencedor.mp3');
                     setAnimationKey(prev => prev + 1);
-                    if (action.winner && action.loser && action.word) {
+                    if (payload.winner && payload.loser && payload.word) {
                        setDisplayState({
                            ...initialDisplayState,
                            view: 'round_winner',
-                           roundWinner: { winner: action.winner, loser: action.loser, word: action.word }
+                           roundWinner: { winner: payload.winner, loser: payload.loser, word: payload.word }
                        });
                     }
                     break;
@@ -199,7 +202,7 @@ export default function ProjectionPage() {
                     setDisplayState({
                         ...initialDisplayState,
                         view: 'final_winner',
-                        finalWinner: action.finalWinner
+                        finalWinner: payload.finalWinner
                     });
                     break;
                 
@@ -210,7 +213,7 @@ export default function ProjectionPage() {
                     setDisplayState({
                         ...initialDisplayState,
                         view: 'tie_announcement',
-                        tieWinners: action.tieWinners
+                        tieWinners: payload.tieWinners
                     });
                     break;
 
@@ -220,7 +223,7 @@ export default function ProjectionPage() {
                     setDisplayState({
                         ...initialDisplayState,
                         view: 'winners_table',
-                        winners: (action.winners || []).sort((a,b) => b.totalStars - a.totalStars)
+                        winners: (payload.winners || []).sort((a,b) => b.totalStars - a.totalStars)
                     });
                     break;
             }
@@ -408,5 +411,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
