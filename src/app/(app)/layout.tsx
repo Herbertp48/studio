@@ -1,4 +1,3 @@
-import { AppFooter } from '@/components/app/footer';
 
 export default function AppLayout({
   children,
@@ -8,7 +7,6 @@ export default function AppLayout({
   return (
     <div className="flex flex-col min-h-screen">
       <main className="flex-grow">{children}</main>
-      <AppFooter />
     </div>
   );
 }
