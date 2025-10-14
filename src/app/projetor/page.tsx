@@ -117,9 +117,9 @@ const MessageView = ({ action, templates }: { action: DisputeAction, templates: 
 
     let renderedText = template.text || '';
     renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList);
-    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
-    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
-    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
+    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, `<b>${data.name}</b>`);
+    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, `<b>${data['words.0']}</b>`);
+    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, `<b>${data.words}</b>`);
     renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
 
     const style: React.CSSProperties = {
