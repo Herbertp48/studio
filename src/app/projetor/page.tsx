@@ -256,7 +256,7 @@ export default function ProjectionPage() {
             const newAction: DisputeAction | null = snapshot.val();
             if (newAction && (!isProcessingActionRef.current || newAction.type === 'RESET')) {
                 processAction(newAction);
-            } else if (!newAction && !isProcessingActionRef.current) {
+            } else if (!newAction && view !== 'idle') {
                 resetToIdle();
             }
         });
@@ -308,6 +308,7 @@ export default function ProjectionPage() {
                 setView('shuffling');
                 startShufflingAnimation(action.payload.activeParticipants || []);
                 playSound('tambor.mp3', true);
+                isProcessingActionRef.current = false;
                 break;
 
             case 'UPDATE_PARTICIPANTS':
@@ -345,7 +346,7 @@ export default function ProjectionPage() {
             case 'NO_WINNER':
             case 'SHOW_MESSAGE':
                  setView('message');
-                 playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
+                 playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(resetToIdle, 4000);
                 break;
 
@@ -362,7 +363,7 @@ export default function ProjectionPage() {
 
     const resetToIdle = () => {
         stopShufflingAnimation();
-        Object.values(sounds.current).forEach(s => { s.pause(); s.currentTime = 0; });
+        Object.values(sounds.current).forEach(s => { if(s) {s.pause(); s.currentTime = 0;} });
         setView('idle');
         setCurrentAction(null);
         setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
@@ -372,10 +373,12 @@ export default function ProjectionPage() {
 
     const startShufflingAnimation = (participants: Participant[]) => {
         stopShufflingAnimation();
-        shufflingIntervalRef.current = setInterval(() => {
-            const shuffled = [...participants].sort(() => 0.5 - Math.random());
-            setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-        }, 150);
+        if (participants.length > 1) {
+            shufflingIntervalRef.current = setInterval(() => {
+                const shuffled = [...participants].sort(() => 0.5 - Math.random());
+                setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
+            }, 150);
+        }
     };
 
     if (!isReady) {
@@ -419,5 +422,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-
-    
