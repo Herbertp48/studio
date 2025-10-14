@@ -383,10 +383,12 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                     isProcessingActionRef.current = false;
-                    // After message, return to duel view instead of full reset
+                    
                     if (action.type === 'DUEL_WINNER' || action.type === 'FINAL_WINNER' || action.type === 'TIE_ANNOUNCEMENT' || action.type === 'NO_WINNER') {
-                       processAction({ type: 'RESET' });
+                       // Wait for the next action from the control panel, which should be RESET
+                       currentActionRef.current = null;
                     } else {
+                       // After a point or no point, return to duel view to show scores
                        setView('duel');
                        // Restore duel state to keep names visible and update score
                        setDuelState({ ...currentDuelStateRef.current, showWord: false });
