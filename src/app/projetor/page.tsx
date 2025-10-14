@@ -210,9 +210,9 @@ export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
     const [view, setView] = useState<ViewState>('idle');
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
-    const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4 });
-    const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
     const [lastReceivedAction, setLastReceivedAction] = useState<DisputeAction | null>(null);
+    const currentActionRef = useRef<DisputeAction | null>(null);
+    const settingsRef = useRef<AppSettings>({ messageDisplayTime: 4 });
 
     // State for Duel View
     const [duelState, setDuelState] = useState({
@@ -230,8 +230,26 @@ export default function ProjectionPage() {
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isProcessingActionRef = useRef(false);
 
     const messageActionTypes: DisputeAction['type'][] = useMemo(() => ['WORD_WINNER', 'DUEL_WINNER', 'FINAL_WINNER', 'TIE_ANNOUNCEMENT', 'NO_WORD_WINNER', 'NO_WINNER', 'SHOW_MESSAGE'], []);
+    
+    const stopShufflingAnimation = () => {
+        if (shufflingIntervalRef.current) {
+            clearInterval(shufflingIntervalRef.current);
+            shufflingIntervalRef.current = null;
+        }
+    };
+
+    const resetToIdle = () => {
+        stopShufflingAnimation();
+        Object.values(sounds.current).forEach(s => { if(s) {s.pause(); s.currentTime = 0;} });
+        setView('idle');
+        currentActionRef.current = null;
+        setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
+        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+        isProcessingActionRef.current = false;
+    };
     
     useEffect(() => {
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
@@ -254,14 +272,14 @@ export default function ProjectionPage() {
         if (!isReady) return;
 
         const templatesRef = ref(database, 'message_templates');
-        const settingsRef = ref(database, 'settings');
+        const settingsDbRef = ref(database, 'settings');
         const disputeStateRef = ref(database, 'dispute/state');
 
         const unsubTemplates = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
-        const unsubSettings = onValue(settingsRef, (snapshot) => {
+        const unsubSettings = onValue(settingsDbRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                setSettings(prev => ({ ...prev, ...data }));
+                settingsRef.current = { ...settingsRef.current, ...data };
             }
         });
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
@@ -277,12 +295,15 @@ export default function ProjectionPage() {
 
     useEffect(() => {
         if (lastReceivedAction) {
+             if (isProcessingActionRef.current && lastReceivedAction.type !== 'RESET') {
+                return;
+            }
             processAction(lastReceivedAction);
         } else if (view !== 'idle') {
             resetToIdle();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lastReceivedAction, settings]);
+    }, [lastReceivedAction]);
 
     const playSound = (soundFile: string, loop = false) => {
         Object.values(sounds.current).forEach(sound => {
@@ -297,13 +318,6 @@ export default function ProjectionPage() {
             });
         }
     };
-
-    const stopShufflingAnimation = () => {
-        if (shufflingIntervalRef.current) {
-            clearInterval(shufflingIntervalRef.current);
-            shufflingIntervalRef.current = null;
-        }
-    };
     
     const handleEnterFullscreen = () => {
         if (isReady) return;
@@ -316,14 +330,15 @@ export default function ProjectionPage() {
 
     const processAction = (action: DisputeAction) => {
         if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
-        
-        setCurrentAction(action);
+        isProcessingActionRef.current = true;
+        currentActionRef.current = action;
         
         switch (action.type) {
             case 'SHUFFLING_PARTICIPANTS':
                 setView('shuffling');
                 startShufflingAnimation(action.payload.activeParticipants || []);
                 playSound('tambor.mp3', true);
+                isProcessingActionRef.current = false;
                 break;
 
             case 'UPDATE_PARTICIPANTS':
@@ -338,16 +353,19 @@ export default function ProjectionPage() {
                     showWord: false,
                 }));
                 playSound('sinos.mp3');
+                isProcessingActionRef.current = false;
                 break;
 
             case 'SHOW_WORD':
                 setView('duel');
                 setDuelState(prev => ({ ...prev, words: action.payload.words || [], showWord: true }));
                 playSound('premio.mp3');
+                isProcessingActionRef.current = false;
                 break;
 
             case 'HIDE_WORD':
                 setDuelState(prev => ({ ...prev, showWord: false }));
+                isProcessingActionRef.current = false;
                 break;
 
             case 'WORD_WINNER':
@@ -359,26 +377,18 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(resetToIdle, (settings.messageDisplayTime || 4) * 1000);
+                 messageTimeoutRef.current = setTimeout(resetToIdle, (settingsRef.current.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'SHOW_WINNERS':
                 setView('winners');
+                isProcessingActionRef.current = false;
                 break;
             
             case 'RESET':
                 resetToIdle();
                 break;
         }
-    };
-
-    const resetToIdle = () => {
-        stopShufflingAnimation();
-        Object.values(sounds.current).forEach(s => { if(s) {s.pause(); s.currentTime = 0;} });
-        setView('idle');
-        setCurrentAction(null);
-        setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
-        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
@@ -419,14 +429,14 @@ export default function ProjectionPage() {
                     {view === 'shuffling' && (
                          <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
                     )}
-                    {view === 'winners' && currentAction?.payload?.winners && (
-                        <WinnersTable winners={currentAction.payload.winners} />
+                    {view === 'winners' && lastReceivedAction?.payload?.winners && (
+                        <WinnersTable winners={lastReceivedAction.payload.winners} />
                     )}
                 </AnimatePresence>
             </main>
             <AnimatePresence>
-                {view === 'message' && currentAction && templates && messageActionTypes.includes(currentAction.type) && (
-                    <MessageView action={currentAction} templates={templates} />
+                {view === 'message' && currentActionRef.current && templates && messageActionTypes.includes(currentActionRef.current.type) && (
+                    <MessageView action={currentActionRef.current} templates={templates} />
                 )}
             </AnimatePresence>
         </div>
