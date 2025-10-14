@@ -232,14 +232,10 @@
             setDuelLoser(loser);
             
             const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
-            const winnerWithNewStar = { ...winner, stars: (winner.stars || 0) + 1 };
         
             setDisputeState({
                 type: 'DUEL_WINNER',
-                payload: {
-                    winner: winnerWithNewStar,
-                    duelWordsWon: winnerWordsWon
-                }
+                payload: { winner, duelWordsWon: winnerWordsWon }
             });
         
             setRaffleState('duel_finished');
@@ -329,15 +325,15 @@
       
             updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
             updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
-      
+            
+            await update(ref(database), updates);
+
             const starWinnerEntryRef = push(ref(database, 'winners'));
             await set(starWinnerEntryRef, {
               name: duelWinner.name,
               word: `Duelo Vencido (+1 Estrela)`,
-              stars: 1, // <<< CORRECTION HERE
+              stars: 1,
             });
-            
-            await update(ref(database), updates);
           }
       
           setCurrentDuel(null);
