@@ -22,10 +22,7 @@
       import { Separator } from '@/components/ui/separator';
       import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
       import { Switch } from '@/components/ui/switch';
-      import 'react-quill/dist/quill.snow.css';
-      import dynamic from 'next/dynamic';
-
-      const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+      import { Textarea } from '@/components/ui/textarea';
       
       type TemplateStyle = {
           backgroundColor: string;
@@ -84,27 +81,27 @@
       
       const initialTemplates: MessageTemplates = {
           word_winner: {
-              text: '<b>{{name}}</b> ganhou a disputa soletrando corretamente a palavra <b>{{words.0}}</b> e marcou um ponto!',
+              text: '<b>{{name}}</b> ganhou la disputa soletrando correctamente la palabra <b>{{words.0}}</b> y marcó un punto!',
               styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
               enabled: true,
           },
           duel_winner: {
-              text: '<b>{{name}}</b> ganhou o duelo soletrando: <br><i><b>{{words}}</b></i><br> e ganhou uma estrela ⭐!',
+              text: '<b>{{name}}</b> ganó el duelo soletrando: <br><i><b>{{words}}</b></i><br> y ganó una estrella ⭐!',
               styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
               enabled: true,
           },
           no_word_winner: {
-              text: '<h2>Rodada sem Vencedor</h2>Ninguém pontuou com a palavra <b>{{words.0}}</b>.',
+              text: '<h2>Rodada sin Ganador</h2>Nadie puntuó con la palabra <b>{{words.0}}</b>.',
               styles: { backgroundColor: '#fffbe6', textColor: '#b91c1c', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#b91c1c', borderColor: '#ef4444', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
               enabled: true,
           },
            final_winner: {
-              text: '<h2>Temos um Vencedor!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Com {{stars}} ⭐</p>',
+              text: '<h2>Tenemos un Ganador!</h2><p class="icon">👑</p><h1><b>{{name}}</b></h1><p>Con {{stars}} ⭐</p>',
               styles: { backgroundColor: 'linear-gradient(to bottom right, #fde047, #f59e0b)', textColor: '#4c1d95', highlightColor: 'rgba(255,255,255,0.2)', highlightTextColor: '#4c1d95', borderColor: '#ffffff', borderWidth: '8px', borderRadius: '24px', fontFamily: 'Melison', fontSize: '3rem' },
               enabled: true,
           },
            tie_announcement: {
-              text: '<h2>Temos um Empate!</h2><p class="icon">🛡️</p><p>Os seguintes participantes irão para a rodada de desempate:</p>{{{participantsList}}}',
+              text: '<h2>Tenemos un Empate!</h2><p class="icon">🛡️</p><p>Los siguientes participantes irán a la ronda de desempate:</p>{{{participantsList}}}',
               styles: { backgroundColor: '#fffbe6', textColor: '#6d21db', highlightColor: 'rgba(0,0,0,0.1)', highlightTextColor: '#6d21db', borderColor: '#fdc244', borderWidth: '8px', borderRadius: '20px', fontFamily: 'Subjectivity', fontSize: '2.5rem' },
               enabled: true,
           },
@@ -116,7 +113,7 @@
                   <div className='p-4 border bg-muted rounded-lg mt-4'>
                        <Label className='font-bold text-sm text-muted-foreground'>PRÉ-VISUALIZAÇÃO</Label>
                        <div className='flex justify-center items-center p-4 mt-2 text-destructive'>
-                          Erro ao renderizar template.
+                          Error al renderizar template.
                        </div>
                   </div>
               )
@@ -356,13 +353,11 @@
                                                           </Tooltip>
                                                       </TooltipProvider>
                                                   </div>
-                                                    <div className="bg-white text-black rounded-md">
-                                                        <ReactQuill
-                                                          theme="snow"
-                                                          value={template.text}
-                                                          onChange={(value) => handleTextChange(key, value)}
-                                                        />
-                                                    </div>
+                                                    <Textarea
+                                                        className="min-h-[150px] font-mono text-sm"
+                                                        value={template.text}
+                                                        onChange={(e) => handleTextChange(key, e.target.value)}
+                                                    />
                                                   <p className="text-xs text-muted-foreground mt-1">{templateLabels[key]?.description}</p>
                                               </div>
       
@@ -521,3 +516,5 @@
               </ProtectedRoute>
           );
       }
+
+    
