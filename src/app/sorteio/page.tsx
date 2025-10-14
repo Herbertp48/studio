@@ -228,17 +228,17 @@
         };
         
         const finishDuel = (winner: Participant, loser: Participant) => {
-            setDuelWinner(winner);
-            setDuelLoser(loser);
-            
-            const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
-        
-            setDisputeState({
-                type: 'DUEL_WINNER',
-                payload: { winner, duelWordsWon: winnerWordsWon }
-            });
-        
-            setRaffleState('duel_finished');
+          setDuelWinner(winner);
+          setDuelLoser(loser);
+          
+          const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
+      
+          setDisputeState({
+              type: 'DUEL_WINNER',
+              payload: { winner, duelWordsWon: winnerWordsWon }
+          });
+      
+          setRaffleState('duel_finished');
         };
       
         const handleDuelResult = (currentScore: {a: number, b: number}, playedWords: number) => {
