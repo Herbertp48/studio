@@ -211,8 +211,8 @@ export default function ProjectionPage() {
     const [view, setView] = useState<ViewState>('idle');
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [lastReceivedAction, setLastReceivedAction] = useState<DisputeAction | null>(null);
+    const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
     const currentActionRef = useRef<DisputeAction | null>(null);
-    const settingsRef = useRef<AppSettings>({ messageDisplayTime: 4, shufflingSpeed: 150 });
 
     // State for Duel View
     const [duelState, setDuelState] = useState<DuelState>({
@@ -283,7 +283,7 @@ export default function ProjectionPage() {
         const unsubSettings = onValue(settingsDbRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                settingsRef.current = { ...settingsRef.current, ...data };
+                setSettings(prev => ({ ...prev, ...data }));
             }
         });
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
@@ -310,7 +310,7 @@ export default function ProjectionPage() {
             processAction(lastReceivedAction);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lastReceivedAction]);
+    }, [lastReceivedAction, settings]);
 
     const playSound = (soundFile: string, loop = false) => {
         Object.values(sounds.current).forEach(sound => {
@@ -379,15 +379,16 @@ export default function ProjectionPage() {
             case 'WORD_WINNER':
                  setView('message');
                  if (action.payload.duelScore) {
-                     setDuelState(prev => ({...prev, duelScore: action.payload.duelScore}));
+                    setDuelState(prev => ({ ...prev, duelScore: action.payload.duelScore }));
                  }
                  playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
-                    setView('duel');
-                    setDuelState(prev => ({...prev, showWord: false})); // Keep duel view, hide word
+                    setView('duel'); 
+                    // After the message, restore the duel view with current participants and score.
+                    setDuelState(currentDuelStateRef.current);
                     currentActionRef.current = null;
                     isProcessingActionRef.current = false;
-                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
+                 }, (settings.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'DUEL_WINNER':
@@ -399,9 +400,10 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                    // After these final messages, we just wait for a RESET action.
+                   // The local state on the raffle page will trigger the next step (e.g. next round button).
                    currentActionRef.current = null;
                    isProcessingActionRef.current = false;
-                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
+                 }, (settings.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'SHOW_WINNERS':
@@ -421,7 +423,7 @@ export default function ProjectionPage() {
             shufflingIntervalRef.current = setInterval(() => {
                 const shuffled = [...participants].sort(() => 0.5 - Math.random());
                 setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-            }, settingsRef.current.shufflingSpeed || 150);
+            }, settings.shufflingSpeed || 150);
         }
     };
 

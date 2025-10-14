@@ -55,6 +55,7 @@
         const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
         const [finalWinners, setFinalWinners] = useState<Participant[]>([]);
         const [isTie, setIsTie] = useState(false);
+        const [duelWinner, setDuelWinner] = useState<Participant | null>(null);
       
         const [sortMode, setSortMode] = useState<SortMode>('random');
         const [manualReveal, setManualReveal] = useState(false);
@@ -224,48 +225,53 @@
           setDisputeState({ type: 'SHOW_WORD', payload: { words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore } });
         };
         
-        const finishDuel = async (duelWinner: Participant, duelLoser: Participant) => {
-          const updates: { [key: string]: any } = {};
-          const newStars = (duelWinner.stars || 0) + 1;
+        const finishDuel = async (winner: Participant, loser: Participant) => {
+          setDuelWinner(winner); // Set the duel winner for the admin UI
       
-          updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
-          updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
-          
+          const updates: { [key: string]: any } = {};
+          const newStars = (winner.stars || 0) + 1;
+      
+          updates[`/dispute/participants/${winner.id}/stars`] = newStars;
+          updates[`/dispute/participants/${loser.id}/eliminated`] = true;
+      
           const starWinnerEntryRef = push(ref(database, 'winners'));
           await set(starWinnerEntryRef, {
-              name: duelWinner.name,
-              word: `Duelo Vencido (+1 Estrela)`,
-              stars: 1 
+            name: winner.name,
+            word: `Duelo Vencido (+1 Estrela)`,
+            stars: 1,
           });
       
-          const winnerUpdate = { ...duelWinner, stars: newStars };
-          const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
-          
-          setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
-          
-          // Wait for the message to be displayed on projector
-          setTimeout(async () => {
-              await update(ref(database), updates);
-              
-              toast({
-                  title: "Duelo Encerrado!",
-                  description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
-              });
-              
-              setRaffleState('duel_finished');
-          }, 4100);
-        }
+          const winnerUpdate = { ...winner, stars: newStars };
+          const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
       
-        const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
+          // Send DUEL_WINNER message to projector
+          setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
+      
+          // Wait for the message to be displayed on projector before updating local state
+          setTimeout(async () => {
+            await update(ref(database), updates);
+            toast({
+              title: "Duelo Encerrado!",
+              description: `${winner.name} venceu o duelo e ganhou uma estrela!`,
+            });
+            setRaffleState('duel_finished');
+          }, 4100);
+        };
+      
+        const handleDuelResult = (currentScore: {a: number, b: number}, playedWords: number) => {
           if (!currentDuel) return;
           
-          const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
+          const isTiebreaker = playedWords >= wordsPerRound && currentScore.a === currentScore.b;
+          const isDuelOver = playedWords >= wordsPerRound && currentScore.a !== currentScore.b;
       
           if (isDuelOver) {
-              const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
-              const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
-              finishDuel(duelWinner, duelLoser);
-          } else {
+              const winner = currentScore.a > currentScore.b ? currentDuel.participantA : currentDuel.participantB;
+              const loser = currentScore.a > currentScore.b ? currentDuel.participantB : currentDuel.participantA;
+              finishDuel(winner, loser);
+          } else if (!isTiebreaker) {
+              setRaffleState('word_finished');
+              setCurrentWords(null);
+          } else { // It's a tie, continue playing
               setRaffleState('word_finished');
               setCurrentWords(null);
           }
@@ -321,10 +327,10 @@
           setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords } });
           toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou.' });
           
+          const newWordsPlayed = wordsPlayed + 1;
+          setWordsPlayed(newWordsPlayed);
+          
           setTimeout(() => {
-              const newWordsPlayed = wordsPlayed + 1;
-              setWordsPlayed(newWordsPlayed);
-      
               handleDuelResult(duelScore, newWordsPlayed);
           }, 4100);
         }
@@ -336,6 +342,7 @@
           setWordsPlayed(0);
           setDuelWordsWon({ a: [], b: [] });
           setDisputeState({ type: 'RESET' });
+          setDuelWinner(null);
           setRaffleState('idle'); 
           
           setTimeout(() => {
@@ -491,6 +498,9 @@
               return (
                   <div className="text-center flex flex-col items-center gap-6">
                       <h2 className="text-3xl font-bold">Duelo Encerrado!</h2>
+                      {duelWinner && (
+                          <p className="text-xl font-semibold text-primary">{duelWinner.name} venceu o duelo!</p>
+                      )}
                       <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
                       <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
                   </div>
