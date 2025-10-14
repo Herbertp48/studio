@@ -39,6 +39,10 @@ type MessageTemplates = {
     [key: string]: MessageTemplate;
 };
 
+type AppSettings = {
+    messageDisplayTime: number;
+}
+
 type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
 
 // --- Sub-components for different views ---
@@ -67,7 +71,7 @@ const DuelContent = ({
     >
         <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
             <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
-            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[24vw] min-h-[8rem]">
+            <div className="mt-4 flex items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4 min-w-[20vw] min-h-[7rem]">
                  {words.map(word => (
                     <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity text-center">
                         {word}
@@ -206,6 +210,7 @@ export default function ProjectionPage() {
     const [isReady, setIsReady] = useState(false);
     const [view, setView] = useState<ViewState>('idle');
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
+    const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4 });
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
 
     // State for Duel View
@@ -249,9 +254,16 @@ export default function ProjectionPage() {
         if (!isReady) return;
 
         const templatesRef = ref(database, 'message_templates');
-        const unsubDesigns = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
-
+        const settingsRef = ref(database, 'settings');
         const disputeStateRef = ref(database, 'dispute/state');
+
+        const unsubTemplates = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
+        const unsubSettings = onValue(settingsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                setSettings(prev => ({ ...prev, ...data }));
+            }
+        });
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
             if (newAction && (!isProcessingActionRef.current || newAction.type === 'RESET')) {
@@ -262,7 +274,8 @@ export default function ProjectionPage() {
         });
 
         return () => {
-            unsubDesigns();
+            unsubTemplates();
+            unsubSettings();
             unsubDispute();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -347,7 +360,7 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(resetToIdle, 4000);
+                 messageTimeoutRef.current = setTimeout(resetToIdle, (settings.messageDisplayTime || 4) * 1000);
                 break;
 
             case 'SHOW_WINNERS':
@@ -422,3 +435,5 @@ export default function ProjectionPage() {
         </div>
     );
 }
+
+    

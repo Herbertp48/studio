@@ -12,7 +12,7 @@
       import { Button } from '@/components/ui/button';
       import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
       import { useToast } from '@/hooks/use-toast';
-      import { HelpCircle } from 'lucide-react';
+      import { HelpCircle, Settings } from 'lucide-react';
       import {
         Tooltip,
         TooltipContent,
@@ -47,6 +47,10 @@
       type MessageTemplates = {
           [key: string]: MessageTemplate;
       };
+
+      type AppSettings = {
+        messageDisplayTime: number;
+      }
       
       const templateLabels: { [key: string]: { title: string, description: string, variables: string[] } } = {
           word_winner: {
@@ -165,15 +169,17 @@
       
       function StudioPageContent() {
           const [templates, setTemplates] = useState<MessageTemplates>(initialTemplates);
+          const [settings, setSettings] = useState<AppSettings>({ messageDisplayTime: 4 });
           const { toast } = useToast();
 
       
           useEffect(() => {
               const templatesRef = ref(database, 'message_templates');
-              const unsubscribe = onValue(templatesRef, (snapshot) => {
+              const settingsRef = ref(database, 'settings');
+
+              const unsubTemplates = onValue(templatesRef, (snapshot) => {
                   const data = snapshot.val();
                   if (data) {
-                      // Merge initial templates with fetched data to ensure all keys exist
                       const mergedTemplates = { ...initialTemplates };
                       for (const key in mergedTemplates) {
                           if (data[key]) {
@@ -184,7 +190,6 @@
                                       ...mergedTemplates[key].styles,
                                       ...data[key].styles,
                                   },
-                                   // Ensure `enabled` property exists, default to true if not set in DB
                                   enabled: data[key].enabled !== undefined ? data[key].enabled : true,
                               }
                           }
@@ -192,7 +197,18 @@
                       setTemplates(mergedTemplates);
                   }
               });
-              return () => unsubscribe();
+
+              const unsubSettings = onValue(settingsRef, (snapshot) => {
+                  const data = snapshot.val();
+                  if (data) {
+                      setSettings(prev => ({ ...prev, ...data }));
+                  }
+              });
+
+              return () => {
+                unsubTemplates();
+                unsubSettings();
+              };
           }, []);
       
           const handleStyleChange = (templateKey: string, styleKey: keyof TemplateStyle, value: string) => {
@@ -241,11 +257,49 @@
                       toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
                   });
           };
+
+          const handleSettingsChange = (key: keyof AppSettings, value: any) => {
+            setSettings(prev => ({ ...prev, [key]: value }));
+          }
+
+          const handleSaveSettings = () => {
+            const updates: { [key: string]: any } = {};
+            updates['/settings'] = settings;
+
+            update(ref(database), updates)
+                .then(() => {
+                    toast({ title: "Sucesso!", description: `Configurações salvas.` });
+                })
+                .catch((error) => {
+                    toast({ variant: "destructive", title: "Erro ao Salvar", description: error.message });
+                });
+          }
       
           return (
               <div className="flex flex-col w-full bg-background text-foreground">
                   <AppHeader />
-                  <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                  <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                       <Card>
+                          <CardHeader>
+                              <CardTitle className="flex items-center gap-2"><Settings /> Configurações Gerais</CardTitle>
+                              <CardDescription>Ajustes que afetam o comportamento geral do projetor.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                  <Label htmlFor="messageDisplayTime" className="text-base flex-1">Tempo de exibição da mensagem (em segundos)</Label>
+                                  <Input
+                                      id="messageDisplayTime"
+                                      type="number"
+                                      value={settings.messageDisplayTime}
+                                      onChange={(e) => handleSettingsChange('messageDisplayTime', Number(e.target.value))}
+                                      className="w-full sm:w-32"
+                                      min="1"
+                                  />
+                              </div>
+                              <Button onClick={handleSaveSettings}>Salvar Configurações</Button>
+                          </CardContent>
+                      </Card>
+
                       <Card>
                           <CardHeader>
                               <CardTitle>Estúdio de Projeção</CardTitle>
@@ -454,3 +508,5 @@
               </ProtectedRoute>
           );
       }
+
+    
