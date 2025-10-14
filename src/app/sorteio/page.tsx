@@ -74,28 +74,28 @@
         
             const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
         
-            // Scenario 1: Only one or zero participants are active.
             if (activeParticipants.length < 2) {
                 const allParticipants = Object.values(currentParticipants);
                 const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
                 
-                // There is a potential winner only if at least one participant has stars.
                 const potentialWinners = allParticipants.filter(p => p.stars === maxStars && maxStars > 0);
         
                 if (potentialWinners.length > 1) { // Tie
                     setFinalWinners(potentialWinners);
                     setIsTie(true);
+                    setShowFinalWinnerDialog(true);
                     setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
                 } else if (potentialWinners.length === 1) { // Single Winner
                     setFinalWinners(potentialWinners);
                     setIsTie(false);
+                    setShowFinalWinnerDialog(true);
                     setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
                 } else { // No winner (e.g., everyone eliminated with 0 stars)
                     setFinalWinners([]);
                     setIsTie(false);
+                    setShowFinalWinnerDialog(true);
                     setDisputeState({ type: 'NO_WINNER' });
                 }
-                setShowFinalWinnerDialog(true);
             }
         }
       
@@ -107,13 +107,12 @@
               if (data && data.participants && data.words) {
                   const currentParticipants = data.participants || {};
                   setParticipants(currentParticipants);
+                  setAvailableWords(data.words);
                   
                   if (originalWords.length === 0 && data.words.length > 0) {
-                    setAvailableWords(data.words);
                     setOriginalWords(data.words);
                   }
                   
-                  // Avoid checking for winner while a duel is active
                   if (raffleState === 'idle' || raffleState === 'duel_finished') {
                       checkForWinner(currentParticipants);
                   }
@@ -197,14 +196,15 @@
       
           let sortedWord: string;
           if (sortMode === 'sequential') {
-              sortedWord = currentAvailableWords.shift()!;
+              sortedWord = currentAvailableWords[0];
+              const remainingWords = currentAvailableWords.slice(1);
+              set(ref(database, 'dispute/words'), remainingWords);
           } else {
               const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
               [sortedWord] = currentAvailableWords.splice(wordIndex, 1);
+              set(ref(database, 'dispute/words'), currentAvailableWords);
           }
           
-          setAvailableWords(currentAvailableWords); // Persist the change
-      
           const wordsToDraw = [sortedWord];
       
           if (wordsToDraw.length > 0) {
