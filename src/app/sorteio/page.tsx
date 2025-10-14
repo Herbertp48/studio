@@ -228,20 +228,21 @@
         };
         
         const finishDuel = (winner: Participant, loser: Participant) => {
-          setDuelWinner(winner);
-          setDuelLoser(loser);
-      
-          const winnerUpdate = { ...winner, stars: (winner.stars || 0) + 1 };
-          const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
-      
-          setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
-      
-          toast({
-            title: "Duelo Encerrado!",
-            description: `${winner.name} venceu o duelo e ganhou uma estrela!`,
-          });
-      
-          setRaffleState('duel_finished');
+            setDuelWinner(winner);
+            setDuelLoser(loser);
+            
+            const winnerWordsWon = winner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
+            const winnerWithNewStar = { ...winner, stars: (winner.stars || 0) + 1 };
+        
+            setDisputeState({
+                type: 'DUEL_WINNER',
+                payload: {
+                    winner: winnerWithNewStar,
+                    duelWordsWon: winnerWordsWon
+                }
+            });
+        
+            setRaffleState('duel_finished');
         };
       
         const handleDuelResult = (currentScore: {a: number, b: number}, playedWords: number) => {

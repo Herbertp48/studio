@@ -389,7 +389,6 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                     setView('duel'); 
-                    // After the message, restore the duel view with current participants and score.
                     setDuelState(currentDuelStateRef.current);
                     currentActionRef.current = null;
                     isProcessingActionRef.current = false;
@@ -403,8 +402,7 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 // For these "final" messages of a phase, we just show them and wait for a RESET.
-                 // The timeout is no longer needed as the admin controls the flow.
+                 // This message stays on screen until a RESET action is sent
                  isProcessingActionRef.current = false;
                 break;
 
