@@ -170,9 +170,9 @@ const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ duration: 0.7, ease: 'easeOut' }}
-            className="text-center text-white w-full max-w-4xl"
+            className="text-center text-white w-full flex-1 flex flex-col justify-center items-center"
         >
-             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full">
+             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full max-w-4xl">
                 <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
                 <table className="w-full text-2xl">
                     <thead>
@@ -287,7 +287,12 @@ export default function ProjectionPage() {
             }
         });
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
-            setLastReceivedAction(snapshot.val());
+            const newAction = snapshot.val();
+            if(newAction) {
+                setLastReceivedAction(newAction);
+            } else {
+                resetToIdle();
+            }
         });
 
         return () => {
@@ -303,8 +308,6 @@ export default function ProjectionPage() {
                 return;
             }
             processAction(lastReceivedAction);
-        } else if (view !== 'idle') {
-            resetToIdle();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lastReceivedAction]);
@@ -374,26 +377,30 @@ export default function ProjectionPage() {
             
             case 'NO_WORD_WINNER':
             case 'WORD_WINNER':
+                 setView('message');
+                 if (action.payload.duelScore) {
+                     setDuelState(prev => ({...prev, duelScore: action.payload.duelScore}));
+                 }
+                 playSound(action.type === 'NO_WORD_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
+                 messageTimeoutRef.current = setTimeout(() => {
+                    setView('duel');
+                    setDuelState(prev => ({...prev, showWord: false})); // Keep duel view, hide word
+                    currentActionRef.current = null;
+                    isProcessingActionRef.current = false;
+                 }, (settingsRef.current.messageDisplayTime || 4) * 1000);
+                break;
+
             case 'DUEL_WINNER':
             case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
             case 'NO_WINNER':
             case 'SHOW_MESSAGE':
                  setView('message');
-                 playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
+                 playSound(action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
-                    isProcessingActionRef.current = false;
-                    
-                    if (action.type === 'DUEL_WINNER' || action.type === 'FINAL_WINNER' || action.type === 'TIE_ANNOUNCEMENT' || action.type === 'NO_WINNER') {
-                       // Wait for the next action from the control panel, which should be RESET
-                       currentActionRef.current = null;
-                    } else {
-                       // After a point or no point, return to duel view to show scores
-                       setView('duel');
-                       // Restore duel state to keep names visible and update score
-                       setDuelState({ ...currentDuelStateRef.current, showWord: false });
-                       currentActionRef.current = null;
-                    }
+                   // After these final messages, we just wait for a RESET action.
+                   currentActionRef.current = null;
+                   isProcessingActionRef.current = false;
                  }, (settingsRef.current.messageDisplayTime || 4) * 1000);
                 break;
 
@@ -446,7 +453,7 @@ export default function ProjectionPage() {
                     {view === 'shuffling' && (
                          <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
                     )}
-                    {view === 'winners' && lastReceivedAction?.payload?.winners && (
+                    {view === 'winners' && lastReceivedAction?.type === 'SHOW_WINNERS' && lastReceivedAction?.payload?.winners && (
                         <WinnersTable winners={lastReceivedAction.payload.winners} />
                     )}
                 </AnimatePresence>

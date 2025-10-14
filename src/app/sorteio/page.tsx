@@ -239,19 +239,13 @@
           });
       
           const winnerUpdate = { ...duelWinner, stars: newStars };
-          const loserUpdate = { ...duelLoser, eliminated: true };
-          
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
+          
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
+          // Wait for the message to be displayed on projector
           setTimeout(async () => {
               await update(ref(database), updates);
-      
-              setParticipants(prev => ({
-                  ...prev,
-                  [duelWinner.id]: winnerUpdate,
-                  [duelLoser.id]: loserUpdate,
-              }));
               
               toast({
                   title: "Duelo Encerrado!",
@@ -273,7 +267,6 @@
               finishDuel(duelWinner, duelLoser);
           } else {
               setRaffleState('word_finished');
-              setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore, wordsPerRound } });
               setCurrentWords(null);
           }
         };
@@ -290,26 +283,34 @@
               stars: 0
           });
       
-          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords } });
           toast({ title: 'Ponto Marcado!', description: `${wordWinner.name} venceu a disputa pela palavra "${currentWords[0]}"!` });
       
+          const newScore = { ...duelScore };
+          const newWordsWon = { ...duelWordsWon };
+      
+          if (wordWinnerId === currentDuel.participantA.id) {
+              newScore.a++;
+              newWordsWon.a.push(currentWords[0]);
+          } else {
+              newScore.b++;
+              newWordsWon.b.push(currentWords[0]);
+          }
+
+          const newWordsPlayed = wordsPlayed + 1;
+          setWordsPlayed(newWordsPlayed);
+          setDuelScore(newScore);
+          setDuelWordsWon(newWordsWon);
+
+          setDisputeState({ 
+              type: 'WORD_WINNER', 
+              payload: { 
+                  winner: wordWinner, 
+                  words: currentWords,
+                  duelScore: newScore 
+              } 
+          });
+          
           setTimeout(() => {
-              const newScore = { ...duelScore };
-              const newWordsWon = { ...duelWordsWon };
-      
-              if (wordWinnerId === currentDuel.participantA.id) {
-                  newScore.a++;
-                  newWordsWon.a.push(currentWords[0]);
-              } else {
-                  newScore.b++;
-                  newWordsWon.b.push(currentWords[0]);
-              }
-      
-              const newWordsPlayed = wordsPlayed + 1;
-              setWordsPlayed(newWordsPlayed);
-              setDuelScore(newScore);
-              setDuelWordsWon(newWordsWon);
-              
               handleDuelResult(newScore, newWordsPlayed);
           }, 4100);
       };
@@ -487,20 +488,9 @@
           }
       
           if (raffleState === 'duel_finished') {
-              const winner = participants[currentDuel?.participantA.id || '']?.stars > participants[currentDuel?.participantB.id || '']?.stars 
-                  ? currentDuel?.participantA 
-                  : currentDuel?.participantB;
-              
-              const message = winner ? `${winner.name} venceu o duelo!` : `Duelo encerrado!`;
-      
               return (
                   <div className="text-center flex flex-col items-center gap-6">
-                      <h2 className="text-3xl font-bold">{message}</h2>
-                      {winner && (
-                          <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
-                              <Star /> Ganhou 1 estrela!
-                          </p>
-                      )}
+                      <h2 className="text-3xl font-bold">Duelo Encerrado!</h2>
                       <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
                       <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
                   </div>
