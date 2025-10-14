@@ -74,13 +74,11 @@
         
             const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
         
-            // This condition is met when the competition should end.
             if (activeParticipants.length < 2) {
                 const allParticipants = Object.values(currentParticipants);
                 const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
                 
-                // We must have at least one winner to declare them, and they must have more than 0 stars,
-                // unless all participants have 0 stars.
+                // There is a winner if maxStars > 0. If maxStars is 0, there is only a winner if all participants have 0 stars
                 const potentialWinners = allParticipants.filter(p => p.stars === maxStars && (maxStars > 0 || allParticipants.every(p => p.stars === 0)));
         
                 if (potentialWinners.length > 1) { // Tie
@@ -113,7 +111,7 @@
                     setAvailableWords(data.words);
                     setOriginalWords(data.words);
                   }
-                  // Only check for winner if we are in a state that expects it
+                  
                   if (raffleState === 'idle' || raffleState === 'duel_finished') {
                       checkForWinner(currentParticipants);
                   }
@@ -184,36 +182,27 @@
         const sortWord = () => {
           setDisputeState({ type: 'HIDE_WORD' });
       
-          if (availableWords.length === 0) {
-            toast({ title: "Aviso", description: "Não há palavras suficientes. Reiniciando a lista de palavras." });
-            setAvailableWords(originalWords);
+          let currentAvailableWords = [...availableWords];
+          if (currentAvailableWords.length === 0) {
+              toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
+              currentAvailableWords = [...originalWords];
           }
-           if (availableWords.length === 0 && originalWords.length === 0) {
-              toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio, mesmo após reiniciar a lista." });
+          
+          if (currentAvailableWords.length === 0) {
+              toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
               return;
           }
       
-          let remainingWords = [...availableWords];
-          let wordsToDraw = [];
-          
-          for (let i = 0; i < 1; i++) { // Always draw one word at a time
-              if (remainingWords.length === 0) {
-                  toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
-                  remainingWords = [...originalWords];
-                  if (remainingWords.length === 0) break;
-              }
-      
-              let wordIndex: number;
-              if (sortMode === 'sequential') {
-                  wordIndex = 0;
-              } else {
-                  wordIndex = Math.floor(Math.random() * remainingWords.length);
-              }
-              const [sortedWord] = remainingWords.splice(wordIndex, 1);
-              wordsToDraw.push(sortedWord);
+          let sortedWord: string;
+          if (sortMode === 'sequential') {
+              sortedWord = currentAvailableWords.shift()!;
+          } else {
+              const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
+              [sortedWord] = currentAvailableWords.splice(wordIndex, 1);
           }
           
-          setAvailableWords(remainingWords);
+          const wordsToDraw = [sortedWord];
+          setAvailableWords(currentAvailableWords);
       
           if (wordsToDraw.length > 0) {
             setCurrentWords(wordsToDraw);
@@ -252,7 +241,6 @@
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
-          // Wait for the message to be displayed on projector
           setTimeout(async () => {
               await update(ref(database), updates);
       
