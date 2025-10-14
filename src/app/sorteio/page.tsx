@@ -4,7 +4,7 @@
       import { useState, useEffect, useRef } from 'react';
       import { useRouter } from 'next/navigation';
       import { AppHeader } from '@/components/app/header';
-      import type { Participant } from '@/app/(app)/page';
+      import type { Participant } from '@/app/page';
       import { Button } from '@/components/ui/button';
       import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
       import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye, ShieldAlert } from 'lucide-react';
@@ -83,15 +83,15 @@
                 if (potentialWinners.length > 1) { // Tie
                     setFinalWinners(potentialWinners);
                     setIsTie(true);
-                    setDisputeState({ type: 'SHOW_MESSAGE', payload: { type: 'TIE_ANNOUNCEMENT', participants: potentialWinners, duration: 10 } });
+                    setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
                 } else if (potentialWinners.length === 1) { // Single Winner
                     setFinalWinners(potentialWinners);
                     setIsTie(false);
-                    setDisputeState({ type: 'SHOW_MESSAGE', payload: { type: 'FINAL_WINNER', finalWinner: potentialWinners[0], duration: 10 } });
+                    setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
                 } else { // No clear winner (e.g., everyone eliminated with 0 stars)
                     setFinalWinners([]);
                     setIsTie(false);
-                    setDisputeState({ type: 'SHOW_MESSAGE', payload: { type: 'NO_WINNER', duration: 5 } });
+                    setDisputeState({ type: 'NO_WINNER' });
                 }
                 setShowFinalWinnerDialog(true);
             }
@@ -195,15 +195,11 @@
           }
       
           let sortedWord: string;
-          let wordIndex: number;
           if (sortMode === 'sequential') {
-              wordIndex = 0;
-              sortedWord = currentAvailableWords[wordIndex];
-              currentAvailableWords.splice(wordIndex, 1);
+              sortedWord = currentAvailableWords.shift()!;
           } else {
-              wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
-              sortedWord = currentAvailableWords[wordIndex];
-              currentAvailableWords.splice(wordIndex, 1);
+              const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
+              [sortedWord] = currentAvailableWords.splice(wordIndex, 1);
           }
           
           const wordsToDraw = [sortedWord];
@@ -245,34 +241,24 @@
           const loserUpdate = { ...duelLoser, eliminated: true };
           
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
+          setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
-          setDisputeState({ 
-              type: 'SHOW_MESSAGE', 
-              payload: { 
-                  type: 'DUEL_WINNER', 
-                  winner: winnerUpdate, 
-                  duelWordsWon: winnerWordsWon,
-                  duration: 4,
-                  postMessageAction: {
-                      type: 'RESET'
-                  }
-              }
-          });
-          
-          await update(ref(database), updates);
+          setTimeout(async () => {
+              await update(ref(database), updates);
       
-          setParticipants(prev => ({
-              ...prev,
-              [duelWinner.id]: winnerUpdate,
-              [duelLoser.id]: loserUpdate,
-          }));
-          
-          toast({
-              title: "Duelo Encerrado!",
-              description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
-          });
-          
-          setRaffleState('duel_finished');
+              setParticipants(prev => ({
+                  ...prev,
+                  [duelWinner.id]: winnerUpdate,
+                  [duelLoser.id]: loserUpdate,
+              }));
+              
+              toast({
+                  title: "Duelo Encerrado!",
+                  description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
+              });
+              
+              setRaffleState('duel_finished');
+          }, 4100);
         }
       
         const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
@@ -303,72 +289,42 @@
               stars: 0
           });
       
-          const newScore = { ...duelScore };
-          const newWordsWon = { ...duelWordsWon };
-    
-          if (wordWinnerId === currentDuel.participantA.id) {
-              newScore.a++;
-              newWordsWon.a.push(currentWords[0]);
-          } else {
-              newScore.b++;
-              newWordsWon.b.push(currentWords[0]);
-          }
-    
-          const newWordsPlayed = wordsPlayed + 1;
-          setWordsPlayed(newWordsPlayed);
-          setDuelScore(newScore);
-          setDuelWordsWon(newWordsWon);
-
-          setDisputeState({ 
-              type: 'SHOW_MESSAGE', 
-              payload: { 
-                  type: 'WORD_WINNER', 
-                  winner: wordWinner, 
-                  words: currentWords,
-                  duration: 4,
-                  postMessageAction: {
-                      type: 'UPDATE_PARTICIPANTS',
-                      payload: {
-                          participantA: currentDuel.participantA,
-                          participantB: currentDuel.participantB,
-                          duelScore: newScore,
-                          wordsPerRound
-                      }
-                  }
-              }
-          });
-
+          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords } });
           toast({ title: 'Ponto Marcado!', description: `${wordWinner.name} venceu a disputa pela palavra "${currentWords[0]}"!` });
-          handleDuelResult(newScore, newWordsPlayed);
-
+      
+          setTimeout(() => {
+              const newScore = { ...duelScore };
+              const newWordsWon = { ...duelWordsWon };
+      
+              if (wordWinnerId === currentDuel.participantA.id) {
+                  newScore.a++;
+                  newWordsWon.a.push(currentWords[0]);
+              } else {
+                  newScore.b++;
+                  newWordsWon.b.push(currentWords[0]);
+              }
+      
+              const newWordsPlayed = wordsPlayed + 1;
+              setWordsPlayed(newWordsPlayed);
+              setDuelScore(newScore);
+              setDuelWordsWon(newWordsWon);
+              
+              handleDuelResult(newScore, newWordsPlayed);
+          }, 4100);
       };
         
         const handleNoWinner = async () => {
           if (!currentWords || !currentDuel) return;
-          
-          const newWordsPlayed = wordsPlayed + 1;
-          setWordsPlayed(newWordsPlayed);
       
-          setDisputeState({ 
-              type: 'SHOW_MESSAGE', 
-              payload: { 
-                  type: 'NO_WORD_WINNER', 
-                  words: currentWords,
-                  duration: 4,
-                  postMessageAction: {
-                    type: 'UPDATE_PARTICIPANTS',
-                    payload: {
-                        participantA: currentDuel.participantA,
-                        participantB: currentDuel.participantB,
-                        duelScore: duelScore,
-                        wordsPerRound
-                    }
-                  }
-              }
-          });
-
+          setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords } });
           toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou.' });
-          handleDuelResult(duelScore, newWordsPlayed);
+          
+          setTimeout(() => {
+              const newWordsPlayed = wordsPlayed + 1;
+              setWordsPlayed(newWordsPlayed);
+      
+              handleDuelResult(duelScore, newWordsPlayed);
+          }, 4100);
         }
       
         const nextRound = () => {
@@ -466,7 +422,7 @@
                 <div className="text-lg text-muted-foreground">
                   <p>{activeParticipantsCount} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2 || raffleState === 'shuffling'}>
+                <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
                 {activeParticipantsCount < 2 && !showFinalWinnerDialog && (
@@ -530,9 +486,20 @@
           }
       
           if (raffleState === 'duel_finished') {
+              const winner = participants[currentDuel?.participantA.id || '']?.stars > participants[currentDuel?.participantB.id || '']?.stars 
+                  ? currentDuel?.participantA 
+                  : currentDuel?.participantB;
+              
+              const message = winner ? `${winner.name} venceu o duelo!` : `Duelo encerrado!`;
+      
               return (
                   <div className="text-center flex flex-col items-center gap-6">
-                      <h2 className="text-3xl font-bold">Duelo Encerrado!</h2>
+                      <h2 className="text-3xl font-bold">{message}</h2>
+                      {winner && (
+                          <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
+                              <Star /> Ganhou 1 estrela!
+                          </p>
+                      )}
                       <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
                       <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
                   </div>
@@ -668,7 +635,9 @@
                                  <AlertDialogAction className="w-full sm:w-auto" onClick={startTieBreaker}>
                                       <RefreshCw className="mr-2" /> Iniciar Desempate
                                   </AlertDialogAction>
-                                 <AlertDialogAction className="w-full sm:w-auto" variant="outline" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                                  <AlertDialogAction asChild className="w-full sm:w-auto">
+                                    <Button variant="outline" onClick={() => router.push('/')}>Voltar para o Início</Button>
+                                  </AlertDialogAction>
                               </>
                           ) : (
                               <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
