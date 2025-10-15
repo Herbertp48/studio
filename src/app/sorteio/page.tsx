@@ -1,5 +1,5 @@
 
-'use client';
+      'use client';
       
       import { useState, useEffect, useRef } from 'react';
       import { useRouter } from 'next/navigation';
@@ -63,6 +63,7 @@
         const [wordsPlayed, setWordsPlayed] = useState(0);
         const [duelScore, setDuelScore] = useState({ a: 0, b: 0 });
         const [duelWordsWon, setDuelWordsWon] = useState<{a: string[], b: string[]}>({a: [], b: []});
+        const [playedInRound, setPlayedInRound] = useState<string[]>([]);
       
         const { toast } = useToast();
         const router = useRouter();
@@ -162,14 +163,24 @@
             checkForWinner(participants);
             return;
           }
+
+          let participantsToChooseFrom = activeParticipants.filter(p => !playedInRound.includes(p.id));
+
+          if (participantsToChooseFrom.length < 2) {
+              setPlayedInRound([]);
+              participantsToChooseFrom = activeParticipants;
+              toast({ title: 'Nova Rodada de Sorteios', description: 'Todos os participantes já duelaram. A fila foi reiniciada.' });
+          }
       
           setRaffleState('shuffling');
-          setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', payload: { activeParticipants } });
+          setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', payload: { activeParticipants: participantsToChooseFrom } });
       
           setTimeout(() => {
-              const shuffled = [...activeParticipants].sort(() => 0.5 - Math.random());
+              const shuffled = [...participantsToChooseFrom].sort(() => 0.5 - Math.random());
               const participantA = shuffled[0];
               const participantB = shuffled[1];
+
+              setPlayedInRound(prev => [...prev, participantA.id, participantB.id]);
       
               setCurrentDuel({ participantA, participantB });
               setWordsPlayed(0);
