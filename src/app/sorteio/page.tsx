@@ -7,7 +7,7 @@
       import type { Participant } from '@/app/page';
       import { Button } from '@/components/ui/button';
       import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-      import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye, ShieldAlert } from 'lucide-react';
+      import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye, ShieldAlert, Users } from 'lucide-react';
       import { useToast } from '@/hooks/use-toast';
       import {
         AlertDialog,
@@ -26,6 +26,8 @@
       import { Switch } from '@/components/ui/switch';
       import ProtectedRoute from '@/components/auth/ProtectedRoute';
       import { Input } from '@/components/ui/input';
+      import { ScrollArea } from '@/components/ui/scroll-area';
+      import { Badge } from '@/components/ui/badge';
       
       export type WordList = {
           id: string;
@@ -68,7 +70,10 @@
         const { toast } = useToast();
         const router = useRouter();
       
-        const participantsList = Object.values(participants);
+        const participantsList = Object.values(participants).sort((a, b) => b.stars - a.stars);
+        const activeParticipants = participantsList.filter(p => !p.eliminated);
+        const duelsInRoundTotal = Math.floor(activeParticipants.length / 2);
+        const duelsInRoundPlayed = Math.floor(playedInRound.length / 2);
       
         const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
             if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
@@ -114,10 +119,12 @@
                     }
                   }
                   
+                  // Check for winner only if the component is in a state that expects it.
                   if (raffleState === 'idle' || raffleState === 'duel_finished') {
                       checkForWinner(currentParticipants);
                   }
               } else {
+                  // Avoid redirecting if the component is unmounting or router is not ready
                   if(router) {
                     toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
                     router.push('/disputa');
@@ -151,24 +158,24 @@
       
         
         const sortParticipants = () => {
-          if (!participants || raffleState === 'shuffling') return;
+          if (raffleState === 'shuffling') return;
           
           setDisputeState({ type: 'RESET' });
           setCurrentWords(null);
       
-          let activeParticipants = Object.values(participants).filter(p => !p.eliminated);
+          let currentActiveParticipants = Object.values(participants).filter(p => !p.eliminated);
       
-          if (activeParticipants.length < 2) {
+          if (currentActiveParticipants.length < 2) {
             toast({ variant: "destructive", title: "Fim da Disputa", description: "Não há participantes ativos suficientes para uma nova rodada." });
             checkForWinner(participants);
             return;
           }
 
-          let participantsToChooseFrom = activeParticipants.filter(p => !playedInRound.includes(p.id));
+          let participantsToChooseFrom = currentActiveParticipants.filter(p => !playedInRound.includes(p.id));
 
           if (participantsToChooseFrom.length < 2) {
               setPlayedInRound([]);
-              participantsToChooseFrom = activeParticipants;
+              participantsToChooseFrom = currentActiveParticipants;
               toast({ title: 'Nova Rodada de Sorteios', description: 'Todos os participantes já duelaram. A fila foi reiniciada.' });
           }
       
@@ -414,8 +421,6 @@
             return <p className="text-center text-muted-foreground">Carregando...</p>;
           }
           
-          const activeParticipantsCount = Object.values(participants).filter(p => !p.eliminated).length;
-      
           if (raffleState === 'shuffling') {
             return (
               <div className="text-center flex flex-col items-center gap-6">
@@ -431,12 +436,12 @@
               <div className="text-center flex flex-col items-center gap-6">
                 <h2 className="text-3xl font-bold">Próxima Rodada</h2>
                 <div className="text-lg text-muted-foreground">
-                  <p>{activeParticipantsCount} participantes ativos</p>
+                  <p>{activeParticipants.length} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipantsCount < 2}>
+                <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipants.length < 2}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
-                {activeParticipantsCount < 2 && !showFinalWinnerDialog && (
+                {activeParticipants.length < 2 && !showFinalWinnerDialog && (
                    <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
                 )}
               </div>
@@ -523,80 +528,119 @@
         return (
           <div className="flex flex-col w-full bg-background text-foreground">
             <AppHeader />
-            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center">
-              <Card className="w-full max-w-2xl shadow-xl">
-                   <CardHeader>
-                      <CardTitle>Configuração do Sorteio</CardTitle>
-                      <CardDescription>Ajuste as opções para a disputa atual.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                       <div className="flex items-center justify-between">
-                          <Label className="flex-shrink-0 mr-4">Modo de Sorteio de Palavras:</Label>
-                          <RadioGroup 
-                              defaultValue="random" 
-                              onValueChange={(value: SortMode) => setSortMode(value)}
-                              className="flex items-center gap-4"
-                              disabled={raffleState !== 'idle'}
-                          >
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="random" id="r-random" />
-                                  <Label htmlFor="r-random">Aleatório</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="sequential" id="r-sequential" />
-                                  <Label htmlFor="r-sequential">Sequencial</Label>
-                              </div>
-                          </RadioGroup>
-                       </div>
-                       <div className="flex items-center justify-between">
-                          <Label htmlFor="words-per-round-input">Palavras por Duelo:</Label>
-                          <Input
-                              id="words-per-round-input"
-                              type="number"
-                              min="1"
-                              max="5"
-                              value={wordsPerRound}
-                              onChange={(e) => setWordsPerRound(Math.max(1, parseInt(e.target.value, 10)))}
-                              className="w-20"
-                              disabled={raffleState !== 'idle'}
-                          />
-                       </div>
-                       <div className="flex items-center justify-between">
-                          <Label htmlFor="manual-reveal-switch">Revelação Manual:</Label>
-                          <Switch
-                              id="manual-reveal-switch"
-                              checked={manualReveal}
-                              onCheckedChange={setManualReveal}
-                              disabled={raffleState !== 'idle'}
-                          />
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                          <Label>Alterar Lista de Palavras em Jogo:</Label>
-                          <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || raffleState !== 'idle'}>
-                              <SelectTrigger>
-                                  <SelectValue placeholder="Selecione uma lista para alterar" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  {wordLists.map(list => (
-                                      <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
-                                  ))}
-                              </SelectContent>
-                          </Select>
-                      </div>
-                  </CardContent>
-              </Card>
-              
-              <Card className="w-full max-w-2xl min-h-[22rem] flex items-center justify-center shadow-2xl mt-8">
-                  <CardContent className="pt-10 w-full">
-                      {renderState()}
-                  </CardContent>
-              </Card>
-              
-              <div className="mt-8">
-                  <Button variant="outline" onClick={openProjection}>
-                      <Projector className="mr-2" />
-                      Abrir Tela de Projeção
-                  </Button>
+            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                   <Card className="w-full shadow-xl">
+                       <CardHeader>
+                          <CardTitle>Configuração do Sorteio</CardTitle>
+                          <CardDescription>Ajuste as opções para a disputa atual.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                           <div className="flex items-center justify-between">
+                              <Label className="flex-shrink-0 mr-4">Modo de Sorteio de Palavras:</Label>
+                              <RadioGroup 
+                                  defaultValue="random" 
+                                  onValueChange={(value: SortMode) => setSortMode(value)}
+                                  className="flex items-center gap-4"
+                                  disabled={raffleState !== 'idle'}
+                              >
+                                  <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="random" id="r-random" />
+                                      <Label htmlFor="r-random">Aleatório</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="sequential" id="r-sequential" />
+                                      <Label htmlFor="r-sequential">Sequencial</Label>
+                                  </div>
+                              </RadioGroup>
+                           </div>
+                           <div className="flex items-center justify-between">
+                              <Label htmlFor="words-per-round-input">Palavras por Duelo:</Label>
+                              <Input
+                                  id="words-per-round-input"
+                                  type="number"
+                                  min="1"
+                                  max="5"
+                                  value={wordsPerRound}
+                                  onChange={(e) => setWordsPerRound(Math.max(1, parseInt(e.target.value, 10)))}
+                                  className="w-20"
+                                  disabled={raffleState !== 'idle'}
+                              />
+                           </div>
+                           <div className="flex items-center justify-between">
+                              <Label htmlFor="manual-reveal-switch">Revelação Manual:</Label>
+                              <Switch
+                                  id="manual-reveal-switch"
+                                  checked={manualReveal}
+                                  onCheckedChange={setManualReveal}
+                                  disabled={raffleState !== 'idle'}
+                              />
+                          </div>
+                          <div className="flex flex-col space-y-2">
+                              <Label>Alterar Lista de Palavras em Jogo:</Label>
+                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || raffleState !== 'idle'}>
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Selecione uma lista para alterar" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      {wordLists.map(list => (
+                                          <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                                      ))}
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                      </CardContent>
+                  </Card>
+                  
+                  <Card className="w-full min-h-[22rem] flex items-center justify-center shadow-2xl">
+                      <CardContent className="pt-10 w-full">
+                          {renderState()}
+                      </CardContent>
+                  </Card>
+                  
+                  <div className="mt-8 text-center">
+                      <Button variant="outline" onClick={openProjection}>
+                          <Projector className="mr-2" />
+                          Abrir Tela de Projeção
+                      </Button>
+                  </div>
+                </div>
+      
+                <div className="lg:col-span-1">
+                  <Card className="shadow-xl sticky top-20">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2"><Users /> Status da Disputa</CardTitle>
+                      <CardDescription>Duelos na Rodada: {duelsInRoundPlayed} de {duelsInRoundTotal}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                       <ScrollArea className="h-[60vh] pr-4">
+                        <ul className="space-y-3">
+                           {participantsList.map(p => {
+                            const getStatus = () => {
+                                if (p.eliminated) return <Badge variant="destructive">Eliminado</Badge>;
+                                if (playedInRound.includes(p.id)) return <Badge variant="secondary">Aguardando</Badge>;
+                                return <Badge>Ativo</Badge>
+                            }
+                            return (
+                                <li key={p.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium">{p.name}</span>
+                                        {getStatus()}
+                                    </div>
+                                    <div className="flex items-center gap-1 text-amber-400">
+                                        {Array.from({ length: p.stars }).map((_, i) => (
+                                          <Star key={i} className="h-5 w-5 fill-current" />
+                                        ))}
+                                    </div>
+                                </li>
+                            )
+                           })}
+                        </ul>
+                       </ScrollArea>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
       
               <AlertDialog open={showFinalWinnerDialog} onOpenChange={setShowFinalWinnerDialog}>
