@@ -254,9 +254,9 @@ export default function ProjectionPage() {
         const disputeStateRef = ref(database, 'dispute/state');
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
-            if (newAction && (!isProcessingActionRef.current || newAction.type === 'RESET')) {
+            if (newAction) {
                 processAction(newAction);
-            } else if (!newAction && view !== 'idle') {
+            } else if (view !== 'idle') {
                 resetToIdle();
             }
         });
@@ -300,8 +300,11 @@ export default function ProjectionPage() {
     };
 
     const processAction = (action: DisputeAction) => {
-        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
-        isProcessingActionRef.current = true;
+        if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+            messageTimeoutRef.current = null;
+        }
+        
         setCurrentAction(action);
         
         switch (action.type) {
@@ -309,7 +312,6 @@ export default function ProjectionPage() {
                 setView('shuffling');
                 startShufflingAnimation(action.payload.activeParticipants || []);
                 playSound('tambor.mp3', true);
-                isProcessingActionRef.current = false;
                 break;
 
             case 'UPDATE_PARTICIPANTS':
@@ -326,24 +328,20 @@ export default function ProjectionPage() {
                 if (action.payload.participantA) {
                     playSound('sinos.mp3');
                 }
-                isProcessingActionRef.current = false;
                 break;
 
             case 'SHOW_WORD':
                 setView('duel');
                 setDuelState(prev => ({ ...prev, words: action.payload.words || [], showWord: true }));
                 playSound('premio.mp3');
-                isProcessingActionRef.current = false;
                 break;
 
             case 'HIDE_WORD':
                 setDuelState(prev => ({ ...prev, showWord: false }));
-                isProcessingActionRef.current = false;
                 break;
 
             case 'WORD_WINNER':
             case 'DUEL_WINNER':
-            case 'FINAL_WINNER':
             case 'TIE_ANNOUNCEMENT':
             case 'NO_WORD_WINNER':
             case 'NO_WINNER':
@@ -352,25 +350,23 @@ export default function ProjectionPage() {
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
                  messageTimeoutRef.current = setTimeout(() => {
                     if (action.type === 'WORD_WINNER') {
-                        // After showing WORD_WINNER message, go back to duel view with updated score
                         setView('duel');
-                         setDuelState(prev => ({
-                            ...prev,
-                            showWord: false,
-                            duelScore: action.payload.duelScore
-                        }));
+                         setDuelState(prev => ({ ...prev, showWord: false, duelScore: action.payload.duelScore }));
                         setCurrentAction(null);
-                        isProcessingActionRef.current = false;
-                    } else if (action.type !== 'DUEL_WINNER' && action.type !== 'FINAL_WINNER') {
-                        resetToIdle();
+                    } else if (action.type !== 'DUEL_WINNER' && action.type !== 'FINAL_WINNER' && action.type !== 'TIE_ANNOUNCEMENT') {
+                       resetToIdle();
                     }
-                    // For DUEL_WINNER and FINAL_WINNER, we wait for the next action from the controller
                  }, appSettings.messageDisplayTime);
+                break;
+            
+            case 'FINAL_WINNER':
+                setView('message');
+                playSound('vencedor.mp3');
+                // Don't set a timeout, keep the winner message on screen
                 break;
 
             case 'SHOW_WINNERS':
                 setView('winners');
-                isProcessingActionRef.current = false; // Persistent state
                 break;
             
             case 'RESET':
@@ -386,7 +382,6 @@ export default function ProjectionPage() {
         setCurrentAction(null);
         setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
         if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
-        isProcessingActionRef.current = false;
     };
 
     const startShufflingAnimation = (participants: Participant[]) => {
@@ -428,7 +423,9 @@ export default function ProjectionPage() {
                          <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
                     )}
                     {view === 'winners' && currentAction?.payload?.winners && (
-                        <WinnersTable winners={currentAction.payload.winners} />
+                        <div className="flex justify-center items-center w-full h-full">
+                            <WinnersTable winners={currentAction.payload.winners} />
+                        </div>
                     )}
                 </AnimatePresence>
             </main>
@@ -440,4 +437,3 @@ export default function ProjectionPage() {
         </div>
     );
 }
-

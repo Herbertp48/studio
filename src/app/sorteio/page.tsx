@@ -35,7 +35,7 @@
           words: string[];
       }
       
-      type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'word_finished' | 'duel_finished' | 'shuffling';
+      type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'word_finished' | 'duel_finished' | 'shuffling' | 'game_over';
       type SortMode = 'random' | 'sequential';
       type DisputeState = {
           type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_MESSAGE';
@@ -76,7 +76,7 @@
         const duelsInRoundPlayed = Math.floor(playedInRound.length / 2);
       
         const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
+            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return false;
         
             const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
         
@@ -84,23 +84,30 @@
                 const allParticipants = Object.values(currentParticipants);
                 const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
                 
-                const potentialWinners = allParticipants.filter(p => p.stars === maxStars && (maxStars > 0 || allParticipants.every(p => p.stars === 0)));
-        
-                if (potentialWinners.length > 1) { // Tie
-                    setFinalWinners(potentialWinners);
-                    setIsTie(true);
-                    setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
-                } else if (potentialWinners.length === 1) { // Single Winner
-                    setFinalWinners(potentialWinners);
-                    setIsTie(false);
-                    setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
-                } else { // No clear winner (e.g., everyone eliminated with 0 stars)
+                if (maxStars === 0 && allParticipants.every(p => p.stars === 0)) {
+                    // Scenario where no one scored any stars.
                     setFinalWinners([]);
                     setIsTie(false);
                     setDisputeState({ type: 'NO_WINNER' });
+                } else {
+                    const potentialWinners = allParticipants.filter(p => p.stars === maxStars);
+                    
+                    if (potentialWinners.length > 1) { // Tie
+                        setFinalWinners(potentialWinners);
+                        setIsTie(true);
+                        setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
+                    } else if (potentialWinners.length === 1) { // Single Winner
+                        setFinalWinners(potentialWinners);
+                        setIsTie(false);
+                        setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
+                    }
                 }
+                
+                setRaffleState('game_over');
                 setShowFinalWinnerDialog(true);
+                return true;
             }
+            return false;
         }
       
         useEffect(() => {
@@ -109,19 +116,12 @@
           const unsubscribe = onValue(disputeRef, (snapshot) => {
               const data = snapshot.val();
               if (data && data.participants) {
-                  const currentParticipants = data.participants || {};
-                  setParticipants(currentParticipants);
-
+                  setParticipants(data.participants || {});
                   if (data.words) {
                     setAvailableWords(data.words);
                     if (originalWords.length === 0 && data.words.length > 0) {
                         setOriginalWords(data.words);
                     }
-                  }
-                  
-                  // Check for winner only if the component is in a state that expects it.
-                  if (raffleState === 'idle' || raffleState === 'duel_finished') {
-                      checkForWinner(currentParticipants);
                   }
               } else {
                   // Avoid redirecting if the component is unmounting or router is not ready
@@ -155,10 +155,17 @@
           };
         // eslint-disable-next-line react-hooks/exhaustive-deps
         }, []);
+
+        useEffect(() => {
+            if (raffleState === 'duel_finished' || (raffleState === 'idle' && participantsList.length > 0)) {
+                checkForWinner(participants);
+            }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [participants, raffleState]);
       
         
         const sortParticipants = () => {
-          if (raffleState === 'shuffling') return;
+          if (raffleState === 'shuffling' || raffleState === 'game_over') return;
           
           setDisputeState({ type: 'RESET' });
           setCurrentWords(null);
@@ -256,25 +263,15 @@
           });
       
           const winnerUpdate = { ...duelWinner, stars: newStars };
-          const loserUpdate = { ...duelLoser, eliminated: true };
-          
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
           setTimeout(async () => {
               await update(ref(database), updates);
-      
-              setParticipants(prev => ({
-                  ...prev,
-                  [duelWinner.id]: winnerUpdate,
-                  [duelLoser.id]: loserUpdate,
-              }));
-              
               toast({
                   title: "Duelo Encerrado!",
                   description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
               });
-              
               setRaffleState('duel_finished');
           }, 4100);
         }
@@ -420,6 +417,18 @@
           if (!participants) {
             return <p className="text-center text-muted-foreground">Carregando...</p>;
           }
+
+          if (raffleState === 'game_over') {
+            return (
+              <div className="text-center flex flex-col items-center gap-6">
+                <h2 className="text-3xl font-bold">Fim da Disputa!</h2>
+                <p className="text-lg text-muted-foreground">O resultado está sendo exibido no projetor.</p>
+                <Button size="lg" onClick={() => router.push('/')}>
+                  <Trophy className="mr-2"/>Ir para o Início
+                </Button>
+              </div>
+            )
+          }
           
           if (raffleState === 'shuffling') {
             return (
@@ -438,10 +447,10 @@
                 <div className="text-lg text-muted-foreground">
                   <p>{activeParticipants.length} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={showFinalWinnerDialog || activeParticipants.length < 2}>
+                <Button size="lg" onClick={sortParticipants} disabled={raffleState !== 'idle' || activeParticipants.length < 2}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
-                {activeParticipants.length < 2 && !showFinalWinnerDialog && (
+                {activeParticipants.length < 2 && raffleState === 'idle' && (
                    <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
                 )}
               </div>
@@ -643,7 +652,7 @@
                 </div>
               </div>
       
-              <AlertDialog open={showFinalWinnerDialog} onOpenChange={setShowFinalWinnerDialog}>
+              <AlertDialog open={showFinalWinnerDialog} onOpenChange={(isOpen) => { if (!isOpen) setRaffleState('game_over'); setShowFinalWinnerDialog(isOpen);}}>
                   <AlertDialogContent>
                       <AlertDialogHeader>
                       <AlertDialogTitle className="text-center text-3xl font-bold">A disputa acabou!</AlertDialogTitle>
