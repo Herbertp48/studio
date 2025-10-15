@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Maximize } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
-import type { Participant } from '@/app/(app)/page';
+import type { Participant } from '@/app/page';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { AggregatedWinner } from '@/app/ganhadores/page';
@@ -207,6 +207,7 @@ export default function ProjectionPage() {
     const [view, setView] = useState<ViewState>('idle');
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
+    const [appSettings, setAppSettings] = useState({ messageDisplayTime: 4000, shufflingSpeed: 150 });
 
     // State for Duel View
     const [duelState, setDuelState] = useState({
@@ -245,6 +246,17 @@ export default function ProjectionPage() {
 
     useEffect(() => {
         if (!isReady) return;
+        
+        const settingsRef = ref(database, 'settings');
+        const unsubSettings = onValue(settingsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                setAppSettings({
+                    messageDisplayTime: (data.messageDisplayTime || 4) * 1000,
+                    shufflingSpeed: data.shufflingSpeed || 150
+                });
+            }
+        });
 
         const templatesRef = ref(database, 'message_templates');
         const unsubDesigns = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
@@ -260,6 +272,7 @@ export default function ProjectionPage() {
         });
 
         return () => {
+            unsubSettings();
             unsubDesigns();
             unsubDispute();
         };
@@ -320,7 +333,9 @@ export default function ProjectionPage() {
                     wordsPerRound: action.payload.wordsPerRound || 1,
                     showWord: false,
                 }));
-                playSound('sinos.mp3');
+                if (action.payload.participantA) {
+                    playSound('sinos.mp3');
+                }
                 isProcessingActionRef.current = false;
                 break;
 
@@ -345,7 +360,22 @@ export default function ProjectionPage() {
             case 'SHOW_MESSAGE':
                  setView('message');
                  playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
-                 messageTimeoutRef.current = setTimeout(resetToIdle, 4000);
+                 messageTimeoutRef.current = setTimeout(() => {
+                    if (action.type === 'WORD_WINNER') {
+                        // After showing WORD_WINNER message, go back to duel view with updated score
+                        setView('duel');
+                         setDuelState(prev => ({
+                            ...prev,
+                            showWord: false,
+                            duelScore: action.payload.duelScore
+                        }));
+                        setCurrentAction(null);
+                        isProcessingActionRef.current = false;
+                    } else if (action.type !== 'DUEL_WINNER' && action.type !== 'FINAL_WINNER') {
+                        resetToIdle();
+                    }
+                    // For DUEL_WINNER and FINAL_WINNER, we wait for the next action from the controller
+                 }, appSettings.messageDisplayTime);
                 break;
 
             case 'SHOW_WINNERS':
@@ -375,7 +405,7 @@ export default function ProjectionPage() {
             shufflingIntervalRef.current = setInterval(() => {
                 const shuffled = [...participants].sort(() => 0.5 - Math.random());
                 setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
-            }, 150);
+            }, appSettings.shufflingSpeed);
         }
     };
 
