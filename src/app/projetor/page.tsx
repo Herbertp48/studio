@@ -150,39 +150,29 @@ const MessageView = ({ action, templates }: { action: DisputeAction, templates: 
 }
 
 const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
-    const containerStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: '300px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '100%',
-        maxWidth: '64rem',
-    };
-
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
             transition={{ duration: 0.7, ease: 'easeOut' }}
-            style={containerStyle} 
-            className="text-center text-white"
+            className="w-full max-w-4xl"
         >
-             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full">
+             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full text-white">
                 <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
-                <table className="w-full text-2xl">
+                <table className="w-full text-2xl text-left">
                     <thead>
                         <tr className="border-b-4 border-accent">
-                            <th className="p-4 text-left font-melison text-4xl">Nome</th>
-                            <th className="p-4 text-left font-melison text-4xl">Palavras Acertadas</th>
+                            <th className="p-4 font-melison text-4xl">Nome</th>
+                            <th className="p-4 font-melison text-4xl">Palavras Acertadas</th>
                             <th className="p-4 text-center font-melison text-4xl">Estrelas</th>
                         </tr>
                     </thead>
                     <tbody>
                         {winners.map((winner, index) => (
                             <tr key={index} className="border-b-2 border-accent/50">
-                                <td className="p-4 text-left font-subjectivity font-bold">{winner.name}</td>
-                                <td className="p-4 text-left font-subjectivity text-xl">
+                                <td className="p-4 font-subjectivity font-bold">{winner.name}</td>
+                                <td className="p-4 font-subjectivity text-xl">
                                     {Object.entries(winner.words).map(([word, count]) => `${word} (x${count})`).join(', ')}
                                 </td>
                                 <td className="p-4 text-center">
@@ -429,7 +419,7 @@ export default function ProjectionPage() {
                 <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
                 <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
             </header>
-            <main className='w-full flex-1 flex flex-col justify-start items-center pt-16 px-8'>
+            <main className='w-full flex-1 flex flex-col justify-center items-center px-8'>
                 <AnimatePresence mode="wait">
                     {view === 'duel' && (
                         <DuelContent {...duelState} />
@@ -451,4 +441,3 @@ export default function ProjectionPage() {
     );
 }
 
-    
