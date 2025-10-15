@@ -158,7 +158,13 @@
 
         useEffect(() => {
             if (raffleState === 'duel_finished' || (raffleState === 'idle' && participantsList.length > 0)) {
-                checkForWinner(participants);
+                setTimeout(() => {
+                    get(ref(database, 'dispute/participants')).then(snapshot => {
+                      if (snapshot.exists()) {
+                        checkForWinner(snapshot.val());
+                      }
+                    });
+                }, 100);
             }
         // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [participants, raffleState]);
@@ -350,15 +356,6 @@
           setDuelWordsWon({ a: [], b: [] });
           setDisputeState({ type: 'RESET' });
           setRaffleState('idle'); 
-          
-          setTimeout(() => {
-            const dbRef = ref(database, 'dispute/participants');
-            get(dbRef).then(snapshot => {
-              if (snapshot.exists()) {
-                checkForWinner(snapshot.val());
-              }
-            });
-          }, 100);
         }
         
         const openProjection = () => {
@@ -447,7 +444,7 @@
                 <div className="text-lg text-muted-foreground">
                   <p>{activeParticipants.length} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={raffleState !== 'idle' || activeParticipants.length < 2}>
+                <Button size="lg" onClick={sortParticipants} disabled={activeParticipants.length < 2}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
                 {activeParticipants.length < 2 && raffleState === 'idle' && (
