@@ -1,4 +1,5 @@
 
+      
       'use client';
       
       import { useState, useEffect, useRef } from 'react';
@@ -158,17 +159,17 @@
 
         useEffect(() => {
             const currentParticipants = participants;
-            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
+            if (!currentParticipants || Object.keys(currentParticipants).length === 0 || raffleState === 'game_over') return;
 
             const activePs = Object.values(currentParticipants).filter(p => !p.eliminated);
             
-            if (activePs.length < 2 && raffleState !== 'game_over') {
+            if (activePs.length < 2) {
                  setTimeout(() => {
                     checkForWinner(currentParticipants);
                  }, 500); 
             }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [participants, raffleState]);
+        }, [participants]);
       
         
         const sortParticipants = () => {
@@ -314,7 +315,7 @@
               stars: 0
           });
       
-          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords } });
+          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords, duelScore } });
           toast({ title: 'Ponto Marcado!', description: `${wordWinner.name} venceu a disputa pela palavra "${currentWords[0]}"!` });
       
           setTimeout(() => {
@@ -448,7 +449,7 @@
                 <div className="text-lg text-muted-foreground">
                   <p>{activeParticipants.length} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={activeParticipants.length < 2}>
+                <Button size="lg" onClick={sortParticipants} disabled={activeParticipants.length < 2 && raffleState !== 'game_over'}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
                 {activeParticipants.length < 2 && (
@@ -553,7 +554,7 @@
                                   defaultValue="random" 
                                   onValueChange={(value: SortMode) => setSortMode(value)}
                                   className="flex items-center gap-4"
-                                  disabled={raffleState !== 'idle'}
+                                  disabled={raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'}
                               >
                                   <div className="flex items-center space-x-2">
                                       <RadioGroupItem value="random" id="r-random" />
@@ -584,12 +585,12 @@
                                   id="manual-reveal-switch"
                                   checked={manualReveal}
                                   onCheckedChange={setManualReveal}
-                                  disabled={raffleState !== 'idle'}
+                                  disabled={raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'}
                               />
                           </div>
                           <div className="flex flex-col space-y-2">
                               <Label>Alterar Lista de Palavras em Jogo:</Label>
-                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || raffleState !== 'idle'}>
+                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || (raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}>
                                   <SelectTrigger>
                                       <SelectValue placeholder="Selecione uma lista para alterar" />
                                   </SelectTrigger>
@@ -722,4 +723,6 @@
               </ProtectedRoute>
           )
       }
+    
+
     
