@@ -157,14 +157,15 @@
         }, []);
 
         useEffect(() => {
-            if (raffleState === 'duel_finished' || (raffleState === 'idle' && participantsList.length > 0)) {
-                setTimeout(() => {
-                    get(ref(database, 'dispute/participants')).then(snapshot => {
-                      if (snapshot.exists()) {
-                        checkForWinner(snapshot.val());
-                      }
-                    });
-                }, 100);
+            const currentParticipants = participants;
+            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return;
+
+            const activePs = Object.values(currentParticipants).filter(p => !p.eliminated);
+            
+            if (activePs.length < 2 && raffleState !== 'game_over') {
+                 setTimeout(() => {
+                    checkForWinner(currentParticipants);
+                 }, 500); 
             }
         // eslint-disable-next-line react-hooks/exhaustive-deps
         }, [participants, raffleState]);
@@ -214,37 +215,40 @@
         const sortWord = () => {
           setDisputeState({ type: 'HIDE_WORD' });
       
-          let currentAvailableWords = [...availableWords];
-          if (currentAvailableWords.length === 0) {
-              toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
-              currentAvailableWords = [...originalWords];
+          let sortedWord: string | undefined;
+      
+          if (sortMode === 'sequential') {
+              let currentAvailableWords = [...availableWords];
+              if (currentAvailableWords.length === 0) {
+                  toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
+                  currentAvailableWords = [...originalWords];
+              }
+      
+              if (currentAvailableWords.length > 0) {
+                  sortedWord = currentAvailableWords.shift();
+                  setAvailableWords(currentAvailableWords);
+                  set(ref(database, 'dispute/words'), currentAvailableWords);
+              }
+          } else { // random mode
+              if (originalWords.length > 0) {
+                  const wordIndex = Math.floor(Math.random() * originalWords.length);
+                  sortedWord = originalWords[wordIndex];
+              }
           }
-          
-          if (currentAvailableWords.length === 0) {
+      
+          if (!sortedWord) {
               toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
               return;
           }
       
-          let sortedWord: string;
-          if (sortMode === 'sequential') {
-              sortedWord = currentAvailableWords.shift()!;
-          } else {
-              const wordIndex = Math.floor(Math.random() * currentAvailableWords.length);
-              [sortedWord] = currentAvailableWords.splice(wordIndex, 1);
-          }
-          
           const wordsToDraw = [sortedWord];
-          setAvailableWords(currentAvailableWords);
-          set(ref(database, 'dispute/words'), currentAvailableWords);
+          setCurrentWords(wordsToDraw);
       
-          if (wordsToDraw.length > 0) {
-            setCurrentWords(wordsToDraw);
-            if (manualReveal) {
-                setRaffleState('word_preview');
-            } else {
-                setRaffleState('word_sorted');
-                setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore } });
-            }
+          if (manualReveal) {
+              setRaffleState('word_preview');
+          } else {
+              setRaffleState('word_sorted');
+              setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore } });
           }
         };
       
@@ -264,7 +268,7 @@
           const starWinnerEntryRef = push(ref(database, 'winners'));
           await set(starWinnerEntryRef, {
               name: duelWinner.name,
-              word: `Duelo Vencido (+1 Estrela)`,
+              word: 'Duelo Vencido',
               stars: 1 
           });
       
@@ -447,7 +451,7 @@
                 <Button size="lg" onClick={sortParticipants} disabled={activeParticipants.length < 2}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
-                {activeParticipants.length < 2 && raffleState === 'idle' && (
+                {activeParticipants.length < 2 && (
                    <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
                 )}
               </div>
