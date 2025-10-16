@@ -214,43 +214,43 @@
         };
       
         const sortWord = () => {
-          setDisputeState({ type: 'HIDE_WORD' });
-      
-          let sortedWord: string | undefined;
-      
-          if (sortMode === 'sequential') {
-              let currentAvailableWords = [...availableWords];
-              if (currentAvailableWords.length === 0) {
-                  toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
-                  currentAvailableWords = [...originalWords];
-              }
-      
-              if (currentAvailableWords.length > 0) {
-                  sortedWord = currentAvailableWords.shift();
-                  setAvailableWords(currentAvailableWords);
-                  set(ref(database, 'dispute/words'), currentAvailableWords);
-              }
-          } else { // random mode
-              if (originalWords.length > 0) {
-                  const wordIndex = Math.floor(Math.random() * originalWords.length);
-                  sortedWord = originalWords[wordIndex];
-              }
-          }
-      
-          if (!sortedWord) {
-              toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
-              return;
-          }
-      
-          const wordsToDraw = [sortedWord];
-          setCurrentWords(wordsToDraw);
-      
-          if (manualReveal) {
-              setRaffleState('word_preview');
-          } else {
-              setRaffleState('word_sorted');
-              setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore } });
-          }
+            setDisputeState({ type: 'HIDE_WORD' });
+        
+            let sortedWord: string | undefined;
+        
+            if (sortMode === 'random') {
+                if (originalWords.length > 0) {
+                    const wordIndex = Math.floor(Math.random() * originalWords.length);
+                    sortedWord = originalWords[wordIndex];
+                }
+            } else { // sequential mode
+                let currentAvailableWords = [...availableWords];
+                if (currentAvailableWords.length === 0) {
+                    toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
+                    currentAvailableWords = [...originalWords];
+                }
+        
+                if (currentAvailableWords.length > 0) {
+                    sortedWord = currentAvailableWords.shift();
+                    setAvailableWords(currentAvailableWords);
+                    set(ref(database, 'dispute/words'), currentAvailableWords);
+                }
+            }
+        
+            if (!sortedWord) {
+                toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
+                return;
+            }
+        
+            const wordsToDraw = [sortedWord];
+            setCurrentWords(wordsToDraw);
+        
+            if (manualReveal) {
+                setRaffleState('word_preview');
+            } else {
+                setRaffleState('word_sorted');
+                setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore } });
+            }
         };
       
         const revealWord = () => {
@@ -554,7 +554,7 @@
                                   defaultValue="random" 
                                   onValueChange={(value: SortMode) => setSortMode(value)}
                                   className="flex items-center gap-4"
-                                  disabled={raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'}
+                                  disabled={(raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}
                               >
                                   <div className="flex items-center space-x-2">
                                       <RadioGroupItem value="random" id="r-random" />
@@ -585,12 +585,12 @@
                                   id="manual-reveal-switch"
                                   checked={manualReveal}
                                   onCheckedChange={setManualReveal}
-                                  disabled={raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'}
+                                  disabled={(raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}
                               />
                           </div>
                           <div className="flex flex-col space-y-2">
                               <Label>Alterar Lista de Palavras em Jogo:</Label>
-                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || (raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}>
+                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || ((raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'))}>
                                   <SelectTrigger>
                                       <SelectValue placeholder="Selecione uma lista para alterar" />
                                   </SelectTrigger>
@@ -723,6 +723,4 @@
               </ProtectedRoute>
           )
       }
-    
-
     
