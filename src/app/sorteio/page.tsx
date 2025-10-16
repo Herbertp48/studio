@@ -1,4 +1,5 @@
 
+
       
       'use client';
       
@@ -117,15 +118,19 @@
           const unsubscribe = onValue(disputeRef, (snapshot) => {
               const data = snapshot.val();
               if (data && data.participants) {
-                  setParticipants(data.participants || {});
+                  const currentParticipants = data.participants || {};
+                  setParticipants(currentParticipants);
                   if (data.words) {
                     setAvailableWords(data.words);
                     if (originalWords.length === 0 && data.words.length > 0) {
                         setOriginalWords(data.words);
                     }
                   }
+                  // Check for winner only when participants data changes and we are not already in game over state.
+                  if (raffleState !== 'game_over' && checkForWinner(currentParticipants)) {
+                      // Winner found, state is updated inside checkForWinner
+                  }
               } else {
-                  // Avoid redirecting if the component is unmounting or router is not ready
                   if(router) {
                     toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
                     router.push('/disputa');
@@ -164,12 +169,13 @@
             const activePs = Object.values(currentParticipants).filter(p => !p.eliminated);
             
             if (activePs.length < 2) {
+                 // Use a small timeout to ensure the final state update from a duel is processed
                  setTimeout(() => {
                     checkForWinner(currentParticipants);
                  }, 500); 
             }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [participants]);
+        }, [participants, raffleState]);
       
         
         const sortParticipants = () => {
@@ -214,14 +220,26 @@
         };
       
         const sortWord = () => {
+            if (raffleState === 'shuffling' || raffleState === 'game_over' || !currentDuel) return;
+        
             setDisputeState({ type: 'HIDE_WORD' });
         
             let sortedWord: string | undefined;
         
             if (sortMode === 'random') {
                 if (originalWords.length > 0) {
-                    const wordIndex = Math.floor(Math.random() * originalWords.length);
-                    sortedWord = originalWords[wordIndex];
+                    let newWord;
+                    const lastWord = currentWords?.[0];
+                    // Ensure the new word is different from the last one, if possible
+                    if (originalWords.length > 1 && lastWord) {
+                        do {
+                            newWord = originalWords[Math.floor(Math.random() * originalWords.length)];
+                        } while (newWord === lastWord);
+                        sortedWord = newWord;
+                    } else {
+                        // If only one word exists, or it's the first word, just pick one
+                        sortedWord = originalWords[Math.floor(Math.random() * originalWords.length)];
+                    }
                 }
             } else { // sequential mode
                 let currentAvailableWords = [...availableWords];
@@ -249,7 +267,7 @@
                 setRaffleState('word_preview');
             } else {
                 setRaffleState('word_sorted');
-                setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel?.participantA, participantB: currentDuel?.participantB, duelScore } });
+                setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore } });
             }
         };
       
@@ -275,8 +293,10 @@
       
           const winnerUpdate = { ...duelWinner, stars: newStars };
           const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
+          
           setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
           
+          // Use a timeout to allow the message to be displayed before updating the state
           setTimeout(async () => {
               await update(ref(database), updates);
               toast({
@@ -284,6 +304,7 @@
                   description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
               });
               setRaffleState('duel_finished');
+              checkForWinner({ ...participants, [duelWinner.id]: { ...duelWinner, stars: newStars }, [duelLoser.id]: { ...duelLoser, eliminated: true } });
           }, 4100);
         }
       
@@ -314,19 +335,23 @@
               word: currentWords[0],
               stars: 0
           });
-      
-          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords, duelScore } });
+          
+          const newScore = { ...duelScore };
+          if (wordWinnerId === currentDuel.participantA.id) {
+            newScore.a++;
+          } else {
+            newScore.b++;
+          }
+
+          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords, duelScore: newScore } });
           toast({ title: 'Ponto Marcado!', description: `${wordWinner.name} venceu a disputa pela palavra "${currentWords[0]}"!` });
       
           setTimeout(() => {
-              const newScore = { ...duelScore };
               const newWordsWon = { ...duelWordsWon };
       
               if (wordWinnerId === currentDuel.participantA.id) {
-                  newScore.a++;
                   newWordsWon.a.push(currentWords[0]);
               } else {
-                  newScore.b++;
                   newWordsWon.b.push(currentWords[0]);
               }
       
@@ -449,10 +474,10 @@
                 <div className="text-lg text-muted-foreground">
                   <p>{activeParticipants.length} participantes ativos</p>
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={activeParticipants.length < 2 && raffleState !== 'game_over'}>
+                <Button size="lg" onClick={sortParticipants} disabled={raffleState !== 'idle'}>
                   <Dices className="mr-2"/>Sortear Participantes
                 </Button>
-                {activeParticipants.length < 2 && (
+                {activeParticipants.length < 2 && raffleState === 'idle' && (
                    <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
                 )}
               </div>
@@ -630,6 +655,7 @@
                            {participantsList.map(p => {
                             const getStatus = () => {
                                 if (p.eliminated) return <Badge variant="destructive">Eliminado</Badge>;
+                                if (currentDuel && (p.id === currentDuel.participantA.id || p.id === currentDuel.participantB.id)) return <Badge variant="default">Duelando</Badge>;
                                 if (playedInRound.includes(p.id)) return <Badge variant="secondary">Aguardando</Badge>;
                                 return <Badge>Ativo</Badge>
                             }
