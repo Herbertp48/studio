@@ -17,6 +17,7 @@ export function AppHeader() {
 
   const navItems = [
     { href: '/', label: 'Início', icon: Home, requiredPermission: 'inicio' },
+    { href: '/salas', label: 'Salas', icon: Users, requiredPermission: 'disputa' },
     { href: '/disputa', label: 'Disputa', icon: List, requiredPermission: 'disputa' },
     { href: '/sorteio', label: 'Sorteio', icon: Dices, requiredPermission: 'sorteio' },
     { href: '/ganhadores', label: 'Ganhadores', icon: Trophy, requiredPermission: 'ganhadores' },
