@@ -422,7 +422,7 @@
       
       export default function UsersPage() {
           return (
-              <ProtectedRoute page="admin">
+              <ProtectedRoute page="inicio">
                   <UsersPageContent/>
               </ProtectedRoute>
           )
