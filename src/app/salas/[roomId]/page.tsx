@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, Trash2, PlusCircle, Upload, Play, Search } from 'lucide-react';
+import { Users, Trash2, PlusCircle, Upload, Play, Search, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
 import { ref, set, onValue, push, remove as removeDb, update, get, child } from 'firebase/database';
@@ -69,6 +69,9 @@ function RoomDetailPageContent() {
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [roomName, setRoomName] = useState('');
+  const [globalGroups, setGlobalGroups] = useState<ParticipantGroup[]>([]);
+  const [isLinkGroupDialogOpen, setIsLinkGroupDialogOpen] = useState(false);
+  const [selectedGlobalGroupId, setSelectedGlobalGroupId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -115,9 +118,26 @@ function RoomDetailPageContent() {
       }
     });
 
+    // Listen to global participant groups
+    const globalGroupsRef = ref(database, 'participant-groups');
+    const unsubscribeGlobalGroups = onValue(globalGroupsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const groups: ParticipantGroup[] = Object.entries(data).map(([id, group]: [string, any]) => ({
+          id,
+          name: group.name,
+          participants: group.participants || {},
+        }));
+        setGlobalGroups(groups);
+      } else {
+        setGlobalGroups([]);
+      }
+    });
+
     return () => {
       unsubscribeRoom();
       unsubscribeGroups();
+      unsubscribeGlobalGroups();
     };
   }, [roomId]);
 
@@ -216,6 +236,39 @@ function RoomDetailPageContent() {
     }
   };
 
+  const handleLinkGlobalGroup = () => {
+    if (!selectedGlobalGroupId) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo global para vincular.' });
+      return;
+    }
+
+    const globalGroup = globalGroups.find(g => g.id === selectedGlobalGroupId);
+    if (!globalGroup) return;
+
+    // Create a copy of the global group in this room
+    const newGroupRef = push(ref(database, `rooms/${roomId}/participant-groups`));
+    
+    // Copy participants with new IDs
+    const participantsCopy: { [key: string]: Participant } = {};
+    Object.values(globalGroup.participants || {}).forEach(participant => {
+      const newParticipantRef = push(ref(database, `rooms/${roomId}/participant-groups/${newGroupRef.key}/participants`));
+      const newParticipantId = newParticipantRef.key!;
+      participantsCopy[newParticipantId] = {
+        ...participant,
+        id: newParticipantId
+      };
+    });
+
+    set(newGroupRef, {
+      name: `${globalGroup.name} (Vinculado)`,
+      participants: participantsCopy
+    });
+
+    toast({ title: 'Sucesso!', description: `Grupo "${globalGroup.name}" vinculado à sala com sucesso!` });
+    setIsLinkGroupDialogOpen(false);
+    setSelectedGlobalGroupId('');
+  };
+
   const startDispute = () => {
     if (!selectedGroupId) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de participantes.' });
@@ -263,28 +316,67 @@ function RoomDetailPageContent() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center gap-2"><Users /> Grupos</div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Novo</Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Criar Novo Grupo</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          <Input 
-                            placeholder="Nome do novo grupo"
-                            value={newGroupName}
-                            onChange={(e) => setNewGroupName(e.target.value)}
-                            className="mt-4"
-                          />
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleCreateGroup} disabled={!newGroupName.trim()}>Criar</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex gap-2">
+                    <Dialog open={isLinkGroupDialogOpen} onOpenChange={setIsLinkGroupDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm"><LinkIcon className="mr-2 h-4 w-4" /> Vincular</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Vincular Grupo Global</DialogTitle>
+                          <DialogDescription>
+                            Selecione um grupo global para copiar e vincular a esta sala.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          {globalGroups.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhum grupo global encontrado.</p>
+                          ) : (
+                            <Select value={selectedGlobalGroupId} onValueChange={setSelectedGlobalGroupId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione um grupo" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {globalGroups.map(group => (
+                                  <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="secondary">Cancelar</Button>
+                          </DialogClose>
+                          <Button onClick={handleLinkGlobalGroup} disabled={!selectedGlobalGroupId}>
+                            Vincular Grupo
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm"><PlusCircle className="mr-2" /> Novo</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Criar Novo Grupo</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            <Input 
+                              placeholder="Nome do novo grupo"
+                              value={newGroupName}
+                              onChange={(e) => setNewGroupName(e.target.value)}
+                              className="mt-4"
+                            />
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleCreateGroup} disabled={!newGroupName.trim()}>Criar</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
