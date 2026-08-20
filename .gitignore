@@ -1,1 +1,9 @@
-Nothing should be ignored based on the provided file changes. The added files are source code files (.tsx) which should not be ignored.
+```
+# Temporary files
+*.tmp
+*.backup
+
+# Backup and temporary files
+page.tsx.new
+*_backup.*
+```
