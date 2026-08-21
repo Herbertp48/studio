@@ -1,1 +1,3 @@
-Nothing should be ignored based on the provided file changes. The added files are source code files (.tsx) which should not be ignored.
+```
+node_modules/
+```
