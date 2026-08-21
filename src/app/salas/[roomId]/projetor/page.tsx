@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { Maximize } from 'lucide-react';
 import { database } from '@/lib/firebase';
@@ -8,7 +9,9 @@ import { ref, onValue } from 'firebase/database';
 import type { Participant } from '@/app/page';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import type { AggregatedWinner } from '@/app/ganhadores/page';
 import { motion, AnimatePresence } from 'framer-motion';
+
 
 type DisputeAction = {
     type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS' | 'SHOW_MESSAGE';
@@ -38,6 +41,8 @@ type MessageTemplates = {
 };
 
 type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
+
+// --- Sub-components for different views ---
 
 const DuelContent = ({
   participantA,
@@ -71,7 +76,7 @@ const DuelContent = ({
                 ))}
             </div>
         </div>
-
+        
         <div className="relative w-full flex-1 flex items-center justify-center">
             <div className="flex items-start justify-around w-full">
                 <div className="flex-1 text-center">
@@ -145,16 +150,59 @@ const MessageView = ({ action, templates }: { action: DisputeAction, templates: 
     );
 }
 
-export default function RoomProjectionPage() {
-    const params = useParams();
-    const roomId = params.roomId as string;
-    
+const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
+            className="w-full max-w-4xl"
+        >
+             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full text-white">
+                <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
+                <table className="w-full text-2xl text-left">
+                    <thead>
+                        <tr className="border-b-4 border-accent">
+                            <th className="p-4 font-melison text-4xl">Nome</th>
+                            <th className="p-4 font-melison text-4xl">Palavras Acertadas</th>
+                            <th className="p-4 text-center font-melison text-4xl">Estrelas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {winners.map((winner, index) => (
+                            <tr key={index} className="border-b-2 border-accent/50">
+                                <td className="p-4 font-subjectivity font-bold">{winner.name}</td>
+                                <td className="p-4 font-subjectivity text-xl">
+                                    {Object.entries(winner.words).map(([word, count]) => `${word} (x${count})`).join(', ')}
+                                </td>
+                                <td className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                        {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                            <span key={i} className="text-yellow-400 text-4xl">⭐</span>
+                                        ))}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             </div>
+        </motion.div>
+    );
+};
+
+
+export default function ProjectionPage() {
+  const params = useParams();
+  const roomId = params.roomId as string;
     const [isReady, setIsReady] = useState(false);
     const [view, setView] = useState<ViewState>('idle');
     const [templates, setTemplates] = useState<MessageTemplates | null>(null);
     const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
     const [appSettings, setAppSettings] = useState({ messageDisplayTime: 4000, shufflingSpeed: 150 });
 
+    // State for Duel View
     const [duelState, setDuelState] = useState({
         participantA: null as Participant | null,
         participantB: null as Participant | null,
@@ -163,14 +211,15 @@ export default function RoomProjectionPage() {
         duelScore: { a: 0, b: 0 },
         wordsPerRound: 1,
     });
-
+    
+    // State for Shuffling Animation
     const [shufflingParticipants, setShufflingParticipants] = useState<{a: Participant | null, b: Participant | null}>({ a: null, b: null });
 
     const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
     const isProcessingActionRef = useRef(false);
     const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+    
     useEffect(() => {
         const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
         soundFiles.forEach(file => {
@@ -190,7 +239,7 @@ export default function RoomProjectionPage() {
 
     useEffect(() => {
         if (!isReady) return;
-
+        
         const settingsRef = ref(database, 'settings');
         const unsubSettings = onValue(settingsRef, (snapshot) => {
             const data = snapshot.val();
@@ -205,7 +254,6 @@ export default function RoomProjectionPage() {
         const templatesRef = ref(database, 'message_templates');
         const unsubDesigns = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
 
-        // Listen to room-specific dispute state
         const disputeStateRef = ref(database, `rooms/${roomId}/dispute/state`);
         const unsubDispute = onValue(disputeStateRef, (snapshot) => {
             const newAction: DisputeAction | null = snapshot.val();
@@ -222,7 +270,7 @@ export default function RoomProjectionPage() {
             unsubDispute();
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReady, roomId]);
+    }, [isReady]);
 
     const playSound = (soundFile: string, loop = false) => {
         Object.values(sounds.current).forEach(sound => {
@@ -244,7 +292,7 @@ export default function RoomProjectionPage() {
             shufflingIntervalRef.current = null;
         }
     };
-
+    
     const handleEnterFullscreen = () => {
         if (isReady) return;
         Object.values(sounds.current).forEach(sound => {
@@ -259,9 +307,9 @@ export default function RoomProjectionPage() {
             clearTimeout(messageTimeoutRef.current);
             messageTimeoutRef.current = null;
         }
-
+        
         setCurrentAction(action);
-
+        
         switch (action.type) {
             case 'SHUFFLING_PARTICIPANTS':
                 setView('shuffling');
@@ -313,16 +361,17 @@ export default function RoomProjectionPage() {
                     }
                  }, appSettings.messageDisplayTime);
                 break;
-
+            
             case 'FINAL_WINNER':
                 setView('message');
                 playSound('vencedor.mp3');
+                // Don't set a timeout, keep the winner message on screen
                 break;
 
             case 'SHOW_WINNERS':
                 setView('winners');
                 break;
-
+            
             case 'RESET':
                 resetToIdle();
                 break;
@@ -375,6 +424,11 @@ export default function RoomProjectionPage() {
                     )}
                     {view === 'shuffling' && (
                          <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
+                    )}
+                    {view === 'winners' && currentAction?.payload?.winners && (
+                        <div className="flex justify-center items-center w-full h-full">
+                            <WinnersTable winners={currentAction.payload.winners} />
+                        </div>
                     )}
                 </AnimatePresence>
             </main>
