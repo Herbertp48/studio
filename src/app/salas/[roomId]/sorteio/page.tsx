@@ -44,13 +44,12 @@
           payload?: any;
       }
       
-      const setDisputeState = (state: DisputeState | null) => {
-          set(ref(database, `rooms/${roomId}/dispute/state`), state);
-      }
-      
       function RafflePageContent() {
         const params = useParams();
         const roomId = params.roomId as string;
+                const setDisputeState = (state: DisputeState | null) => {
+                    set(ref(database, `rooms/${roomId}/dispute/state`), state);
+                };
         const [availableWords, setAvailableWords] = useState<string[]>([]);
         const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
         const [wordLists, setWordLists] = useState<WordList[]>([]);
@@ -283,8 +282,8 @@
           const updates: { [key: string]: any } = {};
           const newStars = (duelWinner.stars || 0) + 1;
       
-          updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
-          updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
+          updates[`/rooms/${roomId}/dispute/participants/${duelWinner.id}/stars`] = newStars;
+          updates[`/rooms/${roomId}/dispute/participants/${duelLoser.id}/eliminated`] = true;
           
           const starWinnerEntryRef = push(ref(database, `rooms/${roomId}/winners`));
           await set(starWinnerEntryRef, {
@@ -415,9 +414,9 @@
           
               participantsList.forEach(p => {
                    if (finalistIds.includes(p.id)) {
-                      updates[`/dispute/participants/${p.id}/eliminated`] = false;
+                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = false;
                   } else if (!p.eliminated) {
-                      updates[`/dispute/participants/${p.id}/eliminated`] = true;
+                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = true;
                   }
               });
       
