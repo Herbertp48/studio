@@ -4,7 +4,7 @@
       'use client';
       
       import { useState, useEffect, useRef } from 'react';
-      import { useRouter, useParams } from 'next/navigation';
+      import { useRouter } from 'next/navigation';
       import { AppHeader } from '@/components/app/header';
       import type { Participant } from '@/app/page';
       import { Button } from '@/components/ui/button';
@@ -44,12 +44,11 @@
           payload?: any;
       }
       
+      const setDisputeState = (state: DisputeState | null) => {
+          set(ref(database, 'dispute/state'), state);
+      }
+      
       function RafflePageContent() {
-        const params = useParams();
-        const roomId = params.roomId as string;
-                const setDisputeState = (state: DisputeState | null) => {
-                    set(ref(database, `rooms/${roomId}/dispute/state`), state);
-                };
         const [availableWords, setAvailableWords] = useState<string[]>([]);
         const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
         const [wordLists, setWordLists] = useState<WordList[]>([]);
@@ -134,7 +133,7 @@
               } else {
                   if(router) {
                     toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
-                    router.push(`/salas/${roomId}/sorteio`);
+                    router.push('/disputa');
                   }
               }
           });
@@ -252,7 +251,7 @@
                 if (currentAvailableWords.length > 0) {
                     sortedWord = currentAvailableWords.shift();
                     setAvailableWords(currentAvailableWords);
-                    set(ref(database, `rooms/${roomId}/dispute/words`), currentAvailableWords);
+                    set(ref(database, 'dispute/words'), currentAvailableWords);
                 }
             }
         
@@ -390,7 +389,7 @@
         }
         
         const openProjection = () => {
-          window.open(`/salas/${roomId}/projetor`, '_blank', 'width=1920,height=1080');
+          window.open('/projetor', '_blank', 'width=1920,height=1080');
         }
       
         const handleWordListChange = (listId: string) => {
@@ -399,7 +398,7 @@
               const newWords = selectedList.words || [];
               setAvailableWords(newWords);
               setOriginalWords(newWords);
-              set(ref(database, `rooms/${roomId}/dispute/words`), newWords);
+              set(ref(database, 'dispute/words'), newWords);
               toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
           }
         };
@@ -451,7 +450,7 @@
               <div className="text-center flex flex-col items-center gap-6">
                 <h2 className="text-3xl font-bold">Fim da Disputa!</h2>
                 <p className="text-lg text-muted-foreground">O resultado está sendo exibido no projetor.</p>
-                <Button size="lg" onClick={() => router.push(`/salas/${roomId}`)}>
+                <Button size="lg" onClick={() => router.push('/')}>
                   <Trophy className="mr-2"/>Ir para o Início
                 </Button>
               </div>
@@ -729,11 +728,11 @@
                                       <RefreshCw className="mr-2" /> Iniciar Desempate
                                   </AlertDialogAction>
                                   <AlertDialogAction asChild className="w-full sm:w-auto">
-                                    <Button variant="outline" onClick={() => router.push(`/salas/${roomId}`)}>Voltar para o Início</Button>
+                                    <Button variant="outline" onClick={() => router.push('/')}>Voltar para o Início</Button>
                                   </AlertDialogAction>
                               </>
                           ) : (
-                              <AlertDialogAction className="w-full" onClick={() => router.push(`/salas/${roomId}`)}>Voltar para o Início</AlertDialogAction>
+                              <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
                           )}
                       </AlertDialogFooter>
                   </AlertDialogContent>
