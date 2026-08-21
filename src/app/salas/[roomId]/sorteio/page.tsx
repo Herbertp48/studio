@@ -44,14 +44,13 @@
           payload?: any;
       }
       
-      const params = useParams();
-      const roomId = params.roomId as string;
-
-      const setRoomDisputeState = (state: DisputeState | null) => {
+      const setDisputeState = (state: DisputeState | null) => {
           set(ref(database, `rooms/${roomId}/dispute/state`), state);
       }
       
       function RafflePageContent() {
+        const params = useParams();
+        const roomId = params.roomId as string;
         const [availableWords, setAvailableWords] = useState<string[]>([]);
         const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
         const [wordLists, setWordLists] = useState<WordList[]>([]);
@@ -74,8 +73,6 @@
       
         const { toast } = useToast();
         const router = useRouter();
-        const params = useParams();
-        const roomId = params.roomId as string;
       
         const participantsList = Object.values(participants).sort((a, b) => b.stars - a.stars);
         const activeParticipants = participantsList.filter(p => !p.eliminated);
@@ -138,7 +135,7 @@
               } else {
                   if(router) {
                     toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
-                    router.push(`/salas/${roomId}`);
+                    router.push(`/salas/${roomId}/sorteio`);
                   }
               }
           });
@@ -286,8 +283,8 @@
           const updates: { [key: string]: any } = {};
           const newStars = (duelWinner.stars || 0) + 1;
       
-          updates[`/rooms/${roomId}/dispute/participants/${duelWinner.id}/stars`] = newStars;
-          updates[`/rooms/${roomId}/dispute/participants/${duelLoser.id}/eliminated`] = true;
+          updates[`/dispute/participants/${duelWinner.id}/stars`] = newStars;
+          updates[`/dispute/participants/${duelLoser.id}/eliminated`] = true;
           
           const starWinnerEntryRef = push(ref(database, `rooms/${roomId}/winners`));
           await set(starWinnerEntryRef, {
@@ -418,9 +415,9 @@
           
               participantsList.forEach(p => {
                    if (finalistIds.includes(p.id)) {
-                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = false;
+                      updates[`/dispute/participants/${p.id}/eliminated`] = false;
                   } else if (!p.eliminated) {
-                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = true;
+                      updates[`/dispute/participants/${p.id}/eliminated`] = true;
                   }
               });
       
@@ -455,7 +452,7 @@
               <div className="text-center flex flex-col items-center gap-6">
                 <h2 className="text-3xl font-bold">Fim da Disputa!</h2>
                 <p className="text-lg text-muted-foreground">O resultado está sendo exibido no projetor.</p>
-                <Button size="lg" onClick={() => router.push('/')}>
+                <Button size="lg" onClick={() => router.push(`/salas/${roomId}`)}>
                   <Trophy className="mr-2"/>Ir para o Início
                 </Button>
               </div>
@@ -733,11 +730,11 @@
                                       <RefreshCw className="mr-2" /> Iniciar Desempate
                                   </AlertDialogAction>
                                   <AlertDialogAction asChild className="w-full sm:w-auto">
-                                    <Button variant="outline" onClick={() => router.push('/')}>Voltar para o Início</Button>
+                                    <Button variant="outline" onClick={() => router.push(`/salas/${roomId}`)}>Voltar para o Início</Button>
                                   </AlertDialogAction>
                               </>
                           ) : (
-                              <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
+                              <AlertDialogAction className="w-full" onClick={() => router.push(`/salas/${roomId}`)}>Voltar para o Início</AlertDialogAction>
                           )}
                       </AlertDialogFooter>
                   </AlertDialogContent>
