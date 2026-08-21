@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams } from 'next/navigation';
 import { Maximize } from 'lucide-react';
 import { database } from '@/lib/firebase';
 import { ref, onValue } from 'firebase/database';
