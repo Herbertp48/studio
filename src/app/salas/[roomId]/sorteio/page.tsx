@@ -4,7 +4,7 @@
       'use client';
       
       import { useState, useEffect, useRef } from 'react';
-      import { useRouter } from 'next/navigation';
+      import { useRouter, useParams } from 'next/navigation';
       import { AppHeader } from '@/components/app/header';
       import type { Participant } from '@/app/page';
       import { Button } from '@/components/ui/button';
@@ -44,8 +44,11 @@
           payload?: any;
       }
       
-      const setDisputeState = (state: DisputeState | null) => {
-          set(ref(database, 'dispute/state'), state);
+      const params = useParams();
+      const roomId = params.roomId as string;
+
+      const setRoomDisputeState = (state: DisputeState | null) => {
+          set(ref(database, `rooms/${roomId}/dispute/state`), state);
       }
       
       function RafflePageContent() {
@@ -71,6 +74,8 @@
       
         const { toast } = useToast();
         const router = useRouter();
+        const params = useParams();
+        const roomId = params.roomId as string;
       
         const participantsList = Object.values(participants).sort((a, b) => b.stars - a.stars);
         const activeParticipants = participantsList.filter(p => !p.eliminated);
