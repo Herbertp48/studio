@@ -99,7 +99,7 @@ function RoomsPageContent() {
   };
 
   const handleStartDispute = (roomId: string) => {
-    router.push(`/salas/${roomId}/disputa`);
+    router.push(`/salas/${roomId}`);
   };
 
   const handleViewOverview = (roomId: string) => {

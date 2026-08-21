@@ -9,11 +9,12 @@ import { AppHeader } from '../app/header';
 
 type ProtectedRouteProps = {
   children: React.ReactNode;
-  page: 'inicio' | 'disputa' | 'sorteio' | 'ganhadores' | 'admin';
+  page: 'inicio' | 'salas' | 'disputa' | 'sorteio' | 'ganhadores' | 'admin';
 };
 
 const pageNames = {
     inicio: "Início",
+    salas: "Salas",
     disputa: "Disputa",
     sorteio: "Sorteio",
     ganhadores: "Ganhadores",

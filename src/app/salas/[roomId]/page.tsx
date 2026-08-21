@@ -53,6 +53,12 @@ export type ParticipantGroup = {
   participants: { [key: string]: Participant };
 }
 
+type WordList = {
+  id: string;
+  name: string;
+  words: string[];
+}
+
 function RoomDetailPageContent() {
   const params = useParams();
   const roomId = params.roomId as string;
@@ -69,9 +75,14 @@ function RoomDetailPageContent() {
   const [editingParticipant, setEditingParticipant] = useState<Participant | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [roomName, setRoomName] = useState('');
+  const [roomWordLists, setRoomWordLists] = useState<WordList[]>([]);
   const [globalGroups, setGlobalGroups] = useState<ParticipantGroup[]>([]);
+  const [globalWordLists, setGlobalWordLists] = useState<WordList[]>([]);
   const [isLinkGroupDialogOpen, setIsLinkGroupDialogOpen] = useState(false);
+  const [isLinkWordListDialogOpen, setIsLinkWordListDialogOpen] = useState(false);
   const [selectedGlobalGroupId, setSelectedGlobalGroupId] = useState<string>('');
+  const [selectedGlobalWordListId, setSelectedGlobalWordListId] = useState<string>('');
+  const [selectedRoomWordListId, setSelectedRoomWordListId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -118,6 +129,23 @@ function RoomDetailPageContent() {
       }
     });
 
+    const roomWordListsRef = ref(database, `rooms/${roomId}/wordlists`);
+    const unsubscribeRoomWordLists = onValue(roomWordListsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
+          id,
+          name: list.name,
+          words: list.words || [],
+        }));
+        setRoomWordLists(lists);
+        setSelectedRoomWordListId(currentId => currentId || lists[0]?.id || '');
+      } else {
+        setRoomWordLists([]);
+        setSelectedRoomWordListId('');
+      }
+    });
+
     // Listen to global participant groups
     const globalGroupsRef = ref(database, 'participant-groups');
     const unsubscribeGlobalGroups = onValue(globalGroupsRef, (snapshot) => {
@@ -134,10 +162,28 @@ function RoomDetailPageContent() {
       }
     });
 
+    // Listen to global word lists
+    const globalWordListsRef = ref(database, 'wordlists');
+    const unsubscribeGlobalWordLists = onValue(globalWordListsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
+          id,
+          name: list.name,
+          words: list.words || [],
+        }));
+        setGlobalWordLists(lists);
+      } else {
+        setGlobalWordLists([]);
+      }
+    });
+
     return () => {
       unsubscribeRoom();
       unsubscribeGroups();
+      unsubscribeRoomWordLists();
       unsubscribeGlobalGroups();
+      unsubscribeGlobalWordLists();
     };
   }, [roomId]);
 
@@ -269,6 +315,27 @@ function RoomDetailPageContent() {
     setSelectedGlobalGroupId('');
   };
 
+  const handleLinkGlobalWordList = () => {
+    if (!selectedGlobalWordListId) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Selecione uma lista de palavras para vincular.' });
+      return;
+    }
+
+    const globalWordList = globalWordLists.find(list => list.id === selectedGlobalWordListId);
+    if (!globalWordList) return;
+
+    const newWordListRef = push(ref(database, `rooms/${roomId}/wordlists`));
+    set(newWordListRef, {
+      name: `${globalWordList.name} (Vinculada)`,
+      words: globalWordList.words || [],
+    });
+
+    toast({ title: 'Sucesso!', description: `Lista "${globalWordList.name}" vinculada à sala com sucesso!` });
+    setIsLinkWordListDialogOpen(false);
+    setSelectedRoomWordListId(newWordListRef.key || '');
+    setSelectedGlobalWordListId('');
+  };
+
   const startDispute = () => {
     if (!selectedGroupId) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Selecione um grupo de participantes.' });
@@ -277,6 +344,12 @@ function RoomDetailPageContent() {
     
     const selectedGroup = participantGroups.find(g => g.id === selectedGroupId);
     if (!selectedGroup) return;
+
+    const selectedWordList = roomWordLists.find(list => list.id === selectedRoomWordListId);
+    if (!selectedWordList || selectedWordList.words.length === 0) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Vincule uma lista de palavras com pelo menos uma palavra.' });
+      return;
+    }
 
     const activeParticipants = Object.values(selectedGroup.participants || {}).filter(p => !p.eliminated);
     
@@ -287,6 +360,7 @@ function RoomDetailPageContent() {
 
     // Initialize dispute for this room only
     set(ref(database, `rooms/${roomId}/dispute`), {
+      words: selectedWordList.words,
       participants: activeParticipants.reduce((acc, p) => {
         acc[p.id] = { ...p, stars: 0 };
         return acc;
@@ -350,6 +424,45 @@ function RoomDetailPageContent() {
                           </DialogClose>
                           <Button onClick={handleLinkGlobalGroup} disabled={!selectedGlobalGroupId}>
                             Vincular Grupo
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={isLinkWordListDialogOpen} onOpenChange={setIsLinkWordListDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm"><LinkIcon className="mr-2 h-4 w-4" /> Lista</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Vincular Lista de Palavras</DialogTitle>
+                          <DialogDescription>
+                            Selecione uma lista global para copiar e vincular a esta sala.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                          {globalWordLists.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Nenhuma lista de palavras encontrada.</p>
+                          ) : (
+                            <Select value={selectedGlobalWordListId} onValueChange={setSelectedGlobalWordListId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione uma lista" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {globalWordLists.map(list => (
+                                  <SelectItem key={list.id} value={list.id}>
+                                    {list.name} ({list.words.length} palavras)
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="secondary">Cancelar</Button>
+                          </DialogClose>
+                          <Button onClick={handleLinkGlobalWordList} disabled={!selectedGlobalWordListId}>
+                            Vincular Lista
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -418,7 +531,7 @@ function RoomDetailPageContent() {
               <Button 
                 className="w-full" 
                 onClick={startDispute}
-                disabled={!selectedGroupId}
+                disabled={!selectedGroupId || !selectedRoomWordListId}
               >
                 <Play className="mr-2 h-4 w-4" />
                 Iniciar Disputa

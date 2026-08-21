@@ -49,6 +49,7 @@
       
       const initialPermissions = {
         inicio: true,
+        salas: true,
         disputa: false,
         sorteio: false,
         ganhadores: false,
@@ -151,7 +152,7 @@
             const userDataToUpdate = {
               name,
               role,
-              permissions: role === 'admin' ? { inicio: true, disputa: true, sorteio: true, ganhadores: true } : permissions
+              permissions: role === 'admin' ? { inicio: true, salas: true, disputa: true, sorteio: true, ganhadores: true } : permissions
             }
       
             await updateUserData(uid, userDataToUpdate);
@@ -211,6 +212,7 @@
       
         const permissionLabels = {
           inicio: "Início (Gerenciar Grupos)",
+          salas: "Salas (Disputas Independentes)",
           disputa: "Disputa (Gerenciar Palavras)",
           sorteio: "Sorteio (Executar Disputa)",
           ganhadores: "Ganhadores (Ver/Exportar)"
