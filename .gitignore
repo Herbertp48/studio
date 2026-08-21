@@ -1,3 +1,61 @@
 ```
+# Next.js build outputs
+.next/
+out/
+
+# Environment variables
+.env.local
+.env
+.env.*
+
+# Dependencies
 node_modules/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Coverage reports
+coverage/
+htmlcov/
+*.coverage
+
+# Build artifacts
+dist/
+build/
+target/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.out
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Java specific
+*.class
+.gradle/
+build/
+
+# Temporary files
+*.tmp
+*~
 ```
