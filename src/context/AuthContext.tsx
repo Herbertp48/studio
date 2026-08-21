@@ -11,6 +11,7 @@ export interface UserPermissions {
     role: 'admin' | 'user';
     permissions: {
         inicio: boolean;
+        salas: boolean;
         disputa: boolean;
         sorteio: boolean;
         ganhadores: boolean;
@@ -19,6 +20,7 @@ export interface UserPermissions {
 
 const initialPermissions = {
   inicio: true,
+  salas: true,
   disputa: false,
   sorteio: false,
   ganhadores: false,
@@ -94,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions = {
             name,
             role: 'admin',
-            permissions: { inicio: true, disputa: true, sorteio: true, ganhadores: true },
+            permissions: { inicio: true, salas: true, disputa: true, sorteio: true, ganhadores: true },
         };
     } else {
         permissions = {

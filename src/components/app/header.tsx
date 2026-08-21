@@ -1,4 +1,4 @@
-import { Home, List, Dices, Trophy, LogOut, Users, User, Menu, Palette } from 'lucide-react';
+import { Home, List, Dices, Trophy, LogOut, Users, User, Menu, Palette, Projector } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/button';
 import { usePathname } from 'next/navigation';
@@ -14,8 +14,10 @@ export function AppHeader() {
   const { user, userPermissions, logout } = useAuth();
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const roomMatch = pathname.match(/^\/salas\/([^/]+)/);
+  const roomId = roomMatch?.[1];
 
-  const navItems = [
+  const globalNavItems = [
     { href: '/', label: 'Início', icon: Home, requiredPermission: 'inicio' },
     { href: '/salas', label: 'Salas', icon: Users, requiredPermission: 'disputa' },
     { href: '/disputa', label: 'Disputa', icon: List, requiredPermission: 'disputa' },
@@ -24,6 +26,13 @@ export function AppHeader() {
     { href: '/estudio', label: 'Estúdio', icon: Palette, requiredPermission: 'admin' },
     { href: '/usuarios', label: 'Usuários', icon: Users, requiredPermission: 'admin' },
   ];
+  const roomNavItems = roomId ? [
+    { href: `/salas/${roomId}`, label: 'Sala', icon: Users, requiredPermission: 'disputa' },
+    { href: `/salas/${roomId}/sorteio`, label: 'Disputa', icon: List, requiredPermission: 'disputa' },
+    { href: `/salas/${roomId}/ganhadores`, label: 'Ganhadores', icon: Trophy, requiredPermission: 'ganhadores' },
+    { href: `/salas/${roomId}/projetor`, label: 'Projetor', icon: Projector, requiredPermission: 'sorteio' },
+  ] : [];
+  const navItems = roomId ? roomNavItems : globalNavItems;
 
   const availableNavItems = navItems.filter(item => {
     if (!user) return false;
