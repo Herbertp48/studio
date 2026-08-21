@@ -1,752 +1,442 @@
 
+'use client';
 
-      
-      'use client';
-      
-      import { useState, useEffect, useRef } from 'react';
-      import { useRouter } from 'next/navigation';
-      import { AppHeader } from '@/components/app/header';
-      import type { Participant } from '@/app/page';
-      import { Button } from '@/components/ui/button';
-      import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-      import { Dices, Trophy, Crown, Star, RefreshCw, PartyPopper, Projector, Eye, ShieldAlert, Users } from 'lucide-react';
-      import { useToast } from '@/hooks/use-toast';
-      import {
-        AlertDialog,
-        AlertDialogAction,
-        AlertDialogContent,
-        AlertDialogDescription,
-        AlertDialogFooter,
-        AlertDialogHeader,
-        AlertDialogTitle,
-      } from "@/components/ui/alert-dialog"
-      import { database } from '@/lib/firebase';
-      import { ref, set, onValue, update, push, get } from 'firebase/database';
-      import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-      import { Label } from '@/components/ui/label';
-      import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-      import { Switch } from '@/components/ui/switch';
-      import ProtectedRoute from '@/components/auth/ProtectedRoute';
-      import { Input } from '@/components/ui/input';
-      import { ScrollArea } from '@/components/ui/scroll-area';
-      import { Badge } from '@/components/ui/badge';
-      
-      export type WordList = {
-          id: string;
-          name: string;
-          words: string[];
-      }
-      
-      type RaffleState = 'idle' | 'participants_sorted' | 'word_preview' | 'word_sorted' | 'word_finished' | 'duel_finished' | 'shuffling' | 'game_over';
-      type SortMode = 'random' | 'sequential';
-      type DisputeState = {
-          type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_MESSAGE';
-          payload?: any;
-      }
-      
-      const setDisputeState = (state: DisputeState | null) => {
-          set(ref(database, 'dispute/state'), state);
-      }
-      
-      function RafflePageContent() {
-        const [availableWords, setAvailableWords] = useState<string[]>([]);
-        const [participants, setParticipants] = useState<{ [key: string]: Participant }>({});
-        const [wordLists, setWordLists] = useState<WordList[]>([]);
-        
-        const [currentDuel, setCurrentDuel] = useState<{ participantA: Participant, participantB: Participant } | null>(null);
-        const [currentWords, setCurrentWords] = useState<string[] | null>(null);
-        const [raffleState, setRaffleState] = useState<RaffleState>('idle');
-        const [showFinalWinnerDialog, setShowFinalWinnerDialog] = useState(false);
-        const [finalWinners, setFinalWinners] = useState<Participant[]>([]);
-        const [isTie, setIsTie] = useState(false);
-      
-        const [sortMode, setSortMode] = useState<SortMode>('random');
-        const [manualReveal, setManualReveal] = useState(false);
-        const [originalWords, setOriginalWords] = useState<string[]>([]);
-        const [wordsPerRound, setWordsPerRound] = useState(1);
-        const [wordsPlayed, setWordsPlayed] = useState(0);
-        const [duelScore, setDuelScore] = useState({ a: 0, b: 0 });
-        const [duelWordsWon, setDuelWordsWon] = useState<{a: string[], b: string[]}>({a: [], b: []});
-        const [playedInRound, setPlayedInRound] = useState<string[]>([]);
-      
-        const { toast } = useToast();
-        const router = useRouter();
-      
-        const participantsList = Object.values(participants).sort((a, b) => b.stars - a.stars);
-        const activeParticipants = participantsList.filter(p => !p.eliminated);
-        const duelsInRoundTotal = Math.floor(activeParticipants.length / 2);
-        const duelsInRoundPlayed = Math.floor(playedInRound.length / 2);
-      
-        const checkForWinner = (currentParticipants: { [key: string]: Participant }) => {
-            if (!currentParticipants || Object.keys(currentParticipants).length === 0) return false;
-        
-            const activeParticipants = Object.values(currentParticipants).filter(p => !p.eliminated);
-        
-            if (activeParticipants.length < 2) {
-                const allParticipants = Object.values(currentParticipants);
-                const maxStars = Math.max(0, ...allParticipants.map(p => p.stars));
-                
-                if (maxStars === 0 && allParticipants.every(p => p.stars === 0)) {
-                    // Scenario where no one scored any stars.
-                    setFinalWinners([]);
-                    setIsTie(false);
-                    setDisputeState({ type: 'NO_WINNER' });
-                } else {
-                    const potentialWinners = allParticipants.filter(p => p.stars === maxStars);
-                    
-                    if (potentialWinners.length > 1) { // Tie
-                        setFinalWinners(potentialWinners);
-                        setIsTie(true);
-                        setDisputeState({ type: 'TIE_ANNOUNCEMENT', payload: { participants: potentialWinners } });
-                    } else if (potentialWinners.length === 1) { // Single Winner
-                        setFinalWinners(potentialWinners);
-                        setIsTie(false);
-                        setDisputeState({ type: 'FINAL_WINNER', payload: { finalWinner: potentialWinners[0] } });
-                    }
-                }
-                
-                setRaffleState('game_over');
-                setShowFinalWinnerDialog(true);
-                return true;
-            }
-            return false;
-        }
-      
-        useEffect(() => {
-          const disputeRef = ref(database, `rooms/${roomId}/dispute`);
-      
-          const unsubscribe = onValue(disputeRef, (snapshot) => {
-              const data = snapshot.val();
-              if (data && data.participants) {
-                  const currentParticipants = data.participants || {};
-                  setParticipants(currentParticipants);
-                  if (data.words) {
-                    setAvailableWords(data.words);
-                    if (originalWords.length === 0 && data.words.length > 0) {
-                        setOriginalWords(data.words);
-                    }
-                  }
-                  // Check for winner only when participants data changes and we are not already in game over state.
-                  if (raffleState !== 'game_over' && checkForWinner(currentParticipants)) {
-                      // Winner found, state is updated inside checkForWinner
-                  }
-              } else {
-                  if(router) {
-                    toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
-                    router.push('/disputa');
-                  }
-              }
-          });
-          
-          const wordListsRef = ref(database, `rooms/${roomId}/wordlists`);
-          const unsubscribeWords = onValue(wordListsRef, (snapshot) => {
-             const data = snapshot.val();
-             if (data) {
-              const lists: WordList[] = Object.entries(data).map(([id, list]: [string, any]) => ({
-                  id,
-                  name: list.name,
-                  words: list.words || [],
-              }));
-              setWordLists(lists);
-             } else {
-              setWordLists([]);
-             }
-          });
-      
-          setDisputeState({ type: 'RESET' });
-      
-          return () => {
-              unsubscribe();
-              unsubscribeWords();
-          };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, []);
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams } from 'next/navigation';
+import { Maximize } from 'lucide-react';
+import { database } from '@/lib/firebase';
+import { ref, onValue } from 'firebase/database';
+import type { Participant } from '@/app/page';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import type { AggregatedWinner } from '@/app/ganhadores/page';
+import { motion, AnimatePresence } from 'framer-motion';
 
-        useEffect(() => {
-            const currentParticipants = participants;
-            if (!currentParticipants || Object.keys(currentParticipants).length === 0 || raffleState === 'game_over') return;
 
-            const activePs = Object.values(currentParticipants).filter(p => !p.eliminated);
-            
-            if (activePs.length < 2) {
-                 // Use a small timeout to ensure the final state update from a duel is processed
-                 setTimeout(() => {
-                    checkForWinner(currentParticipants);
-                 }, 500); 
-            }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [participants, raffleState]);
-      
-        
-        const sortParticipants = () => {
-          if (raffleState === 'shuffling' || raffleState === 'game_over') return;
-          
-          setDisputeState({ type: 'RESET' });
-          setCurrentWords(null);
-      
-          let currentActiveParticipants = Object.values(participants).filter(p => !p.eliminated);
-      
-          if (currentActiveParticipants.length < 2) {
-            toast({ variant: "destructive", title: "Fim da Disputa", description: "Não há participantes ativos suficientes para uma nova rodada." });
-            checkForWinner(participants);
-            return;
-          }
+type DisputeAction = {
+    type: 'UPDATE_PARTICIPANTS' | 'SHOW_WORD' | 'HIDE_WORD' | 'WORD_WINNER' | 'DUEL_WINNER' | 'FINAL_WINNER' | 'RESET' | 'SHUFFLING_PARTICIPANTS' | 'TIE_ANNOUNCEMENT' | 'NO_WINNER' | 'NO_WORD_WINNER' | 'SHOW_WINNERS' | 'SHOW_MESSAGE';
+    payload?: any;
+};
 
-          let participantsToChooseFrom = currentActiveParticipants.filter(p => !playedInRound.includes(p.id));
+type TemplateStyle = {
+    backgroundColor: string;
+    textColor: string;
+    highlightColor: string;
+    highlightTextColor: string;
+    borderColor: string;
+    borderWidth: string;
+    borderRadius: string;
+    fontFamily: string;
+    fontSize: string;
+};
 
-          if (participantsToChooseFrom.length < 2) {
-              setPlayedInRound([]);
-              participantsToChooseFrom = currentActiveParticipants;
-              toast({ title: 'Nova Rodada de Sorteios', description: 'Todos os participantes já duelaram. A fila foi reiniciada.' });
-          }
-      
-          setRaffleState('shuffling');
-          setDisputeState({ type: 'SHUFFLING_PARTICIPANTS', payload: { activeParticipants: participantsToChooseFrom } });
-      
-          setTimeout(() => {
-              const shuffled = [...participantsToChooseFrom].sort(() => 0.5 - Math.random());
-              const participantA = shuffled[0];
-              const participantB = shuffled[1];
+type MessageTemplate = {
+    text: string;
+    styles: TemplateStyle;
+    enabled: boolean;
+};
 
-              setPlayedInRound(prev => [...prev, participantA.id, participantB.id]);
-      
-              setCurrentDuel({ participantA, participantB });
-              setWordsPlayed(0);
-              setDuelScore({a: 0, b: 0});
-              setDuelWordsWon({a: [], b: []});
-              setRaffleState('participants_sorted');
-              setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA, participantB, duelScore: {a: 0, b: 0}, wordsPerRound } });
-          }, 4000);
-        };
-      
-        const sortWord = () => {
-            if (raffleState === 'shuffling' || raffleState === 'game_over' || !currentDuel) return;
-        
-            setDisputeState({ type: 'HIDE_WORD' });
-        
-            let sortedWord: string | undefined;
-        
-            if (sortMode === 'random') {
-                if (originalWords.length > 0) {
-                    let newWord;
-                    const lastWord = currentWords?.[0];
-                    // Ensure the new word is different from the last one, if possible
-                    if (originalWords.length > 1 && lastWord) {
-                        do {
-                            newWord = originalWords[Math.floor(Math.random() * originalWords.length)];
-                        } while (newWord === lastWord);
-                        sortedWord = newWord;
-                    } else {
-                        // If only one word exists, or it's the first word, just pick one
-                        sortedWord = originalWords[Math.floor(Math.random() * originalWords.length)];
-                    }
-                }
-            } else { // sequential mode
-                let currentAvailableWords = [...availableWords];
-                if (currentAvailableWords.length === 0) {
-                    toast({ title: "Aviso", description: "Fim da lista de palavras, reiniciando." });
-                    currentAvailableWords = [...originalWords];
-                }
-        
-                if (currentAvailableWords.length > 0) {
-                    sortedWord = currentAvailableWords.shift();
-                    setAvailableWords(currentAvailableWords);
-                    set(ref(database, 'dispute/words'), currentAvailableWords);
-                }
-            }
-        
-            if (!sortedWord) {
-                toast({ variant: "destructive", title: "Erro", description: "Nenhuma palavra disponível para sorteio." });
-                return;
-            }
-        
-            const wordsToDraw = [sortedWord];
-            setCurrentWords(wordsToDraw);
-        
-            if (manualReveal) {
-                setRaffleState('word_preview');
-            } else {
-                setRaffleState('word_sorted');
-                setDisputeState({ type: 'SHOW_WORD', payload: { words: wordsToDraw, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore } });
-            }
-        };
-      
-        const revealWord = () => {
-          if (!currentWords || !currentDuel) return;
-          setRaffleState('word_sorted');
-          setDisputeState({ type: 'SHOW_WORD', payload: { words: currentWords, participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore } });
-        };
-        
-        const finishDuel = async (duelWinner: Participant, duelLoser: Participant) => {
-          const updates: { [key: string]: any } = {};
-          const newStars = (duelWinner.stars || 0) + 1;
-      
-          updates[`/rooms/${roomId}/dispute/participants/${duelWinner.id}/stars`] = newStars;
-          updates[`/rooms/${roomId}/dispute/participants/${duelLoser.id}/eliminated`] = true;
-          
-          const starWinnerEntryRef = push(ref(database, `rooms/${roomId}/winners`));
-          await set(starWinnerEntryRef, {
-              name: duelWinner.name,
-              word: 'Duelo Vencido',
-              stars: 1 
-          });
-      
-          const winnerUpdate = { ...duelWinner, stars: newStars };
-          const winnerWordsWon = duelWinner.id === currentDuel?.participantA.id ? duelWordsWon.a : duelWordsWon.b;
-          
-          setDisputeState({ type: 'DUEL_WINNER', payload: { winner: winnerUpdate, duelWordsWon: winnerWordsWon } });
-          
-          // Use a timeout to allow the message to be displayed before updating the state
-          setTimeout(async () => {
-              await update(ref(database), updates);
-              toast({
-                  title: "Duelo Encerrado!",
-                  description: `${duelWinner.name} venceu o duelo e ganhou uma estrela!`,
-              });
-              setRaffleState('duel_finished');
-              checkForWinner({ ...participants, [duelWinner.id]: { ...duelWinner, stars: newStars }, [duelLoser.id]: { ...duelLoser, eliminated: true } });
-          }, 4100);
-        }
-      
-        const handleDuelResult = (newScore: {a: number, b: number}, newWordsPlayed: number) => {
-          if (!currentDuel) return;
-          
-          const isDuelOver = newWordsPlayed >= wordsPerRound && newScore.a !== newScore.b;
-      
-          if (isDuelOver) {
-              const duelWinner = newScore.a > newScore.b ? currentDuel.participantA : currentDuel.participantB;
-              const duelLoser = newScore.a > newScore.b ? currentDuel.participantB : currentDuel.participantA;
-              finishDuel(duelWinner, duelLoser);
-          } else {
-              setRaffleState('word_finished');
-              setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA: currentDuel.participantA, participantB: currentDuel.participantB, duelScore: newScore, wordsPerRound } });
-              setCurrentWords(null);
-          }
-        };
-      
-        const handleWordWinner = async (wordWinnerId: string) => {
-          if (!currentDuel || !currentWords) return;
-      
-          const wordWinner = wordWinnerId === currentDuel.participantA.id ? currentDuel.participantA : currentDuel.participantB;
-          
-          const newWinnerEntryRef = push(ref(database, `rooms/${roomId}/winners`));
-          await set(newWinnerEntryRef, {
-              name: wordWinner.name,
-              word: currentWords[0],
-              stars: 0
-          });
-          
-          const newScore = { ...duelScore };
-          if (wordWinnerId === currentDuel.participantA.id) {
-            newScore.a++;
-          } else {
-            newScore.b++;
-          }
+type MessageTemplates = {
+    [key: string]: MessageTemplate;
+};
 
-          setDisputeState({ type: 'WORD_WINNER', payload: { winner: wordWinner, words: currentWords, duelScore: newScore } });
-          toast({ title: 'Ponto Marcado!', description: `${wordWinner.name} venceu a disputa pela palavra "${currentWords[0]}"!` });
-      
-          setTimeout(() => {
-              const newWordsWon = { ...duelWordsWon };
-      
-              if (wordWinnerId === currentDuel.participantA.id) {
-                  newWordsWon.a.push(currentWords[0]);
-              } else {
-                  newWordsWon.b.push(currentWords[0]);
-              }
-      
-              const newWordsPlayed = wordsPlayed + 1;
-              setWordsPlayed(newWordsPlayed);
-              setDuelScore(newScore);
-              setDuelWordsWon(newWordsWon);
-              
-              handleDuelResult(newScore, newWordsPlayed);
-          }, 4100);
-      };
-        
-        const handleNoWinner = async () => {
-          if (!currentWords || !currentDuel) return;
-      
-          setDisputeState({ type: 'NO_WORD_WINNER', payload: { words: currentWords } });
-          toast({ title: 'Palavra sem vencedor', description: 'Ninguém pontuou.' });
-          
-          setTimeout(() => {
-              const newWordsPlayed = wordsPlayed + 1;
-              setWordsPlayed(newWordsPlayed);
-      
-              handleDuelResult(duelScore, newWordsPlayed);
-          }, 4100);
-        }
-      
-        const nextRound = () => {
-          setCurrentDuel(null);
-          setCurrentWords(null);
-          setDuelScore({ a: 0, b: 0 });
-          setWordsPlayed(0);
-          setDuelWordsWon({ a: [], b: [] });
-          setDisputeState({ type: 'RESET' });
-          setRaffleState('idle'); 
-        }
-        
-        const openProjection = () => {
-          window.open('/projetor', '_blank', 'width=1920,height=1080');
-        }
-      
-        const handleWordListChange = (listId: string) => {
-          const selectedList = wordLists.find(list => list.id === listId);
-          if (selectedList) {
-              const newWords = selectedList.words || [];
-              setAvailableWords(newWords);
-              setOriginalWords(newWords);
-              set(ref(database, 'dispute/words'), newWords);
-              toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
-          }
-        };
-      
-          const startTieBreaker = async () => {
-              setShowFinalWinnerDialog(false);
-              setFinalWinners([]);
-              setIsTie(false);
-          
-              const updates: { [key: string]: any } = {};
-              const finalistIds = finalWinners.map(winner => winner.id);
-          
-              participantsList.forEach(p => {
-                   if (finalistIds.includes(p.id)) {
-                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = false;
-                  } else if (!p.eliminated) {
-                      updates[`/rooms/${roomId}/dispute/participants/${p.id}/eliminated`] = true;
-                  }
-              });
-      
-              await update(ref(database), updates);
-      
-              nextRound();
-              toast({ title: "Desempate!", description: "A rodada de desempate começou." });
-          }
-        
-        const renderWordButtons = () => {
-          if (!currentWords || !currentDuel) return null;
-          const word = currentWords[0];
-      
-          return (
-            <Card className="p-4 flex flex-col items-center gap-2 bg-muted/50 w-full">
-              <p className="text-xl font-bold tracking-wider uppercase text-primary">{word}</p>
-              <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleWordWinner(currentDuel.participantA.id)}>{currentDuel.participantA.name}</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleWordWinner(currentDuel.participantB.id)}>{currentDuel.participantB.name}</Button>
-              </div>
-            </Card>
-          );
-        }
-      
-        const renderState = () => {
-          if (!participants) {
-            return <p className="text-center text-muted-foreground">Carregando...</p>;
-          }
+type ViewState = 'idle' | 'shuffling' | 'duel' | 'message' | 'winners';
 
-          if (raffleState === 'game_over') {
-            return (
-              <div className="text-center flex flex-col items-center gap-6">
-                <h2 className="text-3xl font-bold">Fim da Disputa!</h2>
-                <p className="text-lg text-muted-foreground">O resultado está sendo exibido no projetor.</p>
-                <Button size="lg" onClick={() => router.push('/')}>
-                  <Trophy className="mr-2"/>Ir para o Início
-                </Button>
-              </div>
-            )
-          }
-          
-          if (raffleState === 'shuffling') {
-            return (
-              <div className="text-center flex flex-col items-center gap-6">
-                <h2 className="text-3xl font-bold">Embaralhando...</h2>
-                <p className="text-lg text-muted-foreground">Aguarde, os participantes estão sendo sorteados.</p>
-                <Dices className="animate-spin h-10 w-10 text-primary" />
-              </div>
-            );
-          }
-          
-          if (raffleState === 'idle') {
-            return (
-              <div className="text-center flex flex-col items-center gap-6">
-                <h2 className="text-3xl font-bold">Próxima Rodada</h2>
-                <div className="text-lg text-muted-foreground">
-                  <p>{activeParticipants.length} participantes ativos</p>
+// --- Sub-components for different views ---
+
+const DuelContent = ({
+  participantA,
+  participantB,
+  showWord,
+  words,
+  duelScore,
+  wordsPerRound
+}: {
+  participantA: Participant | null,
+  participantB: Participant | null,
+  showWord: boolean,
+  words: string[],
+  duelScore: { a: number, b: number },
+  wordsPerRound: number
+}) => (
+    <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative text-center text-white w-full flex-1 flex flex-col justify-center items-center overflow-hidden"
+    >
+        <div className={cn("absolute top-0 left-0 right-0 flex flex-col items-center transition-opacity duration-300 z-10", showWord ? 'opacity-100' : 'opacity-0 pointer-events-none')}>
+            <h2 className="text-6xl font-bold text-accent font-melison">The Word Is</h2>
+            <div className="mt-4 flex flex-col items-center justify-center bg-accent text-accent-foreground rounded-2xl p-4">
+                 {words.map(word => (
+                    <p key={word} className="text-5xl font-bold uppercase tracking-[0.2em] break-all px-4 font-subjectivity">
+                        {word}
+                    </p>
+                ))}
+            </div>
+        </div>
+        
+        <div className="relative w-full flex-1 flex items-center justify-center">
+            <div className="flex items-start justify-around w-full">
+                <div className="flex-1 text-center">
+                    <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantA?.name || 'Participante A'}</h3>
+                    {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.a || 0}</p>}
                 </div>
-                <Button size="lg" onClick={sortParticipants} disabled={raffleState !== 'idle'}>
-                  <Dices className="mr-2"/>Sortear Participantes
-                </Button>
-                {activeParticipants.length < 2 && raffleState === 'idle' && (
-                   <p className="text-amber-600 mt-4">Não há participantes ativos suficientes para uma disputa.</p>
-                )}
-              </div>
-            )
-          }
-      
-          if ((raffleState === 'participants_sorted' || raffleState === 'word_finished') && currentDuel) {
-            const duelIsTie = wordsPlayed >= wordsPerRound && duelScore.a === duelScore.b;
-            return (
-              <div className="text-center flex flex-col items-center gap-6">
-                <h2 className="text-2xl font-bold text-primary">Disputa em Andamento!</h2>
-                <div className="flex items-center justify-center gap-4 text-2xl font-semibold">
-                    <div className="flex flex-col items-center gap-1">
-                      <Trophy className="text-amber-400" />
-                      <span>{currentDuel.participantA.name}</span>
-                      {wordsPerRound > 1 && <span className='text-lg font-bold'>Pontos: {duelScore.a}</span>}
-                    </div>
-                    <span className="text-muted-foreground self-center">vs.</span>
-                    <div className="flex flex-col items-center gap-1">
-                      <Trophy className="text-amber-400" />
-                      <span>{currentDuel.participantB.name}</span>
-                       {wordsPerRound > 1 && <span className='text-lg font-bold'>Pontos: {duelScore.b}</span>}
-                    </div>
+                <div className="flex-shrink-0 text-center px-4">
+                    <h3 className="text-8xl font-bold font-melison">Vs.</h3>
                 </div>
-                <p className='text-muted-foreground'>Palavra {wordsPlayed + 1} de {wordsPerRound}{duelIsTie ? " (Desempate!)" : ""}</p>
-                <Button size="lg" onClick={sortWord} className="mt-4">
-                  <PartyPopper className="mr-2"/>Sortear Palavra
-                </Button>
-              </div>
-            )
-          }
-      
-          if (raffleState === 'word_preview' && currentWords) {
-             return (
-               <div className="text-center flex flex-col items-center gap-6">
-                  <p className="text-lg text-muted-foreground">Palavra sorteada (apenas para você):</p>
-                  <p className="text-3xl font-bold tracking-widest uppercase text-primary">{currentWords[0]}</p>
-                  <Button size="lg" onClick={revealWord} className="mt-4 bg-amber-500 hover:bg-amber-600">
-                      <Eye className="mr-2"/>Revelar no Projetor
-                  </Button>
-              </div>
-             )
-          }
-          
-          if (raffleState === 'word_sorted' && currentDuel && currentWords) {
-            return (
-              <div className="text-center flex flex-col items-center gap-6 w-full">
-                  <p className="text-lg text-muted-foreground">Quem venceu a disputa com a palavra?</p>
-                  <div className="w-full">
-                      {renderWordButtons()}
-                  </div>
-                  <p className="text-xl font-semibold mt-4">Ou...</p>
-                  <Button variant="secondary" size="lg" onClick={handleNoWinner}>
-                      <RefreshCw className="mr-2" /> Ninguém Acertou
-                  </Button>
-              </div>
-            )
-          }
-      
-          if (raffleState === 'duel_finished') {
-              const winner = participants[currentDuel?.participantA.id || '']?.stars > participants[currentDuel?.participantB.id || '']?.stars 
-                  ? currentDuel?.participantA 
-                  : currentDuel?.participantB;
-              
-              const message = winner ? `${winner.name} venceu o duelo!` : `Duelo encerrado!`;
-      
-              return (
-                  <div className="text-center flex flex-col items-center gap-6">
-                      <h2 className="text-3xl font-bold">{message}</h2>
-                      {winner && (
-                          <p className="text-xl text-amber-500 flex items-center justify-center gap-2">
-                              <Star /> Ganhou 1 estrela!
-                          </p>
-                      )}
-                      <p className="text-muted-foreground">{Object.values(participants).filter(p => !p.eliminated).length} participantes restantes</p>
-                      <Button size="lg" onClick={nextRound}><RefreshCw className="mr-2" />Próxima Rodada</Button>
-                  </div>
-              )
-          }
-          
-          return null;
-        }
-        
-        return (
-          <div className="flex flex-col w-full bg-background text-foreground">
-            <AppHeader />
-            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
-                   <Card className="w-full shadow-xl">
-                       <CardHeader>
-                          <CardTitle>Configuração do Sorteio</CardTitle>
-                          <CardDescription>Ajuste as opções para a disputa atual.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                           <div className="flex items-center justify-between">
-                              <Label className="flex-shrink-0 mr-4">Modo de Sorteio de Palavras:</Label>
-                              <RadioGroup 
-                                  defaultValue="random" 
-                                  onValueChange={(value: SortMode) => setSortMode(value)}
-                                  className="flex items-center gap-4"
-                                  disabled={(raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}
-                              >
-                                  <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="random" id="r-random" />
-                                      <Label htmlFor="r-random">Aleatório</Label>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                      <RadioGroupItem value="sequential" id="r-sequential" />
-                                      <Label htmlFor="r-sequential">Sequencial</Label>
-                                  </div>
-                              </RadioGroup>
-                           </div>
-                           <div className="flex items-center justify-between">
-                              <Label htmlFor="words-per-round-input">Palavras por Duelo:</Label>
-                              <Input
-                                  id="words-per-round-input"
-                                  type="number"
-                                  min="1"
-                                  max="5"
-                                  value={wordsPerRound}
-                                  onChange={(e) => setWordsPerRound(Math.max(1, parseInt(e.target.value, 10)))}
-                                  className="w-20"
-                                  disabled={raffleState !== 'idle'}
-                              />
-                           </div>
-                           <div className="flex items-center justify-between">
-                              <Label htmlFor="manual-reveal-switch">Revelação Manual:</Label>
-                              <Switch
-                                  id="manual-reveal-switch"
-                                  checked={manualReveal}
-                                  onCheckedChange={setManualReveal}
-                                  disabled={(raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished')}
-                              />
-                          </div>
-                          <div className="flex flex-col space-y-2">
-                              <Label>Alterar Lista de Palavras em Jogo:</Label>
-                              <Select onValueChange={handleWordListChange} disabled={wordLists.length === 0 || ((raffleState !== 'idle' && raffleState !== 'participants_sorted' && raffleState !== 'word_finished'))}>
-                                  <SelectTrigger>
-                                      <SelectValue placeholder="Selecione uma lista para alterar" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                      {wordLists.map(list => (
-                                          <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
-                                      ))}
-                                  </SelectContent>
-                              </Select>
-                          </div>
-                      </CardContent>
-                  </Card>
-                  
-                  <Card className="w-full min-h-[22rem] flex items-center justify-center shadow-2xl">
-                      <CardContent className="pt-10 w-full">
-                          {renderState()}
-                      </CardContent>
-                  </Card>
-                  
-                  <div className="mt-8 text-center">
-                      <Button variant="outline" onClick={openProjection}>
-                          <Projector className="mr-2" />
-                          Abrir Tela de Projeção
-                      </Button>
-                  </div>
+                <div className="flex-1 text-center">
+                    <h3 className="text-5xl font-bold text-accent font-subjectivity break-words line-clamp-2">{participantB?.name || 'Participante B'}</h3>
+                     {wordsPerRound > 1 && <p className="text-4xl font-bold mt-4">Pontos: {duelScore?.b || 0}</p>}
                 </div>
-      
-                <div className="lg:col-span-1">
-                  <Card className="shadow-xl sticky top-20">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2"><Users /> Status da Disputa</CardTitle>
-                      <CardDescription>Duelos na Rodada: {duelsInRoundPlayed} de {duelsInRoundTotal}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <ScrollArea className="h-[60vh] pr-4">
-                        <ul className="space-y-3">
-                           {participantsList.map(p => {
-                            const getStatus = () => {
-                                if (p.eliminated) return <Badge variant="destructive">Eliminado</Badge>;
-                                if (currentDuel && (p.id === currentDuel.participantA.id || p.id === currentDuel.participantB.id)) return <Badge variant="default">Duelando</Badge>;
-                                if (playedInRound.includes(p.id)) return <Badge variant="secondary">Aguardando</Badge>;
-                                return <Badge>Ativo</Badge>
-                            }
-                            return (
-                                <li key={p.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                                    <div className="flex flex-col">
-                                        <span className="font-medium">{p.name}</span>
-                                        {getStatus()}
-                                    </div>
-                                    <div className="flex items-center gap-1 text-amber-400">
-                                        {Array.from({ length: p.stars }).map((_, i) => (
-                                          <Star key={i} className="h-5 w-5 fill-current" />
+            </div>
+        </div>
+    </motion.div>
+);
+
+const MessageView = ({ action, templates }: { action: DisputeAction, templates: MessageTemplates }) => {
+    const templateKey = action.type.toLowerCase();
+    const template = templates[templateKey];
+    const payload = action.payload || {};
+
+    if (!template || !template.enabled) return null;
+
+    const data = {
+        name: payload.winner?.name || payload.finalWinner?.name || '',
+        words: Array.isArray(payload.duelWordsWon) ? payload.duelWordsWon.join(', ') : '',
+        'words.0': Array.isArray(payload.words) && payload.words.length > 0 ? payload.words[0] : '',
+        stars: payload.winner?.stars || payload.finalWinner?.stars || 0,
+        participantsList: Array.isArray(payload.participants) ? `<div class="participants">${payload.participants.map((p: any) => `<div>${p.name}</div>`).join('')}</div>` : '',
+        ...payload
+    };
+
+    let renderedText = template.text || '';
+    renderedText = renderedText.replace(/\{\{\{\s*participantsList\s*\}\}\}/g, data.participantsList);
+    renderedText = renderedText.replace(/\{\{\s*name\s*\}\}/g, data.name);
+    renderedText = renderedText.replace(/\{\{\s*words\.0\s*\}\}/g, data['words.0']);
+    renderedText = renderedText.replace(/\{\{\s*words\s*\}\}/g, data.words);
+    renderedText = renderedText.replace(/\{\{\s*stars\s*\}\}/g, String(data.stars));
+
+    const style: React.CSSProperties = {
+        background: template.styles.backgroundColor,
+        color: template.styles.textColor,
+        border: `${template.styles.borderWidth} solid ${template.styles.borderColor}`,
+        borderRadius: template.styles.borderRadius,
+        fontFamily: template.styles.fontFamily,
+        fontSize: template.styles.fontSize,
+        padding: '4rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        textAlign: 'center',
+        maxWidth: '60rem',
+        transition: 'all 0.5s ease'
+    } as React.CSSProperties;
+
+    const highlightStyle = `background-color: ${template.styles.highlightColor}; color: ${template.styles.highlightTextColor}; padding: 0.2em 0.5em; border-radius: 0.3em; display: inline-block;`;
+    renderedText = renderedText.replace(/<b>/g, `<b style="${highlightStyle}">`);
+
+    return (
+        <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+            className="fixed inset-0 z-20 flex flex-col items-center justify-center p-8 gap-4"
+        >
+            <div style={style} className={template.styles.fontFamily === 'Melison' ? 'font-melison' : 'font-subjectivity'}>
+                <div className="dynamic-message-content" dangerouslySetInnerHTML={{ __html: renderedText }} />
+            </div>
+        </motion.div>
+    );
+}
+
+const WinnersTable = ({ winners }: { winners: AggregatedWinner[] }) => {
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ duration: 0.7, ease: 'easeOut' }}
+            className="w-full max-w-4xl"
+        >
+             <div className="bg-white/10 backdrop-blur-md p-8 rounded-3xl w-full text-white">
+                <h2 className="text-6xl font-bold text-accent font-melison mb-8">Classificação Final</h2>
+                <table className="w-full text-2xl text-left">
+                    <thead>
+                        <tr className="border-b-4 border-accent">
+                            <th className="p-4 font-melison text-4xl">Nome</th>
+                            <th className="p-4 font-melison text-4xl">Palavras Acertadas</th>
+                            <th className="p-4 text-center font-melison text-4xl">Estrelas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {winners.map((winner, index) => (
+                            <tr key={index} className="border-b-2 border-accent/50">
+                                <td className="p-4 font-subjectivity font-bold">{winner.name}</td>
+                                <td className="p-4 font-subjectivity text-xl">
+                                    {Object.entries(winner.words).map(([word, count]) => `${word} (x${count})`).join(', ')}
+                                </td>
+                                <td className="p-4 text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                        {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                            <span key={i} className="text-yellow-400 text-4xl">⭐</span>
                                         ))}
                                     </div>
-                                </li>
-                            )
-                           })}
-                        </ul>
-                       </ScrollArea>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-      
-              <AlertDialog open={showFinalWinnerDialog} onOpenChange={(isOpen) => { if (!isOpen) setRaffleState('game_over'); setShowFinalWinnerDialog(isOpen);}}>
-                  <AlertDialogContent>
-                      <AlertDialogHeader>
-                      <AlertDialogTitle className="text-center text-3xl font-bold">A disputa acabou!</AlertDialogTitle>
-                      <AlertDialogDescription className="text-center text-lg" asChild>
-                          <div className="flex flex-col items-center justify-center gap-4 py-6">
-                              
-                              {isTie ? (
-                                  <>
-                                      <ShieldAlert className="w-20 h-20 text-blue-500" />
-                                      <p className="text-2xl font-bold mt-2">Houve um empate entre:</p>
-                                      <div className="text-2xl font-bold text-foreground">
-                                          {finalWinners.map(winner => (
-                                              <div key={winner.id} className="flex items-center gap-2 justify-center">
-                                                  <span>{winner.name}</span>
-                                                  <span className="flex items-center gap-1 text-yellow-500 font-bold">
-                                                      <Star className="w-5 h-5" /> {`x${winner.stars}`}
-                                                  </span>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  </>
-                              ) : finalWinners.length > 0 ? (
-                                   <>
-                                      <Crown className="w-20 h-20 text-yellow-400" />
-                                      <p className="text-2xl font-bold mt-2">O grande vencedor é</p>
-                                      <p className="text-4xl font-bold text-foreground">{finalWinners[0]?.name}</p>
-                                      <p className="flex items-center gap-2 text-yellow-500 font-bold text-lg">
-                                          <Star className="w-6 h-6" /> {`x${finalWinners[0]?.stars || 0}`}
-                                      </p>
-                                  </>
-                              ) : (
-                                   <>
-                                      <Trophy className="w-20 h-20 text-muted-foreground" />
-                                      <p className="text-2xl font-bold mt-2">Fim da Disputa</p>
-                                      <p className="text-base text-muted-foreground">Não houve vencedores nesta rodada.</p>
-                                  </>
-                              )}
-                          </div>
-                      </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter className="sm:justify-center">
-                          {isTie ? (
-                              <>
-                                 <AlertDialogAction className="w-full sm:w-auto" onClick={startTieBreaker}>
-                                      <RefreshCw className="mr-2" /> Iniciar Desempate
-                                  </AlertDialogAction>
-                                  <AlertDialogAction asChild className="w-full sm:w-auto">
-                                    <Button variant="outline" onClick={() => router.push('/')}>Voltar para o Início</Button>
-                                  </AlertDialogAction>
-                              </>
-                          ) : (
-                              <AlertDialogAction className="w-full" onClick={() => router.push('/')}>Voltar para o Início</AlertDialogAction>
-                          )}
-                      </AlertDialogFooter>
-                  </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        );
-      }
-      
-      export default function RafflePage() {
-          return (
-              <ProtectedRoute page="sorteio">
-                  <RafflePageContent />
-              </ProtectedRoute>
-          )
-      }
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+             </div>
+        </motion.div>
+    );
+};
+
+
+export default function ProjectionPage() {
+  const params = useParams();
+  const roomId = params.roomId as string;
+    const [isReady, setIsReady] = useState(false);
+    const [view, setView] = useState<ViewState>('idle');
+    const [templates, setTemplates] = useState<MessageTemplates | null>(null);
+    const [currentAction, setCurrentAction] = useState<DisputeAction | null>(null);
+    const [appSettings, setAppSettings] = useState({ messageDisplayTime: 4000, shufflingSpeed: 150 });
+
+    // State for Duel View
+    const [duelState, setDuelState] = useState({
+        participantA: null as Participant | null,
+        participantB: null as Participant | null,
+        showWord: false,
+        words: [] as string[],
+        duelScore: { a: 0, b: 0 },
+        wordsPerRound: 1,
+    });
     
+    // State for Shuffling Animation
+    const [shufflingParticipants, setShufflingParticipants] = useState<{a: Participant | null, b: Participant | null}>({ a: null, b: null });
+
+    const shufflingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const sounds = useRef<{ [key: string]: HTMLAudioElement }>({});
+    const isProcessingActionRef = useRef(false);
+    const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
+    useEffect(() => {
+        const soundFiles = ['tambor.mp3', 'sinos.mp3', 'premio.mp3', 'vencedor.mp3', 'erro.mp3'];
+        soundFiles.forEach(file => {
+            if (!sounds.current[file]) {
+                sounds.current[file] = new Audio(`/som/${file}`);
+                sounds.current[file].load();
+            }
+        });
+        return () => {
+            Object.values(sounds.current).forEach(sound => {
+                if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
+            });
+            if (shufflingIntervalRef.current) clearInterval(shufflingIntervalRef.current);
+            if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isReady) return;
+        
+        const settingsRef = ref(database, 'settings');
+        const unsubSettings = onValue(settingsRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                setAppSettings({
+                    messageDisplayTime: (data.messageDisplayTime || 4) * 1000,
+                    shufflingSpeed: data.shufflingSpeed || 150
+                });
+            }
+        });
+
+        const templatesRef = ref(database, 'message_templates');
+        const unsubDesigns = onValue(templatesRef, (snapshot) => setTemplates(snapshot.val()));
+
+        const disputeStateRef = ref(database, `rooms/${roomId}/dispute/state`);
+        const unsubDispute = onValue(disputeStateRef, (snapshot) => {
+            const newAction: DisputeAction | null = snapshot.val();
+            if (newAction) {
+                processAction(newAction);
+            } else if (view !== 'idle') {
+                resetToIdle();
+            }
+        });
+
+        return () => {
+            unsubSettings();
+            unsubDesigns();
+            unsubDispute();
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isReady]);
+
+    const playSound = (soundFile: string, loop = false) => {
+        Object.values(sounds.current).forEach(sound => {
+            if (sound && !sound.paused) { sound.pause(); sound.currentTime = 0; }
+        });
+        const soundToPlay = sounds.current[soundFile];
+        if (soundToPlay) {
+            soundToPlay.loop = loop;
+            soundToPlay.currentTime = 0;
+            soundToPlay.play().catch(e => {
+              if (e.name !== 'AbortError') console.error("Erro ao tocar áudio:", e);
+            });
+        }
+    };
+
+    const stopShufflingAnimation = () => {
+        if (shufflingIntervalRef.current) {
+            clearInterval(shufflingIntervalRef.current);
+            shufflingIntervalRef.current = null;
+        }
+    };
+    
+    const handleEnterFullscreen = () => {
+        if (isReady) return;
+        Object.values(sounds.current).forEach(sound => {
+            sound.load(); sound.play().then(() => sound.pause()).catch(() => {});
+        });
+        setIsReady(true);
+        document.documentElement.requestFullscreen?.().catch(() => {});
+    };
+
+    const processAction = (action: DisputeAction) => {
+        if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current);
+            messageTimeoutRef.current = null;
+        }
+        
+        setCurrentAction(action);
+        
+        switch (action.type) {
+            case 'SHUFFLING_PARTICIPANTS':
+                setView('shuffling');
+                startShufflingAnimation(action.payload.activeParticipants || []);
+                playSound('tambor.mp3', true);
+                break;
+
+            case 'UPDATE_PARTICIPANTS':
+                stopShufflingAnimation();
+                setView('duel');
+                setDuelState(prev => ({
+                    ...prev,
+                    participantA: action.payload.participantA || null,
+                    participantB: action.payload.participantB || null,
+                    duelScore: action.payload.duelScore || { a: 0, b: 0 },
+                    wordsPerRound: action.payload.wordsPerRound || 1,
+                    showWord: false,
+                }));
+                if (action.payload.participantA) {
+                    playSound('sinos.mp3');
+                }
+                break;
+
+            case 'SHOW_WORD':
+                setView('duel');
+                setDuelState(prev => ({ ...prev, words: action.payload.words || [], showWord: true }));
+                playSound('premio.mp3');
+                break;
+
+            case 'HIDE_WORD':
+                setDuelState(prev => ({ ...prev, showWord: false }));
+                break;
+
+            case 'WORD_WINNER':
+            case 'DUEL_WINNER':
+            case 'TIE_ANNOUNCEMENT':
+            case 'NO_WORD_WINNER':
+            case 'NO_WINNER':
+            case 'SHOW_MESSAGE':
+                 setView('message');
+                 playSound(action.type === 'NO_WORD_WINNER' || action.type === 'NO_WINNER' ? 'erro.mp3' : 'vencedor.mp3');
+                 messageTimeoutRef.current = setTimeout(() => {
+                    if (action.type === 'WORD_WINNER') {
+                        setView('duel');
+                         setDuelState(prev => ({ ...prev, showWord: false, duelScore: action.payload.duelScore }));
+                        setCurrentAction(null);
+                    } else if (action.type !== 'DUEL_WINNER' && action.type !== 'FINAL_WINNER' && action.type !== 'TIE_ANNOUNCEMENT') {
+                       resetToIdle();
+                    }
+                 }, appSettings.messageDisplayTime);
+                break;
+            
+            case 'FINAL_WINNER':
+                setView('message');
+                playSound('vencedor.mp3');
+                // Don't set a timeout, keep the winner message on screen
+                break;
+
+            case 'SHOW_WINNERS':
+                setView('winners');
+                break;
+            
+            case 'RESET':
+                resetToIdle();
+                break;
+        }
+    };
+
+    const resetToIdle = () => {
+        stopShufflingAnimation();
+        Object.values(sounds.current).forEach(s => { if(s) {s.pause(); s.currentTime = 0;} });
+        setView('idle');
+        setCurrentAction(null);
+        setDuelState({ participantA: null, participantB: null, showWord: false, words: [], duelScore: { a: 0, b: 0 }, wordsPerRound: 1 });
+        if (messageTimeoutRef.current) clearTimeout(messageTimeoutRef.current);
+    };
+
+    const startShufflingAnimation = (participants: Participant[]) => {
+        stopShufflingAnimation();
+        if (participants.length > 1) {
+            shufflingIntervalRef.current = setInterval(() => {
+                const shuffled = [...participants].sort(() => 0.5 - Math.random());
+                setShufflingParticipants({ a: shuffled[0] || null, b: shuffled[1] || null });
+            }, appSettings.shufflingSpeed);
+        }
+    };
+
+    if (!isReady) {
+        return (
+            <div className="projetado-page h-screen w-screen overflow-hidden relative cursor-pointer" onClick={handleEnterFullscreen}>
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="text-center text-accent animate-pulse">
+                        <Maximize className="w-24 h-24 mx-auto" />
+                        <h1 className="text-6xl font-melison font-bold mt-4">Clique para Entrar em Tela Cheia</h1>
+                        <p className="text-2xl mt-2 font-subjectivity">Isso irá otimizar a visualização e ativar o som.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="projetado-page h-screen w-screen overflow-hidden relative flex flex-col items-center justify-start">
+            <header className="flex flex-shrink-0 items-center gap-4 text-accent py-4">
+                <h1 className="text-8xl font-melison font-bold tracking-tight">Spelling Bee</h1>
+                <Image src="/images/Bee.gif" alt="Bee Icon" width={100} height={100} unoptimized />
+            </header>
+            <main className='w-full flex-1 flex flex-col justify-center items-center px-8'>
+                <AnimatePresence mode="wait">
+                    {view === 'duel' && (
+                        <DuelContent {...duelState} />
+                    )}
+                    {view === 'shuffling' && (
+                         <DuelContent participantA={shufflingParticipants.a} participantB={shufflingParticipants.b} showWord={false} words={[]} duelScore={{a:0, b:0}} wordsPerRound={1} />
+                    )}
+                    {view === 'winners' && currentAction?.payload?.winners && (
+                        <div className="flex justify-center items-center w-full h-full">
+                            <WinnersTable winners={currentAction.payload.winners} />
+                        </div>
+                    )}
+                </AnimatePresence>
+            </main>
+            <AnimatePresence>
+                {view === 'message' && currentAction && templates && (
+                    <MessageView action={currentAction} templates={templates} />
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
