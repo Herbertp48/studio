@@ -138,7 +138,7 @@
               } else {
                   if(router) {
                     toast({ variant: "destructive", title: "Erro", description: "Dados da disputa não encontrados."});
-                    router.push('/disputa');
+                    router.push(`/salas/${roomId}`);
                   }
               }
           });
@@ -256,7 +256,7 @@
                 if (currentAvailableWords.length > 0) {
                     sortedWord = currentAvailableWords.shift();
                     setAvailableWords(currentAvailableWords);
-                    set(ref(database, 'dispute/words'), currentAvailableWords);
+                    set(ref(database, `rooms/${roomId}/dispute/words`), currentAvailableWords);
                 }
             }
         
@@ -394,7 +394,7 @@
         }
         
         const openProjection = () => {
-          window.open('/projetor', '_blank', 'width=1920,height=1080');
+          window.open(`/salas/${roomId}/projetor`, '_blank', 'width=1920,height=1080');
         }
       
         const handleWordListChange = (listId: string) => {
@@ -403,7 +403,7 @@
               const newWords = selectedList.words || [];
               setAvailableWords(newWords);
               setOriginalWords(newWords);
-              set(ref(database, 'dispute/words'), newWords);
+              set(ref(database, `rooms/${roomId}/dispute/words`), newWords);
               toast({ title: 'Lista Alterada!', description: `Agora usando a lista "${selectedList.name}".`});
           }
         };
