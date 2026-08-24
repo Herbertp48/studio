@@ -99,14 +99,14 @@
         return (
           <div className="flex flex-col w-full bg-background text-foreground">
             <AppHeader />
-            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8 overflow-x-hidden">
               <Card className="bg-[#fffbe6] border-amber-300 border-2 shadow-2xl rounded-2xl overflow-hidden">
                 <CardHeader className="bg-accent p-4">
                   <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                       <CardTitle className="text-accent-foreground font-melison text-2xl sm:text-3xl lg:text-4xl flex items-center gap-3">
                           <Trophy className="w-8 h-8 sm:w-10 sm:h-10" /> Classificação dos Ganhadores Spelling Bee
                       </CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap justify-center">
                            <AlertDialog>
                               <AlertDialogTrigger asChild>
                                  <Button variant="destructive" disabled={winners.length === 0}><Trash2 className="mr-2" /> Zerar</Button>
@@ -130,48 +130,50 @@
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-0 hover:bg-transparent">
-                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Nome</TableHead>
-                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Palavras</TableHead>
-                        <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Estrelas</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {winners.length > 0 ? (
-                        winners.map((winner, index) => (
-                          <TableRow key={winner.name} className="border-t-2 border-amber-300">
-                            <TableCell className="font-bold text-accent-foreground text-center text-base p-4">
-                              {winner.name}
-                            </TableCell>
-                            <TableCell className="text-center p-4">
-                              <div className="flex flex-wrap gap-2 justify-center">
-                                  {Object.entries(winner.words).map(([word, count]) => (
-                                      <span key={word} className="text-accent-foreground text-base font-subjectivity font-bold">
-                                          {word} <b className="text-red-600/80">x{count}</b>
-                                      </span>
-                                  ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center p-4">
-                              <div className="flex items-center justify-center gap-1">
-                                 {Array.from({ length: winner.totalStars }).map((_, i) => (
-                                     <Star key={i} className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-                                 ))}
-                              </div>
+                  <div className="overflow-x-auto">
+                    <Table className="min-w-[600px]">
+                      <TableHeader>
+                        <TableRow className="border-0 hover:bg-transparent">
+                          <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Nome</TableHead>
+                          <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Palavras</TableHead>
+                          <TableHead className="w-1/3 text-center text-accent-foreground font-bold text-lg font-melison py-3">Estrelas</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {winners.length > 0 ? (
+                          winners.map((winner, index) => (
+                            <TableRow key={winner.name} className="border-t-2 border-amber-300">
+                              <TableCell className="font-bold text-accent-foreground text-center text-base p-4 whitespace-nowrap">
+                                {winner.name}
+                              </TableCell>
+                              <TableCell className="text-center p-4">
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    {Object.entries(winner.words).map(([word, count]) => (
+                                        <span key={word} className="text-accent-foreground text-base font-subjectivity font-bold">
+                                            {word} <b className="text-red-600/80">x{count}</b>
+                                        </span>
+                                    ))}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center p-4 whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1">
+                                   {Array.from({ length: winner.totalStars }).map((_, i) => (
+                                       <Star key={i} className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                                   ))}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                              Nenhum ganhador registrado ainda.
                             </TableCell>
                           </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
-                            Nenhum ganhador registrado ainda.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
