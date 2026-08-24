@@ -12,24 +12,37 @@ env/
 venv/
 .venv/
 .ENV
-.python-version
-.pytest_cache/
-.mypy_cache/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
 .coverage
-htmlcov/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git/modules/
+.DS_Store
+Thumbs.db
 
 # Build outputs
 dist/
 build/
 *.egg-info/
+.eggs/
 .installed.cfg
-*.egg
-
-# Environment variables
-.env
-.env.local
-.env.*
-!.env.example
+lib/
+lib64/
+parts/
+sdist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+.venv/
+venv/
+env/
 
 # IDE
 .vscode/
@@ -38,15 +51,39 @@ build/
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
+# Environment
+.env
+.env.local
+.env.*
+!.env.example
 
 # Coverage
 coverage/
 htmlcov/
 .coverage
+.coverage.*
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# PyTest
+.pytest_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 ```
