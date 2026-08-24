@@ -1,16 +1,6 @@
 ```gitignore
 # Dependencies
 node_modules/
-.pnpm-store/
-.npm/
-.yarn/
-
-# Build outputs
-dist/
-build/
-.next/
-out/
-public/build/
 
 # Python
 __pycache__/
@@ -21,30 +11,19 @@ __pycache__/
 env/
 venv/
 .venv/
-pip-log.txt
-pipenv.lock
+.ENV
 .python-version
 .pytest_cache/
 .mypy_cache/
 .coverage
 htmlcov/
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Icon?
-*/
+# Build outputs
+dist/
+build/
+*.egg-info/
+.installed.cfg
+*.egg
 
 # Environment variables
 .env
@@ -59,8 +38,15 @@ Icon?
 *.swo
 *~
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
 # Coverage
 coverage/
-.nyc_output/
-istanbul/
+htmlcov/
+.coverage
 ```

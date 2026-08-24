@@ -22,9 +22,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import type { UserPermissions } from '@/context/AuthContext';
+
+export type AppUser = {
+  uid: string;
+  email: string;
+  name?: string;
+} & UserPermissions;
 
 export type Room = {
   id: string;
@@ -32,12 +51,16 @@ export type Room = {
   createdAt: number;
   status: 'waiting' | 'in_progress' | 'finished';
   participantCount: number;
+  allowedUsers?: string[];
 }
 
 function RoomsPageContent() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [joinRoomCode, setJoinRoomCode] = useState('');
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [isCreateRoomDialogOpen, setIsCreateRoomDialogOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -52,10 +75,29 @@ function RoomsPageContent() {
           createdAt: room.createdAt || Date.now(),
           status: room.status || 'waiting',
           participantCount: room.participantCount || 0,
+          allowedUsers: room.allowedUsers || [],
         }));
         setRooms(roomsData.sort((a, b) => b.createdAt - a.createdAt));
       } else {
         setRooms([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const usersRef = ref(database, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const usersData: AppUser[] = Object.entries(data).map(([uid, userData]: [string, any]) => ({
+          uid,
+          ...userData,
+        }));
+        setUsers(usersData);
+      } else {
+        setUsers([]);
       }
     });
 
@@ -77,6 +119,7 @@ function RoomsPageContent() {
         createdAt: Date.now(),
         status: 'waiting',
         participantCount: 0,
+        allowedUsers: selectedUsers.length > 0 ? selectedUsers : null,
       });
 
       // Initialize room structure
@@ -86,6 +129,8 @@ function RoomsPageContent() {
       
       toast({ title: 'Sucesso!', description: `Sala "${newRoomName.trim()}" criada com ID: ${roomId}`});
       setNewRoomName('');
+      setSelectedUsers([]);
+      setIsCreateRoomDialogOpen(false);
     }
   };
 
@@ -135,10 +180,69 @@ function RoomsPageContent() {
                     className="mt-2"
                   />
                 </div>
-                <Button onClick={handleCreateRoom} className="w-full" disabled={!newRoomName.trim()}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Criar Sala
-                </Button>
+                <Dialog open={isCreateRoomDialogOpen} onOpenChange={setIsCreateRoomDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full" disabled={!newRoomName.trim()}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Selecionar Usuários e Criar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Selecionar Usuários com Acesso</DialogTitle>
+                      <DialogDescription>
+                        Selecione quais usuários terão acesso a esta sala. Se nenhum usuário for selecionado, todos os usuários terão acesso.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[400px] overflow-y-auto p-2">
+                        {users.map((user) => (
+                          <div
+                            key={user.uid}
+                            className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors"
+                          >
+                            <Checkbox
+                              id={`user-${user.uid}`}
+                              checked={selectedUsers.includes(user.uid)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedUsers([...selectedUsers, user.uid]);
+                                } else {
+                                  setSelectedUsers(selectedUsers.filter(id => id !== user.uid));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`user-${user.uid}`}
+                              className="flex flex-col cursor-pointer"
+                            >
+                              <span className="font-medium text-sm">{user.name || user.email}</span>
+                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                            </label>
+                          </div>
+                        ))}
+                        {users.length === 0 && (
+                          <p className="text-sm text-muted-foreground col-span-2 text-center py-4">
+                            Nenhum usuário cadastrado.
+                          </p>
+                        )}
+                      </div>
+                      {selectedUsers.length > 0 && (
+                        <div className="mt-4 p-3 bg-muted rounded-lg">
+                          <p className="text-sm font-medium">
+                            {selectedUsers.length} usuário(s) selecionado(s)
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button type="button" variant="secondary">Cancelar</Button>
+                      </DialogClose>
+                      <Button onClick={handleCreateRoom}>Criar Sala</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardContent>
           </Card>
@@ -214,6 +318,12 @@ function RoomsPageContent() {
                             {room.participantCount} participante(s)
                           </span>
                           <span>ID: <code className="bg-muted px-2 py-0.5 rounded text-xs">{room.id}</code></span>
+                          {room.allowedUsers && room.allowedUsers.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Users className="h-3 w-3 mr-1" />
+                              {room.allowedUsers.length} usuário(s) com acesso
+                            </Badge>
+                          )}
                         </div>
                       </div>
                       
