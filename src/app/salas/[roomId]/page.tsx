@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Users, Trash2, PlusCircle, Upload, Play, Search, Link as LinkIcon } from 'lucide-react';
+import { Users, Trash2, PlusCircle, Upload, Play, Search, Link as LinkIcon, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { database } from '@/lib/firebase';
 import { ref, set, onValue, push, remove as removeDb, update, get, child } from 'firebase/database';
@@ -39,6 +39,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Checkbox } from '@/components/ui/checkbox';
 import { read, utils } from 'xlsx';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/context/AuthContext';
 
 export type Participant = {
   id: string;
@@ -62,6 +63,7 @@ type WordList = {
 function RoomDetailPageContent() {
   const params = useParams();
   const roomId = params.roomId as string;
+  const { user: currentUser } = useAuth();
   
   const [participantGroups, setParticipantGroups] = useState<ParticipantGroup[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -83,6 +85,8 @@ function RoomDetailPageContent() {
   const [selectedGlobalGroupId, setSelectedGlobalGroupId] = useState<string>('');
   const [selectedGlobalWordListId, setSelectedGlobalWordListId] = useState<string>('');
   const [selectedRoomWordListId, setSelectedRoomWordListId] = useState<string>('');
+  const [roomAllowedUsers, setRoomAllowedUsers] = useState<string[] | null>(null);
+  const [hasAccess, setHasAccess] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
@@ -104,6 +108,15 @@ function RoomDetailPageContent() {
       const data = snapshot.val();
       if (data) {
         setRoomName(data.name || 'Sala');
+        const allowedUsers = data.allowedUsers || null;
+        setRoomAllowedUsers(allowedUsers);
+        
+        // Check if current user has access
+        if (allowedUsers && currentUser?.uid) {
+          setHasAccess(allowedUsers.includes(currentUser.uid));
+        } else {
+          setHasAccess(true); // No restrictions means everyone has access
+        }
       }
     });
 
@@ -185,7 +198,7 @@ function RoomDetailPageContent() {
       unsubscribeGlobalGroups();
       unsubscribeGlobalWordLists();
     };
-  }, [roomId]);
+  }, [roomId, currentUser]);
 
   useEffect(() => {
     if (editingParticipant) {
@@ -374,10 +387,39 @@ function RoomDetailPageContent() {
     <div className="flex flex-col w-full bg-background text-foreground">
       <AppHeader />
       <div className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {!hasAccess ? (
+          <Card className="max-w-md mx-auto mt-20">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <Lock className="h-6 w-6" />
+                Acesso Restrito
+              </CardTitle>
+              <CardDescription>
+                Você não tem permissão para acessar esta sala.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Esta sala foi configurada para permitir apenas usuários específicos. Entre em contato com o administrador para solicitar acesso.
+              </p>
+              <Button onClick={() => router.push('/salas')} className="w-full">
+                Voltar às Salas
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Sala: {roomName}</h1>
             <p className="text-muted-foreground">ID da Sala: <code className="bg-muted px-2 py-0.5 rounded">{roomId}</code></p>
+            {roomAllowedUsers && roomAllowedUsers.length > 0 && (
+              <div className="flex items-center gap-2 mt-2">
+                <Lock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  Acesso restrito a {roomAllowedUsers.length} usuário(s)
+                </span>
+              </div>
+            )}
           </div>
           <Button onClick={() => router.push('/salas')} variant="outline">
             Voltar às Salas
@@ -660,6 +702,7 @@ function RoomDetailPageContent() {
         </DialogContent>
       </Dialog>
     </div>
+        )}
   );
 }
 
