@@ -1,4 +1,3 @@
-```gitignore
 # Dependencies
 node_modules/
 
@@ -7,46 +6,68 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-.ENV
-.python-version
-.pytest_cache/
-.mypy_cache/
-.coverage
-htmlcov/
+*.py.class
+*.py.backup
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
 
 # Build outputs
 dist/
 build/
-*.egg-info/
-.installed.cfg
-*.egg
+coverage/
+htmlcov/
+*.log
+*.tmp
 
-# Environment variables
+# Environment
 .env
 .env.local
 .env.*
-!.env.example
 
-# IDE
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS
-.DS_Store
-Thumbs.db
+# Compiled files
+*.o
+*.obj
+*.so
+*.a
+*.dll
+*.exe
+*.out
 
-# Logs
-*.log
+# Cache
+.mypy_cache/
+.pytest_cache/
+.nyc_output/
+coverage/lcov-report/
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-```
+# Archives
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
