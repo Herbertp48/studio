@@ -408,25 +408,26 @@ function RoomDetailPageContent() {
             </CardContent>
           </Card>
         ) : (
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Sala: {roomName}</h1>
-            <p className="text-muted-foreground">ID da Sala: <code className="bg-muted px-2 py-0.5 rounded">{roomId}</code></p>
-            {roomAllowedUsers && roomAllowedUsers.length > 0 && (
-              <div className="flex items-center gap-2 mt-2">
-                <Lock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Acesso restrito a {roomAllowedUsers.length} usuário(s)
-                </span>
+          <>
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold">Sala: {roomName}</h1>
+                <p className="text-muted-foreground">ID da Sala: <code className="bg-muted px-2 py-0.5 rounded">{roomId}</code></p>
+                {roomAllowedUsers && roomAllowedUsers.length > 0 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Lock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Acesso restrito a {roomAllowedUsers.length} usuário(s)
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <Button onClick={() => router.push('/salas')} variant="outline">
-            Voltar às Salas
-          </Button>
-        </div>
+              <Button onClick={() => router.push('/salas')} variant="outline">
+                Voltar às Salas
+              </Button>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-1 space-y-6">
             <Card>
               <CardHeader>
@@ -662,6 +663,8 @@ function RoomDetailPageContent() {
             </Card>
           </div>
         </div>
+          </>
+        )}
       </div>
 
       {/* Edit Participant Dialog */}
@@ -702,7 +705,6 @@ function RoomDetailPageContent() {
         </DialogContent>
       </Dialog>
     </div>
-        )}
   );
 }
 
