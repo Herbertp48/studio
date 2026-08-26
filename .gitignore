@@ -1,54 +1,73 @@
+```
+# Next.js build outputs
+.next/
+
+# Environment variables
+.env
+.env.local
+.env.*
+
 # Dependencies
 node_modules/
+
+# Logs
+*.log
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Build outputs
+dist/
+build/
+target/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.py.class
-*.py.backup
-*.swp
-*.swo
-*~
-.DS_Store
-Thumbs.db
-
-# Build outputs
-dist/
-build/
-coverage/
-htmlcov/
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
 *.log
-*.tmp
+.git/
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
 
-# Environment
-.env
-.env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Compiled files
+# Compiled binary files
 *.o
 *.obj
 *.so
 *.a
 *.dll
+*.dylib
 *.exe
 *.out
 
-# Cache
-.mypy_cache/
-.pytest_cache/
-.nyc_output/
-coverage/lcov-report/
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
 
-# Archives
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -67,7 +86,4 @@ coverage/lcov-report/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
+```

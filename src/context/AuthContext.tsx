@@ -87,12 +87,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const snapshot = await get(usersRef);
     const isFirstUser = !snapshot.exists();
 
-    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-    const newUser = userCredential.user;
+    // Generate a random password if admin is creating the user
+    const passwordToUse = isAdminCreation 
+      ? pass || Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
+      : pass;
+
+    let userCredential;
+    let newUser;
+
+    // If admin is creating the user, only save to database (don't create in Auth)
+    // The user account will be created when they first login with the temporary password
+    if (isAdminCreation) {
+      // Admin creating user - only save to database
+      let permissions: UserPermissions = {
+        name,
+        role: 'user',
+        permissions: initialPermissions,
+      };
+
+      // Create a placeholder in database with email and permissions
+      // The actual auth account will be created on first login
+      const tempUid = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(-6);
+      
+      // We need to use a different approach: save user data with email as key temporarily
+      // Then when user logs in for the first time, we'll create the proper account
+      
+      // Actually, better approach: use Firebase Admin SDK capabilities through callable function
+      // But since we don't have that, we'll use a workaround:
+      // Save user data in a pending_users node, and handle on first login
+      
+      await set(ref(database, `pending_users/${email.replace(/\./g, ',')}`), {
+        email,
+        tempPassword: passwordToUse,
+        ...permissions,
+        createdAt: Date.now()
+      });
+      
+      return { user: { email, uid: tempUid } };
+    }
+
+    // Regular self-registration (first user or public signup)
+    userCredential = await createUserWithEmailAndPassword(auth, email, passwordToUse);
+    newUser = userCredential.user;
 
     let permissions: UserPermissions;
 
-    if (isFirstUser && !isAdminCreation) {
+    if (isFirstUser) {
         permissions = {
             name,
             role: 'admin',
@@ -111,13 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...permissions
     });
     
-    // Only sign out if it's an admin creating a user, not on public signup.
-    if (isAdminCreation) {
-      // Don't sign out, let the admin stay logged in.
-    } else {
-      await signOut(auth);
-    }
-
+    await signOut(auth);
 
     return userCredential;
   }
