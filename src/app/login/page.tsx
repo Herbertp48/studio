@@ -38,7 +38,7 @@ export default function LoginPage() {
         const pendingData = snapshot.val();
         
         // Verify the password matches
-        if (password !== pendingData.tempPassword) {
+        if (password !== pendingData.password) {
           toast({
             variant: 'destructive',
             title: 'Falha no login',
