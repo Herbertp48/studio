@@ -1,0 +1,46 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || auth.uid === $uid)",
+        ".indexOn": ["role", "email"]
+      }
+    },
+    "salas": {
+      "$salaId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+        ".indexOn": ["nome", "criadorId"]
+      }
+    },
+    "grupos": {
+      "$grupoId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('permissions').child('inicio').val() === true",
+        ".indexOn": ["nome"]
+      }
+    },
+    "disputas": {
+      "$disputaId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('permissions').child('disputa').val() === true",
+        ".indexOn": ["nome", "salaId"]
+      }
+    },
+    "sorteios": {
+      "$sorteioId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('permissions').child('sorteio').val() === true",
+        ".indexOn": ["disputaId", "status"]
+      }
+    },
+    "ganhadores": {
+      "$ganhadorId": {
+        ".read": "auth != null && root.child('users').child(auth.uid).child('permissions').child('ganhadores').val() === true",
+        ".write": "auth != null && root.child('users').child(auth.uid).child('permissions').child('sorteio').val() === true",
+        ".indexOn": ["disputaId", "data"]
+      }
+    }
+  }
+}

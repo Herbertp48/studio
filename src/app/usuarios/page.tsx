@@ -73,19 +73,51 @@
         useEffect(() => {
           if (currentUserPermissions?.role === 'admin') {
               const usersRef = ref(database, 'users');
-              const unsubscribe = onValue(usersRef, (snapshot) => {
-              const data = snapshot.val();
-              if (data) {
-                  const userList = Object.entries(data).map(([uid, userData]: [string, any]) => ({
-                  uid,
-                  ...userData,
+              const pendingUsersRef = ref(database, 'pending_users');
+              
+              const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+                const data = snapshot.val();
+                let userList: AppUser[] = [];
+                
+                if (data) {
+                  userList = Object.entries(data).map(([uid, userData]: [string, any]) => ({
+                    uid,
+                    ...userData,
                   }));
-                  setUsers(userList);
-              } else {
-                  setUsers([]);
-              }
+                }
+                
+                // Also load pending users (created by admin but not yet activated)
+                const pendingSnapshot = snapshot.ref.parent?.parent ? 
+                  null : null; // We'll handle this separately
+                  
+                setUsers(userList);
               });
-              return () => unsubscribe();
+              
+              // Listen to pending_users separately
+              const unsubscribePending = onValue(pendingUsersRef, (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                  const pendingList = Object.entries(data).map(([emailKey, userData]: [string, any]) => ({
+                    uid: `pending_${emailKey}`,
+                    email: userData.email,
+                    name: userData.name,
+                    role: userData.role,
+                    permissions: userData.permissions,
+                    isPending: true
+                  }));
+                  
+                  // Merge with regular users
+                  setUsers(prev => {
+                    const regularUsers = prev.filter(u => !u.isPending);
+                    return [...regularUsers, ...pendingList];
+                  });
+                }
+              });
+              
+              return () => {
+                unsubscribeUsers();
+                unsubscribePending();
+              };
           }
         }, [currentUserPermissions]);
       
@@ -94,16 +126,22 @@
         }, [currentUserPermissions?.name])
       
         const handleCreateUser = async () => {
-          if (!newUserEmail || !newUserPassword || !newUserName) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'Preencha nome, e-mail e senha.' });
+          if (!newUserEmail || !newUserName) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Preencha nome e e-mail.' });
             return;
           }
           
           try {
-            // Use the signup function but flag it as an admin creation
-            await signup(newUserEmail, newUserPassword, newUserName, true);
+            // Generate a random password for the new user
+            const randomPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
             
-            toast({ title: 'Sucesso', description: 'Usuário criado com sucesso.' });
+            // Use the signup function but flag it as an admin creation
+            await signup(newUserEmail, randomPassword, newUserName, true);
+            
+            toast({ 
+              title: 'Sucesso', 
+              description: `Usuário criado com sucesso. A senha temporária é: ${randomPassword}. Oriente o usuário a alterar a senha no primeiro acesso.` 
+            });
             setIsNewUserDialogOpen(false);
             setNewUserEmail('');
             setNewUserPassword('');
@@ -121,18 +159,28 @@
                       description = 'Esta operação requer um login recente. Por favor, faça login novamente e tente de novo.';
                       break;
                   default:
-                      description = error.message;
+                      description = error.message || "Erro ao criar usuário";
               }
               toast({ variant: 'destructive', title: 'Erro ao criar usuário', description });
           }
         };
       
         const handleDeleteUser = (uid: string) => {
-          removeDb(ref(database, `users/${uid}`)).then(() => {
-              toast({ title: 'Sucesso', description: 'Usuário removido da base de dados e permissões revogadas.'});
-          }).catch(err => {
-              toast({ variant: 'destructive', title: 'Erro', description: err.message });
-          });
+          // Check if it's a pending user (starts with 'pending_')
+          if (uid.startsWith('pending_')) {
+            const emailKey = uid.replace('pending_', '');
+            removeDb(ref(database, `pending_users/${emailKey}`)).then(() => {
+                toast({ title: 'Sucesso', description: 'Convite pendente cancelado.'});
+            }).catch(err => {
+                toast({ variant: 'destructive', title: 'Erro', description: err.message });
+            });
+          } else {
+            removeDb(ref(database, `users/${uid}`)).then(() => {
+                toast({ title: 'Sucesso', description: 'Usuário removido da base de dados e permissões revogadas.'});
+            }).catch(err => {
+                toast({ variant: 'destructive', title: 'Erro', description: err.message });
+            });
+          }
         };
       
         const handleOpenEditDialog = (user: AppUser) => {
@@ -231,7 +279,7 @@
                           <DialogHeader>
                               <DialogTitle>Criar Novo Usuário</DialogTitle>
                               <DialogDescription>
-                                  Defina o e-mail e senha para o novo acesso. As permissões podem ser editadas depois.
+                                  Defina o e-mail e nome para o novo acesso. Uma senha temporária será gerada automaticamente.
                               </DialogDescription>
                           </DialogHeader>
                           <div className="py-4 space-y-4">
@@ -242,10 +290,6 @@
                               <div className="space-y-2">
                                   <Label htmlFor="new-email">E-mail</Label>
                                   <Input id="new-email" type="email" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} />
-                              </div>
-                              <div className="space-y-2">
-                                  <Label htmlFor="new-password">Senha</Label>
-                                  <Input id="new-password" type="password" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)} />
                               </div>
                           </div>
                           <DialogFooter>
@@ -267,12 +311,15 @@
                       <p className="font-medium">{user.name || user.email}</p>
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                       <p className="text-sm font-semibold text-primary">{user.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
+                      {user.isPending && (
+                        <p className="text-xs text-amber-600 font-medium mt-1">⏳ Aguardando primeiro login</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                        <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(user)}>
                           <UserCog className="mr-2 h-4 w-4" /> Editar
                       </Button>
-                      {user.uid !== firebaseAuth.currentUser?.uid && (
+                      {!user.isPending && user.uid !== firebaseAuth.currentUser?.uid && (
                           <>
                           <AlertDialog>
                               <AlertDialogTrigger asChild>
@@ -292,6 +339,25 @@
                               </AlertDialogContent>
                           </AlertDialog>
                           </>
+                      )}
+                      {user.isPending && (
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Cancelar convite pendente?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Tem certeza que deseja cancelar o convite para {user.email}? O usuário não poderá mais acessar com a senha temporária.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteUser(user.uid)}>Cancelar Convite</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
                       )}
                         {user.uid === firebaseAuth.currentUser?.uid && (
                           <span className="text-xs text-muted-foreground">(Você)</span>
