@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
+import { auth, database } from '@/lib/firebase';
+import { ref, get, set, remove as removeDb } from 'firebase/database';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage() {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgotPassword'>('login');
@@ -25,6 +28,47 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
+      // First, check if this is an admin-created user in pending_users
+      const emailKey = email.replace(/\./g, ',');
+      const pendingUserRef = ref(database, `pending_users/${emailKey}`);
+      const snapshot = await get(pendingUserRef);
+      
+      if (snapshot.exists()) {
+        // This is an admin-created user - create the auth account now
+        const pendingData = snapshot.val();
+        
+        // Verify the password matches
+        if (password !== pendingData.tempPassword) {
+          toast({
+            variant: 'destructive',
+            title: 'Falha no login',
+            description: 'Senha incorreta. Use a senha temporária fornecida pelo administrador.',
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Create the actual auth account
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+        
+        // Move user data from pending_users to users
+        await set(ref(database, `users/${newUser.uid}`), {
+          email: pendingData.email,
+          name: pendingData.name,
+          role: pendingData.role,
+          permissions: pendingData.permissions
+        });
+        
+        // Remove from pending_users
+        await removeDb(pendingUserRef);
+        
+        router.push('/');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Regular login for existing users
       await login(email, password);
       router.push('/');
     } catch (error: any) {
@@ -90,10 +134,12 @@ export default function LoginPage() {
       });
       setAuthMode('login');
     } catch (error: any) {
+      // Check if user exists in database but not in Firebase Auth (admin-created user)
+      // In this case, we still want to allow password reset
       toast({
         variant: 'destructive',
         title: 'Falha ao enviar e-mail',
-        description: 'Não foi possível encontrar um usuário com este e-mail.',
+        description: 'Não foi possível encontrar um usuário com este e-mail. Verifique se o e-mail está correto ou contate o administrador.',
       });
     } finally {
       setIsLoading(false);
