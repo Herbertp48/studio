@@ -87,48 +87,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const snapshot = await get(usersRef);
     const isFirstUser = !snapshot.exists();
 
-    // Generate a random password if admin is creating the user
-    const passwordToUse = isAdminCreation 
-      ? pass || Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
-      : pass;
-
-    let userCredential;
-    let newUser;
-
-    // If admin is creating the user, only save to database (don't create in Auth)
-    // The user account will be created when they first login with the temporary password
+    // If admin is creating the user, save to pending_users and return success
+    // The actual Firebase Auth account will be created on first login
     if (isAdminCreation) {
-      // Admin creating user - only save to database
       let permissions: UserPermissions = {
         name,
         role: 'user',
         permissions: initialPermissions,
       };
 
-      // Create a placeholder in database with email and permissions
-      // The actual auth account will be created on first login
-      const tempUid = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(-6);
-      
-      // We need to use a different approach: save user data with email as key temporarily
-      // Then when user logs in for the first time, we'll create the proper account
-      
-      // Actually, better approach: use Firebase Admin SDK capabilities through callable function
-      // But since we don't have that, we'll use a workaround:
-      // Save user data in a pending_users node, and handle on first login
-      
+      // Save user data in pending_users with email as key (dots replaced)
       await set(ref(database, `pending_users/${email.replace(/\./g, ',')}`), {
         email,
-        tempPassword: passwordToUse,
+        password: pass,
         ...permissions,
         createdAt: Date.now()
       });
       
-      return { user: { email, uid: tempUid } };
+      return { user: { email, uid: 'pending_' + Date.now() }, pending: true };
     }
 
-    // Regular self-registration (first user or public signup)
-    userCredential = await createUserWithEmailAndPassword(auth, email, passwordToUse);
-    newUser = userCredential.user;
+    // Regular self-registration (first user only)
+    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+    const newUser = userCredential.user;
 
     let permissions: UserPermissions;
 
