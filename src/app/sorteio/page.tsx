@@ -205,17 +205,37 @@
       
           setTimeout(() => {
               const shuffled = [...participantsToChooseFrom].sort(() => 0.5 - Math.random());
-              const participantA = shuffled[0];
-              const participantB = shuffled[1];
+              
+              // Handle odd number of participants - give bye to last participant
+              if (shuffled.length % 2 === 1 && shuffled.length >= 3) {
+                  // Remove the last participant (gets a bye) and shuffle the rest for pairing
+                  const participantWithBye = shuffled.pop()!;
+                  const shuffledPairs = shuffled.sort(() => 0.5 - Math.random());
+                  const participantA = shuffledPairs[0];
+                  const participantB = shuffledPairs[1];
 
-              setPlayedInRound(prev => [...prev, participantA.id, participantB.id]);
-      
-              setCurrentDuel({ participantA, participantB });
-              setWordsPlayed(0);
-              setDuelScore({a: 0, b: 0});
-              setDuelWordsWon({a: [], b: []});
-              setRaffleState('participants_sorted');
-              setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA, participantB, duelScore: {a: 0, b: 0}, wordsPerRound } });
+                  setPlayedInRound(prev => [...prev, participantA.id, participantB.id, participantWithBye.id]);
+          
+                  setCurrentDuel({ participantA, participantB });
+                  setWordsPlayed(0);
+                  setDuelScore({a: 0, b: 0});
+                  setDuelWordsWon({a: [], b: []});
+                  setRaffleState('participants_sorted');
+                  setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA, participantB, duelScore: {a: 0, b: 0}, wordsPerRound, participantWithBye } });
+                  toast({ title: 'Bye!', description: `${participantWithBye.name} folga nesta rodada.` });
+              } else {
+                  const participantA = shuffled[0];
+                  const participantB = shuffled[1];
+
+                  setPlayedInRound(prev => [...prev, participantA.id, participantB.id]);
+          
+                  setCurrentDuel({ participantA, participantB });
+                  setWordsPlayed(0);
+                  setDuelScore({a: 0, b: 0});
+                  setDuelWordsWon({a: [], b: []});
+                  setRaffleState('participants_sorted');
+                  setDisputeState({ type: 'UPDATE_PARTICIPANTS', payload: { participantA, participantB, duelScore: {a: 0, b: 0}, wordsPerRound } });
+              }
           }, 4000);
         };
       
